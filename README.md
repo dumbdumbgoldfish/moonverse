@@ -1,36 +1,288 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# MoonVerse
 
-## Getting Started
+MoonVerse is a web novel review community platform built for an MSc project. Members discover, write, and discuss web novel reviews, organise saves into folders, follow each other, receive notifications, and get AI-powered recommendations from **Moonie** — a floating assistant that suggests novels based on MoonVerse data (not a general chatbot).
 
-First, run the development server:
+## Stack
+
+- **Next.js 16** (App Router) + **TypeScript**
+- **Tailwind CSS v4** + **shadcn/ui**
+- **PostgreSQL** + **Prisma**
+- **NextAuth v5** (credentials)
+- **OpenAI** (optional, for Moonie live recommendations)
+
+## Prerequisites
+
+- Node.js 20+
+- Docker (for local PostgreSQL) or an existing PostgreSQL instance
+
+## Run locally
+
+> **Before `npm run dev`:** copy `.env.example` to `.env` and set **`DATABASE_URL`** and **`AUTH_SECRET`**.  
+> Without them you will see **Prisma `DATABASE_URL` missing** or **Auth.js `MissingSecret`** at runtime.  
+> Restart the dev server after creating or editing `.env`.
+
+### 1. Install dependencies
+
+```bash
+npm install
+```
+
+### 2. Configure environment
+
+Copy the example env file and edit values:
+
+```bash
+cp .env.example .env
+```
+
+Required variables (the app will not run without these):
+
+```env
+DATABASE_URL="postgresql://moonverse:moonverse@localhost:5432/moonverse?schema=public"
+AUTH_SECRET="your-secret-here"   # openssl rand -base64 32
+AUTH_URL="http://localhost:3000"
+```
+
+| Symptom | Fix |
+|---------|-----|
+| `MissingSecret` / Auth.js secret error | Set `AUTH_SECRET` in `.env` (generate with `openssl rand -base64 32`) |
+| Prisma `Environment variable not found: DATABASE_URL` | Set `DATABASE_URL` in `.env` to your PostgreSQL connection string |
+| Changes not applied | Stop `npm run dev`, save `.env`, then start again |
+
+Optional (Moonie live AI):
+
+```env
+OPENAI_API_KEY="sk-..."
+OPENAI_MODEL="gpt-4o-mini"
+```
+
+### 3. Start PostgreSQL
+
+```bash
+docker compose up -d
+```
+
+### 4. Migrate and seed the database
+
+```bash
+npm run prisma:migrate
+npm run prisma:seed
+```
+
+### 5. Start the dev server
 
 ```bash
 npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+Open [http://localhost:3000](http://localhost:3000).
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+## Useful scripts
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+| Command | Description |
+|---------|-------------|
+| `npm run dev` | Start development server |
+| `npm run build` | Production build (local; no DB migration) |
+| `npm run vercel-build` | Vercel build: generate client, run migrations, build Next.js |
+| `npm run lint` | ESLint |
+| `npm run postinstall` | Generate Prisma Client (runs automatically after `npm install`) |
+| `npm run prisma:migrate` | Create/apply migrations in development |
+| `npm run prisma:migrate:deploy` | Apply migrations in production |
+| `npm run prisma:seed` | Seed demo data |
+| `npm run db:studio` | Open Prisma Studio |
 
-## Learn More
+## Environment variables
 
-To learn more about Next.js, take a look at the following resources:
+| Variable | Required | Description |
+|----------|----------|-------------|
+| `DATABASE_URL` | Yes | PostgreSQL connection string |
+| `AUTH_SECRET` | Yes | Auth.js session secret (`openssl rand -base64 32`) |
+| `AUTH_URL` | Yes (production) | Canonical app URL, e.g. `https://your-app.vercel.app` |
+| `OPENAI_API_KEY` | No | Enables live Moonie AI; mock mode used when unset |
+| `OPENAI_MODEL` | No | OpenAI model (default: `gpt-4o-mini`) |
+| `NEXTAUTH_URL` | No | Legacy alias for `AUTH_URL`; set both if auth issues occur |
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+Copy `.env.example` to `.env` locally. **Never commit `.env`** — it is gitignored.
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+## Deploy to Vercel
 
-## Deploy on Vercel
+MoonVerse is configured for **Vercel** + **hosted PostgreSQL** (Neon, Supabase, Vercel Postgres, Railway, etc.).
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
+### 1. Create a hosted PostgreSQL database
 
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+Choose a provider and create a database. Copy the connection string.
+
+**Tips for serverless (Vercel):**
+
+- Prefer a **pooled** connection string (Neon “Pooled”, Supabase “Transaction pooler”) for `DATABASE_URL`.
+- Add `?sslmode=require` if SSL is required.
+- For `prisma migrate deploy`, some providers need a **direct** (non-pooled) URL once; run migrations locally against that URL if the pooled URL fails during migrate.
+
+### 2. Push code to GitHub
+
+Ensure the repo includes `prisma/migrations/` (initial migration is committed).
+
+### 3. Import project in Vercel
+
+1. Go to [vercel.com](https://vercel.com) → **Add New Project** → import your GitHub repo.
+2. Framework preset: **Next.js** (auto-detected).
+3. Build command: leave default — Vercel runs the `vercel-build` script automatically when present.
+4. Install command: `npm install` (default).
+
+### 4. Add environment variables in Vercel
+
+In **Project → Settings → Environment Variables**, add for **Production** (and Preview if desired):
+
+| Name | Example value |
+|------|---------------|
+| `DATABASE_URL` | `postgresql://user:pass@host/db?sslmode=require` |
+| `AUTH_SECRET` | *(output of `openssl rand -base64 32`)* |
+| `AUTH_URL` | `https://your-app.vercel.app` |
+| `OPENAI_API_KEY` | *(optional)* |
+| `OPENAI_MODEL` | `gpt-4o-mini` *(optional)* |
+
+Redeploy after adding variables.
+
+### 5. Deploy
+
+Trigger a deploy (push to main or **Deploy** in Vercel). The `vercel-build` script will:
+
+1. `prisma generate`
+2. `prisma migrate deploy` (apply migrations to production DB)
+3. `next build`
+
+### 6. Seed demo data (recommended for MSc demo)
+
+Migrations create empty tables. Seed once from your machine:
+
+```bash
+# Option A: pull production env (requires Vercel CLI)
+vercel env pull .env.production.local
+DATABASE_URL="..." AUTH_SECRET="..." npm run prisma:seed
+
+# Option B: paste production DATABASE_URL directly (use direct URL if pooled fails)
+DATABASE_URL="postgresql://..." npm run prisma:seed
+```
+
+Seed accounts (password **`Password123!`**) will then be available on production.
+
+### 7. Verify
+
+- Open `https://your-app.vercel.app`
+- Log in with a seed account
+- Visit `/demo` for the walkthrough
+- Test Moonie (works in mock mode without `OPENAI_API_KEY`)
+
+## Production security notes
+
+- **Do not commit `.env`** — secrets belong only in Vercel environment variables or local `.env`.
+- **Use a strong, unique `AUTH_SECRET`** for production — generate with `openssl rand -base64 32`.
+- **Use a hosted PostgreSQL URL** with SSL; do not expose the database publicly without credentials.
+- **Set `AUTH_URL`** to your exact production domain (including `https://`).
+- **Moonie** runs in **mock mode** without `OPENAI_API_KEY` — safe for demos; add the key only if you want live AI.
+- Re-running `prisma:seed` on production **wipes and recreates demo data** — only run intentionally.
+
+## Test accounts
+
+All seed users share the password **`Password123!`**
+
+| Email | Username | Display name |
+|-------|----------|--------------|
+| starreader@example.com | starreader | StarReader |
+| questlog@example.com | questlog | QuestLog |
+| cosmoreads@example.com | cosmoreads | CosmoReads |
+| romancefan@example.com | romancefan42 | RomanceFan42 |
+
+## MSc demo walkthrough
+
+Visit **[http://localhost:3000/demo](http://localhost:3000/demo)** for a step-by-step demo guide in the app.
+
+Suggested flow:
+
+1. **Log in** with a seed account
+2. **Browse reviews** — search, filter by genre, sort
+3. **Create a review** — `/reviews/new`
+4. **Like & comment** on a review detail page
+5. **Save to folder** — use the bookmark button on a review
+6. **Follow a user** — e.g. `/users/questlog`
+7. **Notifications** — bell icon or `/notifications`
+8. **Moonie** — click the moon FAB (bottom-right), try “Slow-burn romance”
+9. **Settings** — `/settings` to edit profile
+
+## Testing Moonie
+
+- **Without `OPENAI_API_KEY`:** Moonie uses mock recommendations scored from MoonVerse reviews (likes, saves, ratings). Fine for local demos.
+- **With `OPENAI_API_KEY`:** Moonie calls OpenAI with user context (profile, likes, saves, genres, tags).
+- **Rate limit:** 10 requests per user per day (in-memory).
+- Moonie only recommends novels — it does not write reviews.
+
+## Testing folders
+
+1. Log in and open **Folders** in the nav
+2. Create a folder (name, description, public/private)
+3. On any review, click **Save to Folder** and toggle folders
+4. Open a folder to view saved reviews and remove items
+
+## Testing notifications
+
+Notifications are created when someone:
+
+- Comments on your review
+- Replies to your comment
+- Likes your review
+- Saves your review to a folder
+- Follows you
+
+Check the **bell icon** (latest 5) or **Notifications** page for the full list.
+
+## Admin dashboard
+
+Admins can open **`/admin`** from the navbar (Admin link) or directly.
+
+**Seed admin account:** `starreader@example.com` / `Password123!` (role `ADMIN` after migrate + seed).
+
+| Route | Purpose |
+|-------|---------|
+| `/admin` | Overview stats, latest reviews/users, quick links |
+| `/admin/users` | Search, promote/demote, suspend, safe delete |
+| `/admin/reviews` | Search, filter by rating, delete |
+| `/admin/comments` | Search, delete comments/replies |
+| `/admin/novels` | CRUD novels, genres/tags on novel |
+| `/admin/genres` | CRUD genres (delete if unused) |
+| `/admin/tags` | CRUD tags (delete if unused) |
+| `/admin/notifications` | Read-only notification log |
+| `/admin/settings` | App name, DB status, environment |
+
+Non-admins see a forbidden message. All admin mutations re-check role on the server. After promote/demote, affected users must sign in again for JWT role to update.
+
+Apply schema changes locally:
+
+```bash
+npm run prisma:migrate
+npm run prisma:seed
+```
+
+## Project structure (high level)
+
+```
+src/
+├── app/              # Routes (pages, API)
+├── actions/          # Server actions
+├── components/       # UI components
+├── lib/              # Auth, validation, Moonie helpers
+├── services/         # Database access layer
+└── types/            # Shared TypeScript types
+```
+
+## Known limitations
+
+- No AI moderation, payments, or direct messages
+- No activity feed or real-time admin updates
+- Moonie uses context injection, not vector search / RAG
+- Notification and Moonie rate limits are in-memory (reset on server restart)
+- Email/username cannot be changed after registration
+- Avatar URLs must be external links (no file upload)
+
+## Licence
+
+Academic project — see course submission requirements.

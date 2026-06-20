@@ -1,0 +1,197 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum NotificationType {
+  COMMENT_ON_REVIEW
+  COMMENT_REPLY
+  REVIEW_LIKE
+  NEW_FOLLOWER
+  REVIEW_SAVED
+}
+
+enum UserRole {
+  USER
+  ADMIN
+}
+
+model User {
+  id           String   @id @default(cuid())
+  email        String   @unique
+  username     String   @unique
+  passwordHash String   @map("password_hash")
+  displayName  String   @map("display_name")
+  avatarUrl    String?  @map("avatar_url")
+  bio          String?
+  role         UserRole @default(USER)
+  isSuspended  Boolean  @default(false) @map("is_suspended")
+  createdAt    DateTime @default(now()) @map("created_at")
+  updatedAt    DateTime @updatedAt @map("updated_at")
+
+  reviews       Review[]
+  comments      Comment[]
+  likes         Like[]
+  folders       Folder[]
+  followers     Follow[]       @relation("UserFollowers")
+  following     Follow[]       @relation("UserFollowing")
+  notifications Notification[]
+
+  @@map("users")
+}
+
+model Novel {
+  id           String   @id @default(cuid())
+  title        String
+  author       String?
+  coverUrl     String?  @map("cover_url")
+  externalLink String?  @map("external_link")
+  createdAt    DateTime @default(now()) @map("created_at")
+  updatedAt    DateTime @updatedAt @map("updated_at")
+
+  reviews Review[]
+  genres  Genre[]
+  tags    Tag[]
+
+  @@index([title])
+  @@map("novels")
+}
+
+model Review {
+  id           String   @id @default(cuid())
+  userId       String   @map("user_id")
+  novelId      String   @map("novel_id")
+  title        String
+  body         String
+  rating       Int
+  likeCount    Int      @default(0) @map("like_count")
+  commentCount Int      @default(0) @map("comment_count")
+  shareCount   Int      @default(0) @map("share_count")
+  saveCount    Int      @default(0) @map("save_count")
+  createdAt    DateTime @default(now()) @map("created_at")
+  updatedAt    DateTime @updatedAt @map("updated_at")
+
+  user     User           @relation(fields: [userId], references: [id], onDelete: Cascade)
+  novel    Novel          @relation(fields: [novelId], references: [id], onDelete: Cascade)
+  comments Comment[]
+  likes    Like[]
+  folders  FolderReview[]
+
+  @@unique([novelId, userId])
+  @@index([createdAt])
+  @@index([likeCount])
+  @@index([rating])
+  @@map("reviews")
+}
+
+model Genre {
+  id   String @id @default(cuid())
+  name String @unique
+  slug String @unique
+
+  novels Novel[]
+
+  @@map("genres")
+}
+
+model Tag {
+  id   String @id @default(cuid())
+  name String @unique
+  slug String @unique
+
+  novels Novel[]
+
+  @@map("tags")
+}
+
+model Comment {
+  id              String   @id @default(cuid())
+  reviewId        String   @map("review_id")
+  userId          String   @map("user_id")
+  parentCommentId String?  @map("parent_comment_id")
+  body            String
+  createdAt       DateTime @default(now()) @map("created_at")
+  updatedAt       DateTime @updatedAt @map("updated_at")
+
+  review  Review    @relation(fields: [reviewId], references: [id], onDelete: Cascade)
+  user    User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  parent  Comment?  @relation("CommentReplies", fields: [parentCommentId], references: [id], onDelete: Cascade)
+  replies Comment[] @relation("CommentReplies")
+
+  @@index([reviewId])
+  @@map("comments")
+}
+
+model Like {
+  userId    String   @map("user_id")
+  reviewId  String   @map("review_id")
+  createdAt DateTime @default(now()) @map("created_at")
+
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+  review Review @relation(fields: [reviewId], references: [id], onDelete: Cascade)
+
+  @@id([userId, reviewId])
+  @@index([reviewId])
+  @@map("likes")
+}
+
+model Folder {
+  id          String   @id @default(cuid())
+  userId      String   @map("user_id")
+  name        String
+  description String?
+  isPublic    Boolean  @default(false) @map("is_public")
+  createdAt   DateTime @default(now()) @map("created_at")
+  updatedAt   DateTime @updatedAt @map("updated_at")
+
+  user    User           @relation(fields: [userId], references: [id], onDelete: Cascade)
+  reviews FolderReview[]
+
+  @@index([userId])
+  @@map("folders")
+}
+
+model FolderReview {
+  folderId String   @map("folder_id")
+  reviewId String   @map("review_id")
+  addedAt  DateTime @default(now()) @map("added_at")
+
+  folder Folder @relation(fields: [folderId], references: [id], onDelete: Cascade)
+  review Review @relation(fields: [reviewId], references: [id], onDelete: Cascade)
+
+  @@id([folderId, reviewId])
+  @@map("folder_reviews")
+}
+
+model Follow {
+  followerId  String   @map("follower_id")
+  followingId String   @map("following_id")
+  createdAt   DateTime @default(now()) @map("created_at")
+
+  follower  User @relation("UserFollowers", fields: [followerId], references: [id], onDelete: Cascade)
+  following User @relation("UserFollowing", fields: [followingId], references: [id], onDelete: Cascade)
+
+  @@id([followerId, followingId])
+  @@index([followingId])
+  @@map("follows")
+}
+
+model Notification {
+  id        String           @id @default(cuid())
+  userId    String           @map("user_id")
+  type      NotificationType
+  message   String
+  link      String?
+  isRead    Boolean          @default(false) @map("is_read")
+  createdAt DateTime         @default(now()) @map("created_at")
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, isRead])
+  @@index([createdAt])
+  @@map("notifications")
+}
