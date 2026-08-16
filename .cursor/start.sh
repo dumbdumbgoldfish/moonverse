@@ -6,8 +6,16 @@ set -euo pipefail
 
 cd "$(dirname "$0")/.."
 
-# Start the PostgreSQL 16 cluster (no-op if already running).
-sudo pg_ctlcluster 16 main start || true
+# Detect the installed PostgreSQL cluster version (e.g. "16") so this script is
+# not tied to a specific major version.
+PG_VER="$(ls /etc/postgresql 2>/dev/null | sort -V | tail -1)"
+if [ -z "${PG_VER:-}" ]; then
+  echo "No PostgreSQL cluster found under /etc/postgresql" >&2
+  exit 1
+fi
+
+# Start the cluster (no-op if already running).
+sudo pg_ctlcluster "$PG_VER" main start || true
 
 # Wait for the server to accept connections.
 for _ in $(seq 1 30); do
