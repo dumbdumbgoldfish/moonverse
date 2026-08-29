@@ -57,20 +57,19 @@ function applyInteractions(
 export function CommunityPanel({
   shared,
   data,
-  onFeedChange,
 }: CommunityPanelProps) {
   const initial = applyInteractions(data.interactions);
-  const [feed, setFeed] = useState(data.feed);
+  const [feed] = useState(data.feed);
   const [reviews, setReviews] = useState(data.reviews);
   const [likedIds, setLikedIds] = useState(initial.likedIds);
   const [followingIds, setFollowingIds] = useState(initial.followingIds);
   const [, setComments] = useState(initial.comments);
   const [savedMap, setSavedMap] = useState(initial.savedMap);
   const [hasMore, setHasMore] = useState(data.hasMore);
-  const [learningTaste, setLearningTaste] = useState(data.learningTaste);
+  const [learningTaste] = useState(data.learningTaste);
   const [offset, setOffset] = useState(data.reviews.length);
   const [error, setError] = useState<string | null>(null);
-  const [isLoadingFeed, setIsLoadingFeed] = useState(false);
+  const [isLoadingFeed] = useState(false);
   const [isLoadingMore, setIsLoadingMore] = useState(false);
 
   const loadingLockRef = useRef(false);
@@ -85,45 +84,6 @@ export function CommunityPanel({
     hasMoreRef.current = hasMore;
     followingIdsRef.current = followingIds;
   }, [offset, hasMore, followingIds]);
-
-  const loadFeed = useCallback(
-    async (nextFeed: HomeFeedTab) => {
-      setIsLoadingFeed(true);
-      setError(null);
-      try {
-        const response = await fetch(
-          `/api/feed?feed=${nextFeed}&offset=0&limit=${FEED_PAGE_SIZE}`
-        );
-        if (!response.ok) throw new Error("Unable to load feed.");
-        const payload = (await response.json()) as FeedPagePayload;
-
-        setReviews(payload.reviews);
-        setLikedIds(new Set(payload.likedReviewIds));
-        setFollowingIds(new Set(payload.followingReviewerIds));
-        setComments(payload.comments);
-        setSavedMap(payload.savedFolderIds);
-        setOffset(payload.nextOffset);
-        setHasMore(payload.hasMore);
-        setLearningTaste(
-          nextFeed === "for-you" &&
-            payload.reviews.length === 0 &&
-            !shared.taste.hasSignals
-        );
-        setFeed(nextFeed);
-        onFeedChange?.(nextFeed);
-
-        const params = new URLSearchParams(window.location.search);
-        params.set("view", "community");
-        params.set("feed", nextFeed);
-        window.history.replaceState(null, "", `/home?${params.toString()}`);
-      } catch {
-        setError("Could not refresh the feed. Please try again.");
-      } finally {
-        setIsLoadingFeed(false);
-      }
-    },
-    [onFeedChange, shared.taste.hasSignals]
-  );
 
   const loadMore = useCallback(async () => {
     if (loadingLockRef.current || !hasMoreRef.current || isLoadingFeed) return;
