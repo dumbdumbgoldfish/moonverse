@@ -14,6 +14,16 @@ import {
   type SearchResponse,
 } from "@/types/search";
 
+function suggestRowSetKey(rows: SearchSuggestRow[]): string {
+  return rows
+    .map((row) =>
+      row.kind === "search-all"
+        ? `${row.kind}:${row.id}:${row.query}`
+        : `${row.kind}:${row.id}`
+    )
+    .join("|");
+}
+
 interface NavInlineSearchProps {
   className?: string;
   compact?: boolean;
@@ -37,28 +47,26 @@ export function NavInlineSearch({
   const { recents, forget, remember, error: recentError, dismissError } = useRecentSearches();
   const [fetched, setFetched] = useState<SearchResponse>(EMPTY_SEARCH_RESPONSE);
   const [trending, setTrending] = useState<SearchResponse>(EMPTY_SEARCH_RESPONSE);
-  const [loadingSuggest, setLoadingSuggest] = useState(false);
-  const [active, setActive] = useState(0);
-
-  useEffect(() => {
-    if (!focused) setDraft(urlQuery);
-  }, [urlQuery, focused]);
+  const [suggestLoad, setSuggestLoad] = useState({ queryKey: "", loading: false });
+  const [highlight, setHighlight] = useState({ key: "", index: 0 });
 
   const searchValue = focused ? draft : urlQuery;
   const suggestOpen = focused;
+  const queryKey = draft.trim();
+  const loadingSuggest =
+    suggestLoad.queryKey === queryKey && queryKey.length >= 2 && suggestLoad.loading;
   const result =
-    !suggestOpen || draft.trim().length < 2 ? EMPTY_SEARCH_RESPONSE : fetched;
+    !suggestOpen || queryKey.length < 2 ? EMPTY_SEARCH_RESPONSE : fetched;
 
   useEffect(() => {
     if (!suggestOpen) return;
     const q = draft.trim();
     if (q.length < 2) {
-      setLoadingSuggest(false);
       return;
     }
     const controller = new AbortController();
-    setLoadingSuggest(true);
     const timer = window.setTimeout(async () => {
+      setSuggestLoad({ queryKey: q, loading: true });
       try {
         const response = await fetch(
           `/api/search?q=${encodeURIComponent(q)}&type=all&limit=6`,
@@ -69,7 +77,9 @@ export function NavInlineSearch({
       } catch (error) {
         if (error instanceof DOMException && error.name === "AbortError") return;
       } finally {
-        if (!controller.signal.aborted) setLoadingSuggest(false);
+        if (!controller.signal.aborted) {
+          setSuggestLoad({ queryKey: q, loading: false });
+        }
       }
     }, 160);
     return () => {
@@ -127,9 +137,14 @@ export function NavInlineSearch({
     ];
   }, [draft, recents, result.people, result.works, trending.works]);
 
-  useEffect(() => {
-    setActive(0);
-  }, [rows]);
+  const rowSetKey = suggestRowSetKey(rows);
+  const rawActive = highlight.key === rowSetKey ? highlight.index : 0;
+  const active =
+    rows.length === 0 ? 0 : Math.min(Math.max(0, rawActive), rows.length - 1);
+
+  const setActiveForRows = (index: number) => {
+    setHighlight({ key: rowSetKey, index });
+  };
 
   useEffect(() => {
     if (!suggestOpen) return;
@@ -223,6 +238,7 @@ export function NavInlineSearch({
     setDraft(urlQuery);
     dismissError();
     setFocused(true);
+    setActiveForRows(0);
   };
 
   const showShortcut = !compact && !searchValue && !focused;
@@ -262,6 +278,7 @@ export function NavInlineSearch({
           onChange={(e) => {
             setDraft(e.target.value);
             setFocused(true);
+            setActiveForRows(0);
           }}
           onFocus={openSuggest}
           onKeyDown={(event) => {
@@ -273,13 +290,25 @@ export function NavInlineSearch({
             if (event.key === "ArrowDown") {
               event.preventDefault();
               if (rows.length === 0) return;
-              setActive((current) => Math.min(rows.length - 1, current + 1));
+              setHighlight((current) => {
+                const currentIndex = current.key === rowSetKey ? current.index : 0;
+                return {
+                  key: rowSetKey,
+                  index: Math.min(rows.length - 1, currentIndex + 1),
+                };
+              });
               return;
             }
             if (event.key === "ArrowUp") {
               event.preventDefault();
               if (rows.length === 0) return;
-              setActive((current) => Math.max(0, current - 1));
+              setHighlight((current) => {
+                const currentIndex = current.key === rowSetKey ? current.index : 0;
+                return {
+                  key: rowSetKey,
+                  index: Math.max(0, currentIndex - 1),
+                };
+              });
             }
           }}
           placeholder="Search"
@@ -326,14 +355,14 @@ export function NavInlineSearch({
         rows={rows}
         active={active}
         loading={loadingSuggest && result.works.length === 0}
-        onActive={setActive}
+        onActive={setActiveForRows}
         onPick={pickRow}
         onForget={forget}
         error={recentError}
         onStarter={(term) => {
           setDraft(term);
           setFocused(true);
-          setActive(0);
+          setActiveForRows(0);
         }}
       />
     </form>
