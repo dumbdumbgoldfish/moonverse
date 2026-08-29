@@ -23,12 +23,61 @@ interface FolderDetailViewProps {
   backHref?: string;
 }
 
+interface FolderPaginationState {
+  folderId: string;
+  baselineReviewsReference: ReviewListItem[];
+  baselineHasMore: boolean;
+  baselineReviewCount: number;
+  reviews: ReviewListItem[];
+  hasMore: boolean;
+  reviewCount: number;
+  generation: number;
+}
+
 function formatDate(iso: string) {
   return new Intl.DateTimeFormat("en-GB", {
     day: "numeric",
     month: "long",
     year: "numeric",
   }).format(new Date(iso));
+}
+
+function createFolderPaginationState(
+  folder: FolderDetail,
+  generation: number
+): FolderPaginationState {
+  return {
+    folderId: folder.id,
+    baselineReviewsReference: folder.reviews,
+    baselineHasMore: folder.hasMoreReviews,
+    baselineReviewCount: folder.reviewCount,
+    reviews: folder.reviews,
+    hasMore: folder.hasMoreReviews,
+    reviewCount: folder.reviewCount,
+    generation,
+  };
+}
+
+function mergeFolderReviews(
+  incoming: ReviewListItem[],
+  local: ReviewListItem[]
+) {
+  const seen = new Set<string>();
+  const merged: ReviewListItem[] = [];
+
+  for (const review of incoming) {
+    if (seen.has(review.id)) continue;
+    seen.add(review.id);
+    merged.push(review);
+  }
+
+  for (const review of local) {
+    if (seen.has(review.id)) continue;
+    seen.add(review.id);
+    merged.push(review);
+  }
+
+  return merged;
 }
 
 export function FolderDetailView({
@@ -39,26 +88,67 @@ export function FolderDetailView({
   const loadMoreRef = useRef<HTMLDivElement>(null);
   const scrollRootRef = useRef<HTMLDivElement>(null);
   const [isPending, startTransition] = useTransition();
-  const [pendingReviewId, setPendingReviewId] = useState<string | null>(null);
-  const [error, setError] = useState<string | null>(null);
-  const [reviews, setReviews] = useState<ReviewListItem[]>(folder.reviews);
-  const [hasMore, setHasMore] = useState(folder.hasMoreReviews);
+  const [pendingRemoval, setPendingRemoval] = useState<{
+    folderId: string;
+    reviewId: string;
+  } | null>(null);
+  const [errorRecord, setErrorRecord] = useState<{
+    folderId: string;
+    message: string;
+  } | null>(null);
   const [loadingMore, setLoadingMore] = useState(false);
-  const [reviewCount, setReviewCount] = useState(folder.reviewCount);
+  const [pagination, setPagination] = useState(() =>
+    createFolderPaginationState(folder, 0)
+  );
 
-  useEffect(() => {
-    setReviews(folder.reviews);
-    setHasMore(folder.hasMoreReviews);
-    setReviewCount(folder.reviewCount);
-  }, [folder]);
+  let nextPagination = pagination;
+  if (pagination.folderId !== folder.id) {
+    nextPagination = createFolderPaginationState(
+      folder,
+      pagination.generation + 1
+    );
+    setPagination(nextPagination);
+  } else if (
+    pagination.baselineReviewsReference !== folder.reviews ||
+    pagination.baselineHasMore !== folder.hasMoreReviews ||
+    pagination.baselineReviewCount !== folder.reviewCount
+  ) {
+    nextPagination = {
+      ...pagination,
+      baselineReviewsReference: folder.reviews,
+      baselineHasMore: folder.hasMoreReviews,
+      baselineReviewCount: folder.reviewCount,
+      reviews: mergeFolderReviews(folder.reviews, pagination.reviews),
+      hasMore: folder.hasMoreReviews,
+      reviewCount: folder.reviewCount,
+      generation: pagination.generation + 1,
+    };
+    setPagination(nextPagination);
+  }
+
+  const reviews = nextPagination.reviews;
+  const hasMore = nextPagination.hasMore;
+  const reviewCount = nextPagination.reviewCount;
+  const pendingReviewId =
+    pendingRemoval && pendingRemoval.folderId === folder.id
+      ? pendingRemoval.reviewId
+      : null;
+  const error =
+    errorRecord && errorRecord.folderId === folder.id
+      ? errorRecord.message
+      : null;
 
   const loadMore = useCallback(async () => {
     if (loadingMore || !hasMore) return;
 
+    const requestFolderId = nextPagination.folderId;
+    const requestGeneration = nextPagination.generation;
+    const offset = nextPagination.reviews.length;
+
     setLoadingMore(true);
     try {
       const response = await fetch(
-        `/api/folders/${folder.id}/reviews?offset=${reviews.length}&limit=${FOLDER_REVIEWS_PAGE_SIZE}`,
+        `/api/folders/${requestFolderId}/reviews?offset=${offset}&limit=${FOLDER_REVIEWS_PAGE_SIZE}`,
       );
       if (!response.ok) return;
 
@@ -67,16 +157,31 @@ export function FolderDetailView({
         hasMore: boolean;
       };
 
-      setReviews((current) => {
-        const seen = new Set(current.map((review) => review.id));
+      setPagination((current) => {
+        if (
+          current.folderId !== requestFolderId ||
+          current.generation !== requestGeneration
+        ) {
+          return current;
+        }
+        const seen = new Set(current.reviews.map((review) => review.id));
         const next = data.reviews.filter((review) => !seen.has(review.id));
-        return [...current, ...next];
+        return {
+          ...current,
+          reviews: [...current.reviews, ...next],
+          hasMore: data.hasMore,
+        };
       });
-      setHasMore(data.hasMore);
     } finally {
       setLoadingMore(false);
     }
-  }, [folder.id, hasMore, loadingMore, reviews.length]);
+  }, [
+    hasMore,
+    loadingMore,
+    nextPagination.folderId,
+    nextPagination.generation,
+    nextPagination.reviews.length,
+  ]);
 
   useEffect(() => {
     const sentinel = loadMoreRef.current;
@@ -97,27 +202,51 @@ export function FolderDetailView({
   }, [hasMore, loadMore, reviews.length]);
 
   const handleRemove = (reviewId: string) => {
-    setError(null);
-    setPendingReviewId(reviewId);
+    const requestFolderId = folder.id;
+    setErrorRecord(null);
+    setPendingRemoval({ folderId: requestFolderId, reviewId });
     startTransition(async () => {
-      const result = await removeReviewFromFolderAction(folder.id, reviewId);
-      setPendingReviewId(null);
+      const result = await removeReviewFromFolderAction(requestFolderId, reviewId);
+      setPendingRemoval((current) =>
+        current &&
+        current.folderId === requestFolderId &&
+        current.reviewId === reviewId
+          ? null
+          : current
+      );
       if (!result.success) {
-        setError(result.error);
+        setErrorRecord({
+          folderId: requestFolderId,
+          message: result.error,
+        });
         return;
       }
-      setReviews((current) => current.filter((review) => review.id !== reviewId));
-      setReviewCount((count) => Math.max(0, count - 1));
+      setPagination((current) => {
+        if (current.folderId !== requestFolderId) return current;
+        return {
+          ...current,
+          reviews: current.reviews.filter((review) => review.id !== reviewId),
+          reviewCount: Math.max(0, current.reviewCount - 1),
+          generation: current.generation + 1,
+        };
+      });
       router.refresh();
     });
   };
 
   const handleToggleFeatured = () => {
-    setError(null);
+    const requestFolderId = folder.id;
+    setErrorRecord(null);
     startTransition(async () => {
-      const result = await toggleFolderFeaturedAction(folder.id, !folder.isFeatured);
+      const result = await toggleFolderFeaturedAction(
+        requestFolderId,
+        !folder.isFeatured
+      );
       if (!result.success) {
-        setError(result.error);
+        setErrorRecord({
+          folderId: requestFolderId,
+          message: result.error,
+        });
         return;
       }
       router.refresh();
