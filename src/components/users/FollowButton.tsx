@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState, useTransition } from "react";
+import { useState, useTransition } from "react";
 import Link from "next/link";
 import { followUserAction, unfollowUserAction } from "@/actions/follow.actions";
 import { useSignInPromptOptional } from "@/components/auth/SignInPromptProvider";
@@ -19,6 +19,12 @@ interface FollowButtonProps {
   followingLabel?: string;
 }
 
+interface FollowState {
+  userId: string;
+  baselineFollowing: boolean;
+  following: boolean;
+}
+
 export function FollowButton({
   userId,
   username,
@@ -30,12 +36,39 @@ export function FollowButton({
 }: FollowButtonProps) {
   const prompt = useSignInPromptOptional();
   const [isPending, startTransition] = useTransition();
-  const [following, setFollowing] = useState(initialFollowing);
-  const [error, setError] = useState<string | null>(null);
+  const [followState, setFollowState] = useState<FollowState>(() => ({
+    userId,
+    baselineFollowing: initialFollowing,
+    following: initialFollowing,
+  }));
+  const [errorRecord, setErrorRecord] = useState<{
+    userId: string;
+    message: string;
+  } | null>(null);
 
-  useEffect(() => {
-    setFollowing(initialFollowing);
-  }, [initialFollowing]);
+  let nextState = followState;
+  if (followState.userId !== userId) {
+    nextState = {
+      userId,
+      baselineFollowing: initialFollowing,
+      following: initialFollowing,
+    };
+    setFollowState(nextState);
+  } else if (
+    followState.baselineFollowing !== initialFollowing &&
+    !isPending
+  ) {
+    nextState = {
+      ...followState,
+      baselineFollowing: initialFollowing,
+      following: initialFollowing,
+    };
+    setFollowState(nextState);
+  }
+
+  const following = nextState.following;
+  const error =
+    errorRecord && errorRecord.userId === userId ? errorRecord.message : null;
 
   const handleToggle = () => {
     if (!isLoggedIn) {
@@ -46,22 +79,36 @@ export function FollowButton({
       return;
     }
 
-    setError(null);
+    setErrorRecord(null);
     const previous = following;
-    setFollowing(!following);
+    const requestUserId = userId;
+    const requestUsername = username;
+    setFollowState((current) => {
+      if (current.userId !== requestUserId) return current;
+      return { ...current, following: !current.following };
+    });
 
     startTransition(async () => {
-      const result = following
-        ? await unfollowUserAction(userId, username)
-        : await followUserAction(userId, username);
+      const result = previous
+        ? await unfollowUserAction(requestUserId, requestUsername)
+        : await followUserAction(requestUserId, requestUsername);
 
       if (!result.success) {
-        setFollowing(previous);
-        setError(result.error);
+        setFollowState((current) => {
+          if (current.userId !== requestUserId) return current;
+          return { ...current, following: previous };
+        });
+        setErrorRecord({
+          userId: requestUserId,
+          message: result.error,
+        });
         return;
       }
 
-      setFollowing(result.following);
+      setFollowState((current) => {
+        if (current.userId !== requestUserId) return current;
+        return { ...current, following: result.following };
+      });
     });
   };
 
