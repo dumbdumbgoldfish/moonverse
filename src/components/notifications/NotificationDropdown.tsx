@@ -22,6 +22,35 @@ interface NotificationDropdownProps {
   className?: string;
 }
 
+interface InboxState {
+  baselineSignature: string;
+  baselineUnreadCount: number;
+  notifications: EnrichedNotificationItem[];
+  localUnreadCount: number;
+}
+
+function notificationBaselineSignature(
+  notifications: EnrichedNotificationItem[],
+  unreadCount: number
+) {
+  const readBits = notifications
+    .map((notification) => `${notification.id}:${notification.isRead ? "1" : "0"}`)
+    .sort();
+  return `${unreadCount}|${readBits.join(",")}`;
+}
+
+function createInboxState(
+  notifications: EnrichedNotificationItem[],
+  unreadCount: number
+): InboxState {
+  return {
+    baselineSignature: notificationBaselineSignature(notifications, unreadCount),
+    baselineUnreadCount: unreadCount,
+    notifications,
+    localUnreadCount: unreadCount,
+  };
+}
+
 export function NotificationDropdown({
   unreadCount,
   notifications: initialNotifications,
@@ -30,16 +59,37 @@ export function NotificationDropdown({
   const menuId = useId();
   const router = useRouter();
   const rootRef = useRef<HTMLDivElement>(null);
+  const requestGenerationRef = useRef(0);
   const [open, setOpen] = useState(false);
   const [isPending, startTransition] = useTransition();
-  const [error, setError] = useState<string | null>(null);
-  const [notifications, setNotifications] = useState(initialNotifications);
-  const [localUnreadCount, setLocalUnreadCount] = useState(unreadCount);
+  const [errorRecord, setErrorRecord] = useState<{
+    signature: string;
+    message: string;
+  } | null>(null);
+  const [inbox, setInbox] = useState(() =>
+    createInboxState(initialNotifications, unreadCount)
+  );
 
-  useEffect(() => {
-    setNotifications(initialNotifications);
-    setLocalUnreadCount(unreadCount);
-  }, [initialNotifications, unreadCount]);
+  const incomingSignature = notificationBaselineSignature(
+    initialNotifications,
+    unreadCount
+  );
+  let nextInbox = inbox;
+  if (
+    !isPending &&
+    (inbox.baselineSignature !== incomingSignature ||
+      inbox.baselineUnreadCount !== unreadCount)
+  ) {
+    nextInbox = createInboxState(initialNotifications, unreadCount);
+    setInbox(nextInbox);
+  }
+
+  const notifications = nextInbox.notifications;
+  const localUnreadCount = nextInbox.localUnreadCount;
+  const error =
+    errorRecord && errorRecord.signature === nextInbox.baselineSignature
+      ? errorRecord.message
+      : null;
 
   useEffect(() => {
     if (!open) return;
@@ -66,18 +116,36 @@ export function NotificationDropdown({
   const sections = bucketDropdownNotifications(notifications);
 
   const handleMarkAllRead = () => {
-    setError(null);
-    setNotifications((current) =>
-      current.map((notification) => ({ ...notification, isRead: true }))
-    );
-    setLocalUnreadCount(0);
+    const snapshot = {
+      notifications: nextInbox.notifications,
+      localUnreadCount: nextInbox.localUnreadCount,
+      signature: nextInbox.baselineSignature,
+    };
+    const requestId = requestGenerationRef.current + 1;
+    requestGenerationRef.current = requestId;
+    setErrorRecord(null);
+    setInbox((current) => ({
+      ...current,
+      notifications: current.notifications.map((notification) => ({
+        ...notification,
+        isRead: true,
+      })),
+      localUnreadCount: 0,
+    }));
 
     startTransition(async () => {
       const result = await markAllNotificationsAsReadAction();
       if (!result.success) {
-        setError(result.error);
-        setNotifications(initialNotifications);
-        setLocalUnreadCount(unreadCount);
+        if (requestGenerationRef.current !== requestId) return;
+        setErrorRecord({
+          signature: snapshot.signature,
+          message: result.error,
+        });
+        setInbox((current) => ({
+          ...current,
+          notifications: snapshot.notifications,
+          localUnreadCount: snapshot.localUnreadCount,
+        }));
         return;
       }
       router.refresh();
@@ -85,22 +153,33 @@ export function NotificationDropdown({
   };
 
   const handleSelect = (notification: EnrichedNotificationItem) => {
-    setError(null);
+    setErrorRecord(null);
     setOpen(false);
 
-    if (!notification.isRead) {
-      setNotifications((current) =>
-        current.map((item) =>
-          item.id === notification.id ? { ...item, isRead: true } : item
-        )
-      );
-      setLocalUnreadCount((count) => Math.max(0, count - 1));
+    const selected =
+      nextInbox.notifications.find((item) => item.id === notification.id) ??
+      notification;
+    if (selected.isRead) return;
 
-      startTransition(async () => {
-        await markNotificationsAsReadAction([notification.id]);
-        router.refresh();
-      });
-    }
+    requestGenerationRef.current += 1;
+    setInbox((current) => {
+      const currentItem = current.notifications.find(
+        (item) => item.id === selected.id
+      );
+      if (!currentItem || currentItem.isRead) return current;
+      return {
+        ...current,
+        notifications: current.notifications.map((item) =>
+          item.id === selected.id ? { ...item, isRead: true } : item
+        ),
+        localUnreadCount: Math.max(0, current.localUnreadCount - 1),
+      };
+    });
+
+    startTransition(async () => {
+      await markNotificationsAsReadAction([selected.id]);
+      router.refresh();
+    });
   };
 
   return (
