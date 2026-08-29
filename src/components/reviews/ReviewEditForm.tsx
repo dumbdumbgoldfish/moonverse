@@ -2,7 +2,7 @@
 
 import { useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
-import { Loader2, PenLine, Trash2 } from "lucide-react";
+import { PenLine, Trash2 } from "lucide-react";
 import {
   deleteReviewAction,
   updateReviewAction,

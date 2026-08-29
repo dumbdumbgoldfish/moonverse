@@ -4,7 +4,7 @@ import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { auth } from "@/lib/auth";
 import { assertEmailVerifiedForUser } from "@/lib/email-verification-gate";
-import { isSafeHttpsUrl, validateReviewBody, validateReviewTitle } from "@/lib/validation";
+import { validateReviewBody, validateReviewTitle } from "@/lib/validation";
 import { isValidNovelCoverUrl } from "@/lib/novel-cover";
 import {
   createNovel,

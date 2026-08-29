@@ -1,7 +1,5 @@
 import { z } from "zod";
 import {
-  MOONIE_ALLOWED_IMAGE_MIME,
-  normalizeImageMimeType,
   validateImageBase64,
 } from "@/lib/moonie/image-attachment";
 import { isAcceptedCompareCatalogueMatch } from "@/lib/moonie/compare-acceptance";

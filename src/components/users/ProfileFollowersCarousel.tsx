@@ -1,6 +1,5 @@
 "use client";
 
-import Link from "next/link";
 import { MoonieEmptyState } from "@/components/moonie/MoonieEmptyState";
 import { ProfileFollowingCard } from "@/components/users/ProfileFollowingCard";
 import { ProfileSectionCarousel } from "@/components/users/ProfileSectionCarousel";

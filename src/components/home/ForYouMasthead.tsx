@@ -21,7 +21,6 @@ import {
 import { getGenreIcon } from "@/components/browse/genre-icon";
 import { MoonieCharacter } from "@/components/moonie/MoonieCharacter";
 import { AskMoonieButton } from "@/components/moonie/AskMoonieButton";
-import { cn } from "@/lib/utils";
 import type { PreferredGenreOption } from "@/services/preference.service";
 
 interface ForYouMastheadProps {

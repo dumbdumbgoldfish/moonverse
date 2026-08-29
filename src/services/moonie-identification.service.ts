@@ -26,7 +26,6 @@ import {
   formatNovelBundleReply,
 } from "@/services/moonie-novel-lookup.service";
 import type {
-  MoonieConfidence,
   MoonieLookupCandidate,
   MoonieLookupPendingIntent,
   MoonieLookupSession,

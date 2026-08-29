@@ -5,7 +5,6 @@ import Link from "next/link";
 import { AskMoonieButton } from "@/components/moonie/AskMoonieButton";
 import { MOONIE_QUICK_PROMPTS } from "@/lib/moonie/constants";
 import { openMoonie } from "@/lib/moonie/open-moonie";
-import { cn } from "@/lib/utils";
 import { HOME_SURFACE } from "@/lib/home-atelier";
 import type { PreferredGenreOption } from "@/services/preference.service";
 import type { ReadingTasteSnapshot } from "@/services/feed.service";

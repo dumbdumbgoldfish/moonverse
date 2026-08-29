@@ -1,6 +1,5 @@
 "use client";
 
-import { Sparkles } from "lucide-react";
 import { AskMoonieButton } from "@/components/moonie/AskMoonieButton";
 import { MoonieMascot } from "@/components/brand/MoonieMascot";
 import { openMoonie } from "@/lib/moonie/open-moonie";

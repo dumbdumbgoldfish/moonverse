@@ -5,7 +5,6 @@ import { revalidatePath, unstable_noStore as noStore } from "next/cache";
 import { z } from "zod";
 import { auth } from "@/lib/auth";
 import { db } from "@/lib/db";
-import { trackMoonieEvent } from "@/lib/moonie/analytics";
 import type { MooniePersonalizationSettings } from "@/lib/moonie/personalization";
 import { DEFAULT_PERSONALIZATION_SETTINGS } from "@/lib/moonie/personalization";
 import { userAttachmentFromPersisted } from "@/lib/moonie/user-message-attachment";

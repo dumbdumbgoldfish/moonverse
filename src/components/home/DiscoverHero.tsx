@@ -13,7 +13,6 @@ import {
   MOONIE_QUICK_PROMPTS,
 } from "@/lib/moonie/constants";
 import { openMoonie } from "@/lib/moonie/open-moonie";
-import { cn } from "@/lib/utils";
 import type { PreferredGenreOption } from "@/services/preference.service";
 
 interface DiscoverHeroProps {

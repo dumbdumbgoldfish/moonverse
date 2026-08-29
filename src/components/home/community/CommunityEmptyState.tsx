@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { BookOpen, PencilLine, Sparkles, Users } from "lucide-react";
+import { BookOpen, PencilLine, Users } from "lucide-react";
 import { MoonieMascot } from "@/components/brand/MoonieMascot";
 import { HOME_SURFACE } from "@/lib/home-atelier";
 import { AskMoonieLink } from "@/components/moonie/AskMoonieButton";

@@ -1,4 +1,3 @@
-import Link from "next/link";
 import type { LucideIcon } from "lucide-react";
 import { BookOpen, LibraryBig, Sparkles } from "lucide-react";
 import { AskMoonieLink } from "@/components/moonie/AskMoonieButton";

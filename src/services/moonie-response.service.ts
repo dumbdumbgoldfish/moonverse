@@ -13,8 +13,6 @@ import {
 import { buildConversationContext } from "@/lib/moonie/conversation-context";
 import {
   classifyMoonieIntents,
-  extractNovelQuery,
-  extractDirectTitleQuery,
   isBareReadingLinkRequest,
   isBareReviewRequestWithoutNovel,
   isBareCommunityConsensusRequestWithoutNovel,
