@@ -8,7 +8,10 @@ import {
   loadMoonieConversationAction,
 } from "@/actions/moonie.actions";
 import { createMessageId } from "@/lib/moonie/constants";
-import { buildMoonieDeskHref } from "@/lib/moonie/conversation-url";
+import {
+  buildMoonieDeskHref,
+  readMoonieDeskConversationId,
+} from "@/lib/moonie/conversation-url";
 import {
   readSessionPreferences,
   clearSessionPreferences,
@@ -436,6 +439,15 @@ export function useMoonieChat({
       syncedConversationRef.current = undefined;
       dismissedConversationRef.current = null;
       skipLatestRestoreRef.current = false;
+
+      const targetId = readMoonieDeskConversationId(
+        new URLSearchParams(window.location.search)
+      );
+      const alreadyVisible =
+        Boolean(targetId) &&
+        conversationIdRef.current === targetId &&
+        messagesRef.current.length > 0;
+      setIsRestoring(Boolean(targetId) && !alreadyVisible);
     }
 
     window.addEventListener("popstate", handlePopState);
@@ -491,7 +503,6 @@ export function useMoonieChat({
     const targetId = initialConversationId;
 
     if (dismissedConversationRef.current === targetId) {
-      setIsRestoring(false);
       return;
     }
 
@@ -501,14 +512,12 @@ export function useMoonieChat({
       conversationId === userSelectedConversationRef.current &&
       messages.length > 0
     ) {
-      setIsRestoring(false);
       return;
     }
 
     if (conversationId === targetId && messages.length > 0) {
       hydratedConversationRef.current = targetId;
       hydratingConversationRef.current = null;
-      setIsRestoring(false);
       return;
     }
 
@@ -519,7 +528,6 @@ export function useMoonieChat({
     hydratingConversationRef.current = targetId;
     hydratedConversationRef.current = targetId;
     let cancelled = false;
-    setIsRestoring(true);
 
     void loadMoonieConversationAction(targetId).then((loaded) => {
       if (cancelled) return;
@@ -780,7 +788,14 @@ export function useMoonieChat({
     resumeConversation,
     startNewConversation,
     resumeConversationFromSidebar,
-    isRestoring,
+    isRestoring:
+      isRestoring &&
+      !(
+        deskRouteEnabled &&
+        Boolean(initialConversationId) &&
+        conversationId === initialConversationId &&
+        messages.length > 0
+      ),
     hideNovel,
     excludedNovelIds,
     quotaRemaining,
