@@ -58,10 +58,6 @@ export function MyReviewsDraftCarousel({
   const [page, setPage] = useState(0);
   const pageCount = Math.max(1, Math.ceil(drafts.length / cardsPerPage));
 
-  useEffect(() => {
-    setPage(0);
-  }, [drafts.length, cardsPerPage]);
-
   const safePage = Math.min(page, pageCount - 1);
   const start = safePage * cardsPerPage;
   const visibleDrafts = drafts.slice(start, start + cardsPerPage);

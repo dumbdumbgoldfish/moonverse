@@ -57,10 +57,6 @@ function MonthReviewCarousel({
   const [page, setPage] = useState(0);
   const pageCount = Math.max(1, Math.ceil(bucket.reviews.length / cardsPerPage));
 
-  useEffect(() => {
-    setPage(0);
-  }, [bucket.year, bucket.month, bucket.reviews.length, cardsPerPage]);
-
   const safePage = Math.min(page, pageCount - 1);
   const start = safePage * cardsPerPage;
   const visibleReviews = bucket.reviews.slice(start, start + cardsPerPage);

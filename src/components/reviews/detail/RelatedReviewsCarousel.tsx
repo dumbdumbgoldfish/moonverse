@@ -63,10 +63,6 @@ export function RelatedReviewsCarousel({
   const rangeStart = total === 0 ? 0 : (currentPage - 1) * perPage + 1;
   const rangeEnd = Math.min(currentPage * perPage, total);
 
-  useEffect(() => {
-    setPage(1);
-  }, [reviews.length, perPage]);
-
   const goToPage = useCallback(
     (next: number) => {
       const clamped = Math.min(Math.max(1, next), pageCount);
