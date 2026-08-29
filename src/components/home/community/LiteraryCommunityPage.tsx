@@ -111,7 +111,10 @@ export function LiteraryCommunityPage({
   const [error, setError] = useState<string | null>(null);
   const [isLoadingMore, setIsLoadingMore] = useState(false);
   const [laneFilter, setLaneFilter] = useState<CommunityLane | null>(null);
-  const [laneSearchExhausted, setLaneSearchExhausted] = useState(false);
+  const [laneSearch, setLaneSearch] = useState({
+    key: `${feed}:`,
+    exhausted: false,
+  });
 
   const feedScrollRef = useRef<HTMLDivElement>(null);
   const loadingLockRef = useRef(false);
@@ -119,7 +122,7 @@ export function LiteraryCommunityPage({
   const hasMoreRef = useRef(hasMore);
   const followingIdsRef = useRef(followingIds);
   const activeLaneRef = useRef<CommunityLane | null>(null);
-  const lanePrefetchAttemptsRef = useRef(0);
+  const lanePrefetchAttemptsRef = useRef({ key: `${feed}:`, count: 0 });
   const reviewsRef = useRef(reviews);
 
   const handle = username || "reader";
@@ -134,6 +137,9 @@ export function LiteraryCommunityPage({
   );
   const activeLane = laneFilter;
   const activeLaneId = laneFilter?.id ?? null;
+  const laneSearchKey = `${feed}:${activeLaneId ?? ""}`;
+  const laneSearchExhausted =
+    laneSearch.key === laneSearchKey && laneSearch.exhausted;
   const visibleReviews = useMemo(
     () =>
       activeLane
@@ -154,11 +160,6 @@ export function LiteraryCommunityPage({
   useEffect(() => {
     activeLaneRef.current = activeLane;
   }, [activeLane]);
-
-  useEffect(() => {
-    lanePrefetchAttemptsRef.current = 0;
-    setLaneSearchExhausted(false);
-  }, [activeLaneId, feed]);
 
   useEffect(() => {
     offsetRef.current = offset;
@@ -216,6 +217,10 @@ export function LiteraryCommunityPage({
     if (loadingLockRef.current || !hasMoreRef.current) return;
 
     const lane = activeLaneRef.current;
+    const searchKey = `${feed}:${lane?.id ?? ""}`;
+    if (lane && lanePrefetchAttemptsRef.current.key !== searchKey) {
+      lanePrefetchAttemptsRef.current = { key: searchKey, count: 0 };
+    }
     const visibleBefore = lane
       ? reviewsRef.current.filter((review) => reviewMatchesLane(review, lane))
           .length
@@ -278,21 +283,27 @@ export function LiteraryCommunityPage({
         ).length;
 
         if (!data.hasMore && visibleAfter === 0) {
-          setLaneSearchExhausted(true);
+          setLaneSearch({ key: searchKey, exhausted: true });
         } else if (
           data.reviews.length > 0 &&
           visibleAfter < LANE_TARGET_VISIBLE
         ) {
           if (visibleAfter <= visibleBefore) {
-            lanePrefetchAttemptsRef.current += 1;
+            const attempts = lanePrefetchAttemptsRef.current;
+            const nextCount =
+              attempts.key === searchKey ? attempts.count + 1 : 1;
+            lanePrefetchAttemptsRef.current = {
+              key: searchKey,
+              count: nextCount,
+            };
             if (
-              lanePrefetchAttemptsRef.current >= LANE_PREFETCH_MAX_ATTEMPTS ||
+              nextCount >= LANE_PREFETCH_MAX_ATTEMPTS ||
               !data.hasMore
             ) {
-              setLaneSearchExhausted(true);
+              setLaneSearch({ key: searchKey, exhausted: true });
             }
           } else {
-            lanePrefetchAttemptsRef.current = 0;
+            lanePrefetchAttemptsRef.current = { key: searchKey, count: 0 };
           }
         }
       }

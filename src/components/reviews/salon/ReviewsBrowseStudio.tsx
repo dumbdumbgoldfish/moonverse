@@ -117,10 +117,12 @@ export function ReviewsBrowseStudio({
   const onReviewsPage = pathname === "/discover" || pathname === "/reviews";
   const inputRef = useRef<HTMLInputElement>(null);
   const [draft, setDraft] = useState(query);
+  const [lastQuery, setLastQuery] = useState(query);
 
-  useEffect(() => {
+  if (query !== lastQuery) {
+    setLastQuery(query);
     setDraft(query);
-  }, [query]);
+  }
 
   useEffect(() => {
     const onKey = (event: KeyboardEvent) => {
