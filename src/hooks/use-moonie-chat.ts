@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState, useSyncExternalStore } from "react";
 import { useRouter } from "next/navigation";
 import { useSession } from "next-auth/react";
 import {
@@ -39,7 +39,9 @@ import {
   toPersistedUserAttachment,
 } from "@/lib/moonie/user-message-attachment";
 import {
+  getStoredSpoilerModeServerSnapshot,
   readStoredSpoilerMode,
+  subscribeStoredSpoilerMode,
   writeStoredSpoilerMode,
 } from "@/lib/moonie/spoiler-mode";
 import type {
@@ -141,7 +143,11 @@ export function useMoonieChat({
   const [guestTurnsRemaining, setGuestTurnsRemaining] = useState<number | null>(
     guestDemoCap ?? null
   );
-  const [spoilerMode, setSpoilerMode] = useState<MoonieSpoilerMode>("none");
+  const spoilerMode = useSyncExternalStore(
+    subscribeStoredSpoilerMode,
+    readStoredSpoilerMode,
+    getStoredSpoilerModeServerSnapshot
+  );
   const [rememberPreferenceOffer, setRememberPreferenceOffer] =
     useState<Partial<MoonieInterpretedPreferences> | null>(null);
   const [guestConversations, setGuestConversations] = useState<
@@ -208,10 +214,6 @@ export function useMoonieChat({
     },
     [deskRouteEnabled, router]
   );
-
-  useEffect(() => {
-    setSpoilerMode(readStoredSpoilerMode());
-  }, []);
 
   useEffect(() => {
     if (!isGuestDemo) return;
@@ -764,7 +766,6 @@ export function useMoonieChat({
 
   const updateSpoilerMode = useCallback((mode: MoonieSpoilerMode) => {
     writeStoredSpoilerMode(mode);
-    setSpoilerMode(mode);
   }, []);
 
   return {

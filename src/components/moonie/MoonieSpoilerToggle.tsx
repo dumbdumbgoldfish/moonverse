@@ -4,7 +4,6 @@ import { Eye, EyeOff, MessageCircle } from "lucide-react";
 import {
   cycleSpoilerMode,
   SPOILER_MODE_LABELS,
-  writeStoredSpoilerMode,
 } from "@/lib/moonie/spoiler-mode";
 import {
   MOONIE_COMPOSER_TOOLBAR_BUTTON,
@@ -43,7 +42,6 @@ export function MoonieSpoilerToggle({
 
   const handleClick = () => {
     const next = cycleSpoilerMode(mode);
-    writeStoredSpoilerMode(next);
     onChange(next);
   };
 

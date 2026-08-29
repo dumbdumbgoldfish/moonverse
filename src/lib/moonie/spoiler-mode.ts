@@ -16,6 +16,14 @@ export function normalizeSpoilerMode(
   return "none";
 }
 
+const spoilerModeListeners = new Set<() => void>();
+
+function notifySpoilerModeListeners() {
+  for (const listener of spoilerModeListeners) {
+    listener();
+  }
+}
+
 export function readStoredSpoilerMode(): MoonieSpoilerMode {
   if (typeof window === "undefined") return DEFAULT_SPOILER_MODE;
   try {
@@ -27,10 +35,45 @@ export function readStoredSpoilerMode(): MoonieSpoilerMode {
   }
 }
 
+export function getStoredSpoilerModeServerSnapshot(): MoonieSpoilerMode {
+  return DEFAULT_SPOILER_MODE;
+}
+
+export function subscribeStoredSpoilerMode(onStoreChange: () => void): () => void {
+  spoilerModeListeners.add(onStoreChange);
+
+  function onStorage(event: StorageEvent) {
+    if (event.key !== null && event.key !== MOONIE_SPOILER_STORAGE_KEY) {
+      return;
+    }
+    onStoreChange();
+  }
+
+  if (typeof window !== "undefined") {
+    try {
+      window.addEventListener("storage", onStorage);
+    } catch {
+      // Storage subscription is optional when the browser API is unavailable.
+    }
+  }
+
+  return () => {
+    spoilerModeListeners.delete(onStoreChange);
+    if (typeof window !== "undefined") {
+      try {
+        window.removeEventListener("storage", onStorage);
+      } catch {
+        // ignore
+      }
+    }
+  };
+}
+
 export function writeStoredSpoilerMode(mode: MoonieSpoilerMode): void {
   if (typeof window === "undefined") return;
   try {
     localStorage.setItem(MOONIE_SPOILER_STORAGE_KEY, mode);
+    notifySpoilerModeListeners();
   } catch {
     // ignore quota errors
   }
