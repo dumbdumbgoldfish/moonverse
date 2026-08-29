@@ -45,13 +45,18 @@ export function CommunityReviewsSection({
 }: CommunityReviewsSectionProps) {
   const [sort, setSort] = useState<ReviewSortOption>("decide");
   const [spoilerFree, setSpoilerFree] = useState(false);
-  const [page, setPage] = useState(1);
   const [fading, setFading] = useState(false);
   const perPage = useCardsPerPage();
+  const resetKey = `${ratingFilter ?? "all"}:${perPage}`;
+  const [pagination, setPagination] = useState<{ key: string; page: number }>({
+    key: resetKey,
+    page: 1,
+  });
+  const page = pagination.key === resetKey ? pagination.page : 1;
 
-  useEffect(() => {
-    setPage(1);
-  }, [ratingFilter, sort, spoilerFree, perPage]);
+  function setPage(next: number) {
+    setPagination({ key: resetKey, page: next });
+  }
 
   const filtered = useMemo(() => {
     return reviews.filter((review) => {
