@@ -10,6 +10,7 @@
     "start": "NODE_OPTIONS='--max-http-header-size=1048576' next start",
     "lint": "eslint",
     "typecheck": "tsc --noEmit",
+    "test": "tsx --test 'src/**/*.test.ts'",
     "postinstall": "prisma generate",
     "prisma:generate": "prisma generate",
     "prisma:migrate": "prisma migrate dev",
