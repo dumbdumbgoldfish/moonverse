@@ -1,8 +1,10 @@
 import { PageHeader } from "@/components/layout/PageHeader";
+import { SITE_SHELL_CLASS } from "@/lib/site-shell";
+import { cn } from "@/lib/utils";
 
 export default function SettingsLoading() {
   return (
-    <div className="mx-auto max-w-3xl px-4 py-10 sm:px-6 lg:px-8">
+    <div className={cn(SITE_SHELL_CLASS, "py-10")}>
       <PageHeader
         title="Settings"
         description="Manage your profile and account preferences."

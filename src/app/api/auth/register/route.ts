@@ -1,6 +1,8 @@
 import { NextResponse } from "next/server";
 import bcrypt from "bcryptjs";
 import { db } from "@/lib/db";
+import { sendVerificationEmail } from "@/lib/email/auth-emails";
+import { wasEmailDelivered } from "@/lib/email/send";
 import { isValidEmail, LIMITS, USERNAME_PATTERN } from "@/lib/validation";
 
 export async function POST(request: Request) {
@@ -16,7 +18,7 @@ export async function POST(request: Request) {
 
     if (!username || !displayName || !email || !password) {
       return NextResponse.json(
-        { error: "Username, display name, email, and password are required." },
+        { error: "Username, display name, email and password are required." },
         { status: 400 }
       );
     }
@@ -25,7 +27,7 @@ export async function POST(request: Request) {
       return NextResponse.json(
         {
           error:
-            "Username must be 3–30 characters and contain only lowercase letters, numbers, and underscores.",
+            "Username must be 3–30 characters and contain only lowercase letters, numbers and underscores.",
         },
         { status: 400 }
       );
@@ -80,16 +82,32 @@ export async function POST(request: Request) {
 
     const passwordHash = await bcrypt.hash(password, 12);
 
-    await db.user.create({
+    const user = await db.user.create({
       data: {
         username,
         displayName,
         email,
         passwordHash,
+        notificationPreference: { create: {} },
       },
     });
 
-    return NextResponse.json({ success: true }, { status: 201 });
+    let verificationEmailSent = false;
+    try {
+      const emailResult = await sendVerificationEmail({
+        id: user.id,
+        email: user.email,
+        displayName: user.displayName,
+      });
+      verificationEmailSent = wasEmailDelivered(emailResult);
+    } catch (error) {
+      console.error("[register] verification email failed:", error);
+    }
+
+    return NextResponse.json(
+      { success: true, verificationEmailSent },
+      { status: 201 }
+    );
   } catch {
     return NextResponse.json(
       { error: "Something went wrong. Please try again." },

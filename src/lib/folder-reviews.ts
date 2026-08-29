@@ -1,0 +1,1 @@
+export const FOLDER_REVIEWS_PAGE_SIZE = 12;

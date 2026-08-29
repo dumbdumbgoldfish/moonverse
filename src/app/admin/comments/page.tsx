@@ -6,6 +6,7 @@ import {
   AdminEmptyState,
   AdminFilterChips,
   AdminPageHeader,
+  AdminPagination,
   AdminSection,
   AdminToolbar,
 } from "@/components/admin/AdminUi";
@@ -16,20 +17,21 @@ export const metadata = { title: "Admin Comments · MoonVerse" };
 const moderationStatuses = Object.values(ContentModerationStatus);
 
 interface AdminCommentsPageProps {
-  searchParams: Promise<{ q?: string; status?: string }>;
+  searchParams: Promise<{ q?: string; status?: string; page?: string }>;
 }
 
 export default async function AdminCommentsPage({
   searchParams,
 }: AdminCommentsPageProps) {
-  const { q, status } = await searchParams;
+  const { q, status, page: pageParam } = await searchParams;
+  const page = Math.max(1, Number(pageParam) || 1);
   const moderationStatus = moderationStatuses.includes(
     status as ContentModerationStatus
   )
     ? (status as ContentModerationStatus)
     : undefined;
 
-  const comments = await getAdminComments({ query: q, moderationStatus });
+  const result = await getAdminComments({ query: q, moderationStatus }, page);
 
   return (
     <>
@@ -55,10 +57,19 @@ export default async function AdminCommentsPage({
           }))}
         />
       </AdminSection>
-      {comments.length === 0 ? (
+      {result.items.length === 0 ? (
         <AdminEmptyState title="No comments found" description="Try a different search." />
       ) : (
-        <AdminCommentsTable comments={comments} />
+        <>
+          <AdminCommentsTable comments={result.items} />
+          <AdminPagination
+            page={result.page}
+            totalPages={result.totalPages}
+            total={result.total}
+            basePath="/admin/comments"
+            params={{ q, status: moderationStatus }}
+          />
+        </>
       )}
     </>
   );

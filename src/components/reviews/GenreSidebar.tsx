@@ -2,10 +2,16 @@
 
 import { cn } from "@/lib/utils";
 import type { GenreOption } from "@/types/review";
-import { mockTags } from "@/lib/mock-data";
+
+interface TagOption {
+  id: string;
+  name: string;
+  slug: string;
+}
 
 interface GenreSidebarProps {
   genres: GenreOption[];
+  tags?: TagOption[];
   selectedGenreSlug: string | null;
   selectedTagSlug?: string | null;
   onGenreSelect: (slug: string | null) => void;
@@ -14,6 +20,7 @@ interface GenreSidebarProps {
 
 export function GenreSidebar({
   genres,
+  tags = [],
   selectedGenreSlug,
   selectedTagSlug,
   onGenreSelect,
@@ -63,10 +70,11 @@ export function GenreSidebar({
         </ul>
       </div>
 
+      {tags.length > 0 && (
       <div className="rounded-2xl border border-border/60 bg-white p-4 shadow-sm">
         <h2 className="text-sm font-semibold text-foreground">Popular tags</h2>
         <div className="mt-3 flex flex-wrap gap-1.5">
-          {mockTags.slice(0, 8).map((tag) => (
+          {tags.slice(0, 12).map((tag) => (
             <button
               key={tag.id}
               type="button"
@@ -85,6 +93,7 @@ export function GenreSidebar({
           ))}
         </div>
       </div>
+      )}
     </div>
   );
 }

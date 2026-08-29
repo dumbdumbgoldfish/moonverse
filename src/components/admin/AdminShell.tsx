@@ -25,7 +25,6 @@ import {
   Users,
 } from "lucide-react";
 import { BrandLogo } from "@/components/brand/BrandLogo";
-import { AdminIconGradients } from "@/components/admin/AdminIconGradients";
 import {
   ADMIN_MAIN_CLASS,
   ADMIN_NAV_LINK_ACTIVE,
@@ -117,7 +116,7 @@ function AdminNavLink({ item, pathname }: { item: NavItem; pathname: string }) {
         active ? ADMIN_NAV_LINK_ACTIVE : ADMIN_NAV_LINK_IDLE
       )}
     >
-      <Icon size={15} aria-hidden className="shrink-0" />
+      <Icon size={15} aria-hidden className="shrink-0 opacity-90" />
       <span className="truncate">{item.label}</span>
     </Link>
   );
@@ -140,7 +139,7 @@ function AdminSidebar({ pathname }: { pathname: string }) {
       <nav className="flex-1 space-y-5 overflow-y-auto px-3 py-4">
         {NAV_GROUPS.map((group) => (
           <div key={group.label}>
-            <p className="mb-1.5 px-2 text-[10px] font-bold uppercase tracking-[0.16em] text-[#fcd34d]">
+            <p className="mb-1.5 px-2 text-[10px] font-bold uppercase tracking-[0.16em] text-[#fde68a]">
               {group.label}
             </p>
             <div className="space-y-0.5">
@@ -154,7 +153,7 @@ function AdminSidebar({ pathname }: { pathname: string }) {
       <div className="border-t border-white/[0.06] p-3">
         <Link
           href="/"
-          className="flex items-center gap-2 rounded-lg px-2.5 py-2 text-[12px] font-medium text-white/90 transition hover:bg-white/[0.05]"
+          className="flex items-center gap-2 rounded-lg px-2.5 py-2 text-[12px] font-medium text-white/88 transition hover:bg-white/[0.05] hover:text-white"
         >
           <ExternalLink size={14} aria-hidden />
           View public site
@@ -189,7 +188,7 @@ function AdminTopBar({
               variant="inverse"
               className="min-w-0 max-w-[9.5rem]"
             />
-            <p className="mt-0.5 text-[9px] font-bold uppercase tracking-[0.2em] text-[#fcd34d]">
+            <p className="mt-0.5 text-[9px] font-bold uppercase tracking-[0.2em] text-[#f9db7e]">
               Admin
             </p>
           </div>
@@ -202,7 +201,7 @@ function AdminTopBar({
             id="admin-mobile-nav"
             value={current.href}
             onChange={(event) => router.push(event.target.value)}
-            className="max-w-[9.5rem] rounded-lg border border-white/10 bg-white/[0.06] px-2 py-1.5 text-xs font-medium text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#c89b4a]/45 sm:max-w-[11rem]"
+            className="max-w-[9.5rem] rounded-lg border border-white/10 bg-white/[0.06] px-2 py-1.5 text-xs font-medium text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#f9db7e]/45 sm:max-w-[11rem]"
           >
             {NAV_GROUPS.map((group) => (
               <optgroup key={group.label} label={group.label}>
@@ -218,17 +217,17 @@ function AdminTopBar({
       </div>
       <div className="flex items-center gap-2 sm:gap-3">
         <div className="hidden text-right sm:block">
-          <p className="truncate text-sm font-bold tracking-tight text-white">
+          <p className="max-w-[12rem] truncate text-sm font-bold tracking-tight text-[#fefce8]">
             {displayName}
           </p>
-          <p className="text-xs font-bold uppercase tracking-[0.1em] text-[#fcd34d]">
+          <p className="mt-0.5 text-[11px] font-bold uppercase tracking-[0.16em] text-[#f9db7e]">
             Administrator
           </p>
         </div>
         <button
           type="button"
           onClick={() => void signOut({ callbackUrl: "/login" })}
-          className="inline-flex items-center gap-1.5 rounded-lg border border-white/10 bg-white/[0.06] px-2.5 py-1.5 text-xs font-medium text-white transition hover:border-[#c89b4a]/35 hover:bg-white/[0.1]"
+          className="inline-flex items-center gap-1.5 rounded-lg border border-white/10 bg-white/[0.06] px-2.5 py-1.5 text-xs font-medium text-white/95 transition hover:border-[#f9db7e]/35 hover:bg-white/[0.1] hover:text-white"
         >
           <LogOut size={14} aria-hidden />
           <span className="hidden sm:inline">Sign out</span>
@@ -249,7 +248,6 @@ export function AdminShell({
 
   return (
     <div className={ADMIN_ROOT_CLASS}>
-      <AdminIconGradients />
       <AdminSidebar pathname={pathname} />
       <div className={ADMIN_MAIN_CLASS}>
         <AdminTopBar pathname={pathname} session={session} />

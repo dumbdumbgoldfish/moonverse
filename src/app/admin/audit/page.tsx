@@ -1,7 +1,8 @@
-import { ADMIN_FILTER_CHIP_IDLE } from "@/components/admin/admin-styles";
+import { ADMIN_FILTER_CHIP_BASE, ADMIN_FILTER_CHIP_IDLE } from "@/components/admin/admin-styles";
 import { AdminAuditFilters } from "@/components/admin/AdminAuditFilters";
 import { AdminAuditLogTable } from "@/components/admin/AdminAuditLogTable";
 import { AdminEmptyState, AdminPageHeader } from "@/components/admin/AdminUi";
+import { cn } from "@/lib/utils";
 import {
   countAuditLogs,
   listAuditActionTypes,
@@ -62,7 +63,7 @@ export default async function AdminAuditPage({
         }}
       />
 
-      <p className="mb-4 text-xs text-white">
+      <p className="mb-4 text-xs text-white/55">
         Showing {logs.length} of {total.toLocaleString()} entries
         {totalPages > 1 ? ` · page ${page} of ${totalPages}` : ""}
       </p>
@@ -86,7 +87,7 @@ export default async function AdminAuditPage({
                     ...(params.actor ? { actor: params.actor } : {}),
                     page: String(page - 1),
                   }).toString()}`}
-                  className={`inline-flex ${ADMIN_FILTER_CHIP_IDLE} px-3 py-1.5 text-xs font-semibold`}
+                  className={cn(ADMIN_FILTER_CHIP_BASE, ADMIN_FILTER_CHIP_IDLE, "px-3 py-1.5 text-xs")}
                 >
                   Previous
                 </a>
@@ -100,7 +101,7 @@ export default async function AdminAuditPage({
                     ...(params.actor ? { actor: params.actor } : {}),
                     page: String(page + 1),
                   }).toString()}`}
-                  className={`inline-flex ${ADMIN_FILTER_CHIP_IDLE} px-3 py-1.5 text-xs font-semibold`}
+                  className={cn(ADMIN_FILTER_CHIP_BASE, ADMIN_FILTER_CHIP_IDLE, "px-3 py-1.5 text-xs")}
                 >
                   Next
                 </a>

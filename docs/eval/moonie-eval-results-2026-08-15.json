@@ -1,0 +1,568 @@
+{
+  "summary": {
+    "generatedAt": "2026-08-15T22:51:12.605Z",
+    "scenarioCount": 15,
+    "catalogueSize": 1002,
+    "offTopicAccuracy": 1,
+    "meanRelevance": 0.637,
+    "meanUnsupportedTitleRate": 0,
+    "meanConsistency": 1,
+    "diversity": 0.867,
+    "topOneConcentration": 0.167,
+    "meanBaselineOverlap": 0.05
+  },
+  "results": [
+    {
+      "id": "S01",
+      "category": "clear",
+      "prompt": "Recommend me a revenge fantasy novel with a strong female lead",
+      "offTopicExpected": false,
+      "offTopicDetected": false,
+      "offTopicCorrect": true,
+      "recommendationCount": 5,
+      "relevance": 0.6,
+      "unsupportedTitleRate": 0,
+      "consistency": 1,
+      "novelIds": [
+        "cmrmwyhdp00923d863ug6bflp",
+        "cmrmwyhdq009j3d86l4u7tp1a",
+        "cmrmwyh9w007g3d868c2mck3f",
+        "cmrmwyhb9007p3d86wc0hz424",
+        "cmrmwyhdp009c3d86efhvxka7"
+      ],
+      "titles": [
+        "Beneath the Dragoneye Moons",
+        "The Princess Bride",
+        "The Strongest System",
+        "The Untamed",
+        "The Hero of Ages"
+      ],
+      "baselineCount": 5,
+      "baselineOverlapWithMoonie": 0,
+      "interpretedPreferences": {
+        "genres": [
+          "fantasy"
+        ],
+        "tags": [
+          "strong fl"
+        ],
+        "excludedTags": [],
+        "status": null,
+        "mood": [],
+        "language": null
+      }
+    },
+    {
+      "id": "S02",
+      "category": "clear",
+      "prompt": "I want a slow-burn romance with enemies-to-lovers",
+      "offTopicExpected": false,
+      "offTopicDetected": false,
+      "offTopicCorrect": true,
+      "recommendationCount": 5,
+      "relevance": 1,
+      "unsupportedTitleRate": 0,
+      "consistency": 1,
+      "novelIds": [
+        "cmrmwyhre00il3d86r0tf4iqx",
+        "cmrmwyhsb00ix3d86ftu68j9h",
+        "cmrmwyht800jd3d86la0wybpc",
+        "cmrmwyhsc00j63d86y5wdtc4q",
+        "cmrmwyht900ji3d86nlcihrly"
+      ],
+      "titles": [
+        "Reluctant Wife",
+        "Capable of Feeling",
+        "Tomorrow - come soon",
+        "To Woo a Wife",
+        "Heaven Is Gentle"
+      ],
+      "baselineCount": 5,
+      "baselineOverlapWithMoonie": 0,
+      "interpretedPreferences": {
+        "genres": [
+          "romance"
+        ],
+        "tags": [
+          "slow-burn",
+          "enemies-to-lovers"
+        ],
+        "excludedTags": [],
+        "status": null,
+        "mood": [],
+        "language": null
+      }
+    },
+    {
+      "id": "S03",
+      "category": "clear",
+      "prompt": "Suggest a completed cultivation xianxia web novel",
+      "offTopicExpected": false,
+      "offTopicDetected": false,
+      "offTopicCorrect": true,
+      "recommendationCount": 5,
+      "relevance": 1,
+      "unsupportedTitleRate": 0,
+      "consistency": 1,
+      "novelIds": [
+        "cmrmwyi5m00s23d86wlz694vg",
+        "cmrmwyh9v00723d86wl9iqjs2",
+        "cmrmwyi6h00sy3d86dar1iogx",
+        "cmrmwyifm00wk3d8607m60zla",
+        "cmrmwyhph00gv3d86tznt5yuv"
+      ],
+      "titles": [
+        "To All the Boys I've Loved Before",
+        "Martial God Asura",
+        "The blue castle",
+        "Slaughterhouse-Five",
+        "Fever"
+      ],
+      "baselineCount": 5,
+      "baselineOverlapWithMoonie": 0.4,
+      "interpretedPreferences": {
+        "genres": [
+          "cultivation"
+        ],
+        "tags": [],
+        "excludedTags": [],
+        "status": "completed",
+        "mood": [],
+        "language": null
+      }
+    },
+    {
+      "id": "S04",
+      "category": "multi",
+      "prompt": "Looking for a dark fantasy romance, slow burn, strong FL, no harem",
+      "offTopicExpected": false,
+      "offTopicDetected": false,
+      "offTopicCorrect": true,
+      "recommendationCount": 5,
+      "relevance": 0.567,
+      "unsupportedTitleRate": 0,
+      "consistency": 1,
+      "novelIds": [
+        "cmrmwyhqf00hh3d869k34egkg",
+        "cmrmwyhph00gw3d86xovfyg4b",
+        "cmrmwyhsa00in3d86vsrsr6sx",
+        "cmrmwyh9w007i3d865q0ghnoi",
+        "cmrmwyhsc00jb3d86yu35ncc4"
+      ],
+      "titles": [
+        "Dark Lover",
+        "Bought with His Name",
+        "Love's Duel",
+        "Trial Marriage Husband: Need to Work Hard",
+        "Sarah's Child"
+      ],
+      "baselineCount": 5,
+      "baselineOverlapWithMoonie": 0,
+      "interpretedPreferences": {
+        "genres": [
+          "fantasy",
+          "romance"
+        ],
+        "tags": [
+          "slow-burn",
+          "strong fl"
+        ],
+        "excludedTags": [
+          "harem"
+        ],
+        "status": null,
+        "mood": [
+          "dark"
+        ],
+        "language": null
+      }
+    },
+    {
+      "id": "S05",
+      "category": "multi",
+      "prompt": "BL mystery with angst and character-driven plot please",
+      "offTopicExpected": false,
+      "offTopicDetected": false,
+      "offTopicCorrect": true,
+      "recommendationCount": 5,
+      "relevance": 0.76,
+      "unsupportedTitleRate": 0,
+      "consistency": 1,
+      "novelIds": [
+        "cmrmwyi1400os3d864lqoazbf",
+        "cmrmwyi3r00qc3d86755soxy0",
+        "cmrmwyi2w00q23d86zoz1qthf",
+        "cmrmwyi1300of3d864p7yyjan",
+        "cmrmwyi2000p13d86founwlwg"
+      ],
+      "titles": [
+        "Sleeping Murder",
+        "Hidden Pictures",
+        "The Man Who Was Thursday",
+        "Never Lie",
+        "Mrs. McGinty's Dead"
+      ],
+      "baselineCount": 5,
+      "baselineOverlapWithMoonie": 0,
+      "interpretedPreferences": {
+        "genres": [
+          "bl",
+          "mystery"
+        ],
+        "tags": [
+          "character-driven"
+        ],
+        "excludedTags": [],
+        "status": null,
+        "mood": [],
+        "language": null
+      }
+    },
+    {
+      "id": "S06",
+      "category": "multi",
+      "prompt": "Reincarnation villainess story that is completed only",
+      "offTopicExpected": false,
+      "offTopicDetected": false,
+      "offTopicCorrect": true,
+      "recommendationCount": 5,
+      "relevance": 0.5,
+      "unsupportedTitleRate": 0,
+      "consistency": 1,
+      "novelIds": [
+        "cmrmwyhsb00it3d861q1zfeox",
+        "cmrmwyhhu00bx3d86zx4ugb4p",
+        "cmrmwyhuf00kb3d86l3l29vx3",
+        "cmrmwyhiq00ci3d86s6qg0vdh",
+        "cmrmwyiaa00tr3d86q7xrrv54"
+      ],
+      "titles": [
+        "Betrayal in Bali",
+        "A Darker Shade of Magic",
+        "Danse Macabre",
+        "Fool Moon",
+        "The Wedding"
+      ],
+      "baselineCount": 5,
+      "baselineOverlapWithMoonie": 0,
+      "interpretedPreferences": {
+        "genres": [
+          "reincarnation",
+          "villainess"
+        ],
+        "tags": [],
+        "excludedTags": [],
+        "status": "completed",
+        "mood": [],
+        "language": null
+      }
+    },
+    {
+      "id": "S07",
+      "category": "vague",
+      "prompt": "Something cosy to read this weekend",
+      "offTopicExpected": false,
+      "offTopicDetected": false,
+      "offTopicCorrect": true,
+      "recommendationCount": 5,
+      "relevance": 0,
+      "unsupportedTitleRate": 0,
+      "consistency": 1,
+      "novelIds": [
+        "cmrmwyigp00xq3d868yej7ty5",
+        "cmrmwyigp00xt3d86irka2ayb",
+        "cmrmwyigp00xg3d86o01i9ers",
+        "cmrmwyifn00wl3d86foyqaexd",
+        "cmrmwyifn00wy3d86vjdgk7uf"
+      ],
+      "titles": [
+        "Keeping 13",
+        "Sport in society",
+        "The wars",
+        "Catch-22",
+        "Abraham Lincoln"
+      ],
+      "baselineCount": 5,
+      "baselineOverlapWithMoonie": 0,
+      "interpretedPreferences": {
+        "genres": [],
+        "tags": [],
+        "excludedTags": [],
+        "status": null,
+        "mood": [
+          "cosy"
+        ],
+        "language": null
+      }
+    },
+    {
+      "id": "S08",
+      "category": "vague",
+      "prompt": "Recommend a good web novel",
+      "offTopicExpected": false,
+      "offTopicDetected": false,
+      "offTopicCorrect": true,
+      "recommendationCount": 5,
+      "relevance": 1,
+      "unsupportedTitleRate": 0,
+      "consistency": 1,
+      "novelIds": [
+        "cmrmwyigp00xq3d868yej7ty5",
+        "cmrmwyigp00xt3d86irka2ayb",
+        "cmrmwyigp00xg3d86o01i9ers",
+        "cmrmwyifn00wl3d86foyqaexd",
+        "cmrmwyifn00wy3d86vjdgk7uf"
+      ],
+      "titles": [
+        "Keeping 13",
+        "Sport in society",
+        "The wars",
+        "Catch-22",
+        "Abraham Lincoln"
+      ],
+      "baselineCount": 5,
+      "baselineOverlapWithMoonie": 0,
+      "interpretedPreferences": {
+        "genres": [],
+        "tags": [],
+        "excludedTags": [],
+        "status": null,
+        "mood": [],
+        "language": null
+      }
+    },
+    {
+      "id": "S09",
+      "category": "clear",
+      "prompt": "I need an action adventure litrpg dungeon crawl",
+      "offTopicExpected": false,
+      "offTopicDetected": false,
+      "offTopicCorrect": true,
+      "recommendationCount": 5,
+      "relevance": 0.7,
+      "unsupportedTitleRate": 0,
+      "consistency": 1,
+      "novelIds": [
+        "cmrmwyhy000me3d86apvb2xzl",
+        "cmrmwyi0200nz3d863f4gqo4z",
+        "cmrmwyi0200o53d860vyllxb0",
+        "cmrmwyi1200ob3d86d2o80zqu",
+        "cmrmwyi0200nx3d865unncw6t"
+      ],
+      "titles": [
+        "Five Go Adventuring Again",
+        "The Secret Seven",
+        "The Eternal Enemy",
+        "Saving the World and Other Extreme Sports",
+        "Fang"
+      ],
+      "baselineCount": 5,
+      "baselineOverlapWithMoonie": 0,
+      "interpretedPreferences": {
+        "genres": [
+          "action",
+          "adventure"
+        ],
+        "tags": [],
+        "excludedTags": [],
+        "status": null,
+        "mood": [],
+        "language": null
+      }
+    },
+    {
+      "id": "S10",
+      "category": "clear",
+      "prompt": "GL romance with found family vibes",
+      "offTopicExpected": false,
+      "offTopicDetected": false,
+      "offTopicCorrect": true,
+      "recommendationCount": 5,
+      "relevance": 0.82,
+      "unsupportedTitleRate": 0,
+      "consistency": 1,
+      "novelIds": [
+        "cmrmwyhqf00hk3d86srdzmjqp",
+        "cmrmwyhph00gu3d86ks0jwtjq",
+        "cmrmwyhsb00is3d86d87evjik",
+        "cmrmwyhre00ii3d86ciy1exoo",
+        "cmrmwyh9w007i3d865q0ghnoi"
+      ],
+      "titles": [
+        "The Fine Print",
+        "Destroy Me",
+        "Hidden Heart",
+        "Iceberg",
+        "Trial Marriage Husband: Need to Work Hard"
+      ],
+      "baselineCount": 5,
+      "baselineOverlapWithMoonie": 0.2,
+      "interpretedPreferences": {
+        "genres": [
+          "romance",
+          "gl"
+        ],
+        "tags": [
+          "found family"
+        ],
+        "excludedTags": [],
+        "status": null,
+        "mood": [],
+        "language": null
+      }
+    },
+    {
+      "id": "S11",
+      "category": "off_topic",
+      "prompt": "Write my computer science homework essay about databases",
+      "offTopicExpected": true,
+      "offTopicDetected": true,
+      "offTopicCorrect": true,
+      "recommendationCount": 0,
+      "relevance": 0,
+      "unsupportedTitleRate": 0,
+      "consistency": 1,
+      "novelIds": [],
+      "titles": [],
+      "baselineCount": 0,
+      "baselineOverlapWithMoonie": 0,
+      "interpretedPreferences": {
+        "genres": [],
+        "tags": [],
+        "excludedTags": [],
+        "status": null,
+        "mood": [],
+        "language": null
+      }
+    },
+    {
+      "id": "S12",
+      "category": "off_topic",
+      "prompt": "Give me medical advice for a headache and prescribe something",
+      "offTopicExpected": true,
+      "offTopicDetected": true,
+      "offTopicCorrect": true,
+      "recommendationCount": 0,
+      "relevance": 0,
+      "unsupportedTitleRate": 0,
+      "consistency": 1,
+      "novelIds": [],
+      "titles": [],
+      "baselineCount": 0,
+      "baselineOverlapWithMoonie": 0,
+      "interpretedPreferences": {
+        "genres": [],
+        "tags": [],
+        "excludedTags": [],
+        "status": null,
+        "mood": [],
+        "language": null
+      }
+    },
+    {
+      "id": "S13",
+      "category": "off_topic",
+      "prompt": "Write code for a binary search tree in Python",
+      "offTopicExpected": true,
+      "offTopicDetected": true,
+      "offTopicCorrect": true,
+      "recommendationCount": 0,
+      "relevance": 0,
+      "unsupportedTitleRate": 0,
+      "consistency": 1,
+      "novelIds": [],
+      "titles": [],
+      "baselineCount": 0,
+      "baselineOverlapWithMoonie": 0,
+      "interpretedPreferences": {
+        "genres": [],
+        "tags": [],
+        "excludedTags": [],
+        "status": null,
+        "mood": [],
+        "language": null
+      }
+    },
+    {
+      "id": "S14",
+      "category": "clear",
+      "prompt": "Historical romance with political intrigue, recommend a novel",
+      "offTopicExpected": false,
+      "offTopicDetected": false,
+      "offTopicCorrect": true,
+      "recommendationCount": 5,
+      "relevance": 0.5,
+      "unsupportedTitleRate": 0,
+      "consistency": 1,
+      "novelIds": [
+        "cmrmwyi7v00td3d86tdo4lrng",
+        "cmrmwyi7w00ti3d86y1uzdg5n",
+        "cmrmwyi6g00sn3d865xo9n3fr",
+        "cmrmwyi7u00t23d86ablkzfqq",
+        "cmrmwyiaa00tv3d861drx3m9f"
+      ],
+      "titles": [
+        "The Day of the Jackal",
+        "The Masqueraders",
+        "Outlander",
+        "Shanna",
+        "The Double Wager"
+      ],
+      "baselineCount": 5,
+      "baselineOverlapWithMoonie": 0,
+      "interpretedPreferences": {
+        "genres": [
+          "romance",
+          "historical"
+        ],
+        "tags": [],
+        "excludedTags": [],
+        "status": null,
+        "mood": [],
+        "language": null
+      }
+    },
+    {
+      "id": "S15",
+      "category": "multi",
+      "prompt": "Sci-fi space opera with a hopeful mood and strong female lead",
+      "offTopicExpected": false,
+      "offTopicDetected": false,
+      "offTopicCorrect": true,
+      "recommendationCount": 5,
+      "relevance": 0.2,
+      "unsupportedTitleRate": 0,
+      "consistency": 1,
+      "novelIds": [
+        "cmrmwyhsb00is3d86d87evjik",
+        "cmrmwyhph00gw3d86xovfyg4b",
+        "cmrmwyhqg00hx3d86r43q722p",
+        "cmrmwyhsb00iu3d864bq0tgkh",
+        "cmrmwyhb9007n3d861mv42tem"
+      ],
+      "titles": [
+        "Hidden Heart",
+        "Bought with His Name",
+        "Comparative Strangers",
+        "House of Mirrors",
+        "The Demonic King Chases His Wife"
+      ],
+      "baselineCount": 5,
+      "baselineOverlapWithMoonie": 0,
+      "interpretedPreferences": {
+        "genres": [
+          "sci-fi"
+        ],
+        "tags": [
+          "strong fl"
+        ],
+        "excludedTags": [],
+        "status": null,
+        "mood": [
+          "hopeful"
+        ],
+        "language": null
+      }
+    }
+  ]
+}

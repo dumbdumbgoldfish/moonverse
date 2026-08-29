@@ -149,7 +149,7 @@ export default async function AdminDashboardPage() {
           {hasActivity ? (
             <AdminActivityTrendChart data={dailySeries} />
           ) : (
-            <p className="flex h-full items-center justify-center text-xs text-white">
+            <p className="flex h-full items-center justify-center text-xs text-white/70">
               No sign-ups or content activity in the last 14 days.
             </p>
           )}
@@ -168,7 +168,7 @@ export default async function AdminDashboardPage() {
               }))}
             />
           ) : (
-            <p className="flex h-full items-center justify-center text-xs text-white">
+            <p className="flex h-full items-center justify-center text-xs text-white/70">
               No items awaiting moderation.
             </p>
           )}

@@ -1,12 +1,13 @@
 import Link from "next/link";
 import { BookOpen, PenLine } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { MoonieMascot } from "@/components/brand/MoonieMascot";
+import { FloatingMoonie } from "@/components/brand/FloatingMoonie";
+import { SITE_SHELL_CLASS } from "@/lib/site-shell";
+import { cn } from "@/lib/utils";
 
 export function HeroSection() {
   return (
-    <section className="relative overflow-hidden border-b border-border/60">
-      {/* Background gradient */}
+    <section className="relative overflow-visible border-b border-border/60">
       <div
         className="pointer-events-none absolute inset-0 bg-[radial-gradient(ellipse_at_top_right,_var(--tw-gradient-stops))] from-primary/10 via-transparent to-transparent"
         aria-hidden="true"
@@ -16,7 +17,7 @@ export function HeroSection() {
         aria-hidden="true"
       />
 
-      <div className="relative mx-auto grid max-w-7xl gap-10 px-4 py-16 sm:px-6 sm:py-20 lg:grid-cols-2 lg:items-center lg:gap-16 lg:px-8 lg:py-28">
+      <div className={cn(SITE_SHELL_CLASS, "relative grid gap-10 py-16 sm:py-20 lg:grid-cols-2 lg:items-center lg:gap-16 lg:py-28")}>
         <div>
           <p className="mb-4 inline-flex items-center gap-2 rounded-full border border-border/60 bg-bg-elevated px-3 py-1 text-xs font-medium text-muted-foreground">
             <span className="size-1.5 rounded-full bg-accent" aria-hidden="true" />
@@ -30,11 +31,11 @@ export function HeroSection() {
 
           <p className="mt-6 max-w-lg text-lg leading-relaxed text-muted-foreground">
             Discover honest reviews from fellow web novel fans. Share your thoughts,
-            build collections, and let Moonie recommend your next adventure.
+            build collections and let Moonie recommend your next adventure.
           </p>
 
           <div className="mt-8 flex flex-col gap-3 sm:flex-row">
-            <Button size="lg" render={<Link href="/reviews" />}>
+            <Button size="lg" render={<Link href="/search" />}>
               <BookOpen data-icon="inline-start" />
               Explore Reviews
             </Button>
@@ -49,11 +50,11 @@ export function HeroSection() {
           </p>
         </div>
 
-        <div className="relative flex items-center justify-center lg:justify-end">
+        <div className="relative flex items-center justify-center overflow-visible lg:justify-end">
           <div className="relative">
-            <MoonieMascot size={160} animated className="drop-shadow-lg" />
-            <div className="absolute -bottom-4 left-1/2 w-max -translate-x-1/2 rounded-xl border border-border/60 bg-bg-elevated px-4 py-2 text-sm text-muted-foreground shadow-lg">
-              Hi! I&apos;m Moonie — ask me for recommendations ✨
+            <FloatingMoonie variant="happy" size={180} />
+            <div className="absolute -bottom-2 left-1/2 w-max -translate-x-1/2 rounded-xl border border-border/60 bg-bg-elevated px-4 py-2 text-sm text-muted-foreground shadow-lg">
+              Hi! I&apos;m Moonie. Ask me for recommendations ✨
             </div>
           </div>
         </div>

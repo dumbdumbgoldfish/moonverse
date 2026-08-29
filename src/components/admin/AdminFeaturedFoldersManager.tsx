@@ -71,11 +71,11 @@ export function AdminFeaturedFoldersManager({
               <AdminTableCell>
                 <Link
                   href={`/folders/${folder.id}`}
-                  className="font-medium text-[#fcd34d]"
+                  className="font-medium hover:text-[#6e46c7]"
                 >
                   {folder.name}
                 </Link>
-                <p className="text-xs text-white">
+                <p className="text-xs text-white/70">
                   {folder.reviewCount} reviews · updated{" "}
                   {formatDate(folder.updatedAt)}
                 </p>
@@ -83,11 +83,11 @@ export function AdminFeaturedFoldersManager({
               <AdminTableCell>
                 <Link
                   href={`/users/${folder.ownerUsername}`}
-                  className="text-[#fcd34d]"
+                  className="hover:text-[#6e46c7]"
                 >
                   {folder.ownerDisplayName}
                 </Link>
-                <p className="text-xs text-white">
+                <p className="text-xs text-white/70">
                   @{folder.ownerUsername}
                 </p>
               </AdminTableCell>

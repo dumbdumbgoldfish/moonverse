@@ -2,7 +2,7 @@ import Link from "next/link";
 import { MessageCircle, PenLine, Users } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { SocialReviewCard } from "@/components/reviews/SocialReviewCard";
-import { mockCommunityStats } from "@/lib/mock-data";
+import type { CommunityStats, FeaturedReviewer } from "@/services/community.service";
 import type { ReviewListItem } from "@/types/review";
 
 const statIcons = {
@@ -13,24 +13,30 @@ const statIcons = {
 
 interface CommunitySectionProps {
   reviews?: ReviewListItem[];
+  stats?: CommunityStats;
+  featuredReviewers?: FeaturedReviewer[];
 }
 
-export function CommunitySection({ reviews = [] }: CommunitySectionProps) {
-  const stats = [
+export function CommunitySection({
+  reviews = [],
+  stats,
+  featuredReviewers = [],
+}: CommunitySectionProps) {
+  const displayStats = [
     {
       key: "reviews" as const,
       label: "Reviews shared",
-      value: mockCommunityStats.totalReviews,
+      value: stats?.totalReviews ?? reviews.length,
     },
     {
       key: "users" as const,
       label: "Active readers",
-      value: mockCommunityStats.totalUsers,
+      value: stats?.totalUsers ?? 0,
     },
     {
       key: "novels" as const,
       label: "Novels reviewed",
-      value: mockCommunityStats.totalNovels,
+      value: stats?.totalNovels ?? 0,
     },
   ];
 
@@ -42,84 +48,70 @@ export function CommunitySection({ reviews = [] }: CommunitySectionProps) {
             id="community-heading"
             className="text-2xl font-bold tracking-tight sm:text-3xl"
           >
-            Community Reviews
+            Built by readers, for readers
           </h2>
-          <p className="mt-2 text-muted-foreground">
-            See what readers are sharing — like, comment, and save your favourites.
+          <p className="mt-3 max-w-2xl text-muted-foreground">
+            Real reviews and profiles from the MoonVerse community.
           </p>
         </div>
 
+        <div className="mb-12 grid gap-4 sm:grid-cols-3">
+          {displayStats.map((stat) => {
+            const Icon = statIcons[stat.key];
+            return (
+              <div
+                key={stat.key}
+                className="rounded-2xl border border-border/60 bg-bg-elevated p-5 text-center sm:text-left"
+              >
+                <Icon className="mx-auto size-5 text-primary sm:mx-0" aria-hidden />
+                <p className="mt-3 text-2xl font-bold tabular-nums">{stat.value}</p>
+                <p className="mt-1 text-sm text-muted-foreground">{stat.label}</p>
+              </div>
+            );
+          })}
+        </div>
+
+        {featuredReviewers.length > 0 && (
+          <div className="mb-10">
+            <h3 className="mb-4 text-sm font-bold uppercase tracking-wide text-muted-foreground">
+              Featured reviewers
+            </h3>
+            <ul className="flex flex-wrap gap-3">
+              {featuredReviewers.map((reviewer) => (
+                <li key={reviewer.username}>
+                  <Link
+                    href={`/users/${reviewer.username}`}
+                    className="inline-flex items-center gap-2 rounded-full border border-border/60 bg-white px-3 py-1.5 text-sm font-semibold hover:border-primary/40"
+                  >
+                    <span className="flex size-7 items-center justify-center rounded-full bg-moon-purple-soft text-[10px] font-bold text-primary">
+                      {reviewer.avatar}
+                    </span>
+                    {reviewer.displayName}
+                    <span className="text-xs font-normal text-muted-foreground">
+                      {reviewer.reviewCount} reviews
+                    </span>
+                  </Link>
+                </li>
+              ))}
+            </ul>
+          </div>
+        )}
+
         {reviews.length > 0 && (
-          <div className="mb-12 grid gap-4 lg:grid-cols-3">
-            {reviews.map((review) => (
-              <SocialReviewCard key={review.id} review={review} variant="compact" />
+          <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+            {reviews.slice(0, 6).map((review) => (
+              <SocialReviewCard key={review.id} review={review} />
             ))}
           </div>
         )}
 
-        <div className="grid gap-12 lg:grid-cols-2 lg:items-center">
-          <div>
-            <p className="text-lg leading-relaxed text-muted-foreground">
-              MoonVerse is built by readers, for readers. Write reviews, engage
-              with comments and likes, and organise your favourites into personal
-              folders.
-            </p>
-
-            <div className="mt-8 grid grid-cols-3 gap-4">
-              {stats.map((stat) => {
-                const Icon = statIcons[stat.key];
-                return (
-                  <div key={stat.key} className="rounded-2xl bg-bg-warm p-4 text-center sm:text-left">
-                    <Icon
-                      className="mx-auto mb-2 text-primary sm:mx-0"
-                      size={20}
-                      aria-hidden="true"
-                    />
-                    <p className="text-2xl font-bold text-foreground">
-                      {stat.value.toLocaleString()}
-                    </p>
-                    <p className="text-xs text-muted-foreground sm:text-sm">
-                      {stat.label}
-                    </p>
-                  </div>
-                );
-              })}
-            </div>
-
-            <Button className="mt-8" size="lg" render={<Link href="/register" />}>
-              Join the community
-            </Button>
-          </div>
-
-          <div className="rounded-2xl border border-border/60 bg-white p-8 shadow-sm">
-            <h3 className="text-lg font-semibold">Featured reviewers</h3>
-            <p className="mt-1 text-sm text-muted-foreground">
-              Some of our most active community members
-            </p>
-
-            <ul className="mt-6 space-y-4">
-              {mockCommunityStats.featuredReviewers.map((reviewer) => {
-                const username = reviewer.name === "StarReader"
-                  ? "starreader"
-                  : reviewer.name === "QuestLog"
-                    ? "questlog"
-                    : "cosmoreads";
-                return (
-                  <li key={reviewer.name}>
-                    <Link
-                      href={`/users/${username}`}
-                      className="flex items-center justify-between rounded-xl p-2 transition-colors hover:bg-muted"
-                    >
-                      <span className="font-medium">{reviewer.name}</span>
-                      <span className="text-sm text-muted-foreground">
-                        {reviewer.reviewCount} reviews
-                      </span>
-                    </Link>
-                  </li>
-                );
-              })}
-            </ul>
-          </div>
+        <div className="mt-10 text-center">
+          <Button
+            className="mv-nav-signup rounded-full border-0 px-6 font-bold text-white"
+            render={<Link href="/discover" />}
+          >
+            Explore reviews
+          </Button>
         </div>
       </div>
     </section>

@@ -40,3 +40,18 @@ yarn-error.log*
 # typescript
 *.tsbuildinfo
 next-env.d.ts
+
+# large generated MSc demo JSONL (regenerate with npm run demo:generate)
+prisma/data/demo/*.jsonl
+prisma/data/demo/manifest.json
+
+# local database snapshots and editor-only files
+/backup-before-demo.sql
+/submission-snapshot.sql
+/prisma/backups/
+/.vscode/
+
+# local submission archives and macOS ZIP metadata
+/*.zip
+__MACOSX/
+._*

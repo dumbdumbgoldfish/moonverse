@@ -123,22 +123,22 @@ export function AdminReadingLinksTable({ links }: AdminReadingLinksTableProps) {
             <AdminTableCell>
               <Link
                 href={`/novels/${link.novel.id}`}
-                className="font-semibold text-[#fcd34d] hover:underline"
+                className="font-semibold text-[#6e46c7] hover:underline"
               >
                 {link.novel.title}
               </Link>
-              <p className="mt-1 text-xs text-white">
+              <p className="mt-1 text-xs text-white/70">
                 {getPlatformLabel(link.platform)} · {link.category}
               </p>
               <a
                 href={link.url}
                 target="_blank"
                 rel="noopener noreferrer"
-                className="mt-1 block break-all text-xs text-white/90 hover:underline"
+                className="mt-1 block break-all text-xs text-[#6e46c7]/80 hover:underline"
               >
                 {link.url}
               </a>
-              <p className="mt-1 text-[11px] text-white">
+              <p className="mt-1 text-[11px] text-white/70">
                 {formatDate(link.createdAt)}
               </p>
             </AdminTableCell>
@@ -146,19 +146,19 @@ export function AdminReadingLinksTable({ links }: AdminReadingLinksTableProps) {
               {link.submittedByUser ? (
                 <Link
                   href={`/users/${link.submittedByUser.username}`}
-                  className="font-medium text-[#fcd34d] hover:underline"
+                  className="font-medium text-[#6e46c7] hover:underline"
                 >
                   @{link.submittedByUser.username}
                 </Link>
               ) : (
-                <span className="text-white">Catalog / unknown</span>
+                <span className="text-white/70">Catalog / unknown</span>
               )}
               {link.submittedViaReview ? (
-                <p className="mt-1 text-xs text-white">
+                <p className="mt-1 text-xs text-white/70">
                   via{" "}
                   <Link
                     href={`/reviews/${link.submittedViaReview.id}`}
-                    className="text-[#fcd34d] hover:underline"
+                    className="text-[#6e46c7] hover:underline"
                   >
                     {link.submittedViaReview.title}
                   </Link>
@@ -175,7 +175,7 @@ export function AdminReadingLinksTable({ links }: AdminReadingLinksTableProps) {
                 {link.healthStatus.replace(/_/g, " ")}
               </Badge>
               {link.lastCheckedAt ? (
-                <p className="mt-1 text-[11px] text-white">
+                <p className="mt-1 text-[11px] text-white/70">
                   Checked {formatDate(link.lastCheckedAt)}
                 </p>
               ) : null}

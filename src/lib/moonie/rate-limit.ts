@@ -1,45 +1,91 @@
-const DAILY_LIMIT = 10;
+import { Prisma } from "@prisma/client";
+import { db } from "@/lib/db";
+import { MOONIE_DAILY_DISCOVERY_LIMIT } from "@/lib/moonie/constants";
+import {
+  isMoonieDevQuotaBypassActive,
+  logMoonieDevQuotaBypassOnce,
+} from "@/lib/moonie/dev-quota";
 
-interface RateLimitEntry {
-  count: number;
-  dayKey: string;
+function startOfUtcDay(now = new Date()): Date {
+  return new Date(
+    Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate())
+  );
 }
 
-const store = new Map<string, RateLimitEntry>();
+/**
+ * Atomically reserves one daily request. A serializable transaction prevents
+ * concurrent requests from both passing the same count check.
+ */
+export async function peekMoonieQuota(userId: string): Promise<{
+  remaining: number;
+  used: number;
+}> {
+  if (isMoonieDevQuotaBypassActive()) {
+    logMoonieDevQuotaBypassOnce();
+    return { used: 0, remaining: MOONIE_DAILY_DISCOVERY_LIMIT };
+  }
 
-function getDayKey(): string {
-  return new Date().toISOString().slice(0, 10);
+  const count = await db.moonieRecommendationEvent.count({
+    where: {
+      userId,
+      event: "quota_reserved",
+      createdAt: { gte: startOfUtcDay() },
+    },
+  });
+  return {
+    used: count,
+    remaining: Math.max(0, MOONIE_DAILY_DISCOVERY_LIMIT - count),
+  };
 }
 
-export function checkMoonieRateLimit(userId: string): {
+export async function consumeMoonieQuota(userId: string): Promise<{
   allowed: boolean;
   remaining: number;
-} {
-  const dayKey = getDayKey();
-  const entry = store.get(userId);
-
-  if (!entry || entry.dayKey !== dayKey) {
-    return { allowed: true, remaining: DAILY_LIMIT - 1 };
+}> {
+  if (isMoonieDevQuotaBypassActive()) {
+    logMoonieDevQuotaBypassOnce();
+    return { allowed: true, remaining: MOONIE_DAILY_DISCOVERY_LIMIT };
   }
 
-  if (entry.count >= DAILY_LIMIT) {
-    return { allowed: false, remaining: 0 };
+  for (let attempt = 0; attempt < 3; attempt += 1) {
+    try {
+      return await db.$transaction(
+        async (tx) => {
+          const count = await tx.moonieRecommendationEvent.count({
+            where: {
+              userId,
+              event: "quota_reserved",
+              createdAt: { gte: startOfUtcDay() },
+            },
+          });
+          if (count >= MOONIE_DAILY_DISCOVERY_LIMIT) {
+            return { allowed: false, remaining: 0 };
+          }
+          await tx.moonieRecommendationEvent.create({
+            data: { userId, event: "quota_reserved" },
+          });
+          return {
+            allowed: true,
+            remaining: Math.max(0, MOONIE_DAILY_DISCOVERY_LIMIT - count - 1),
+          };
+        },
+        { isolationLevel: Prisma.TransactionIsolationLevel.Serializable }
+      );
+    } catch (error) {
+      if (
+        error instanceof Prisma.PrismaClientKnownRequestError &&
+        error.code === "P2034" &&
+        attempt < 2
+      ) {
+        continue;
+      }
+      throw error;
+    }
   }
-
-  return { allowed: true, remaining: DAILY_LIMIT - entry.count - 1 };
+  return { allowed: false, remaining: 0 };
 }
 
-export function recordMoonieRequest(userId: string): void {
-  const dayKey = getDayKey();
-  const entry = store.get(userId);
-
-  if (!entry || entry.dayKey !== dayKey) {
-    store.set(userId, { count: 1, dayKey });
-    return;
-  }
-
-  entry.count += 1;
-  store.set(userId, entry);
-}
-
-export const MOONIE_DAILY_LIMIT = DAILY_LIMIT;
+export {
+  MOONIE_DAILY_DISCOVERY_LIMIT,
+  MOONIE_DAILY_LIMIT,
+} from "@/lib/moonie/constants";

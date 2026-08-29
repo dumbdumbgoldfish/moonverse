@@ -1,41 +1,62 @@
 import { UserRole } from "@prisma/client";
+import { ADMIN_LIST_PAGE_SIZE } from "@/components/admin/admin-styles";
 import { db } from "@/lib/db";
-import type { AdminUserSummary } from "@/types/admin";
+import type { AdminListPage, AdminUserSummary } from "@/types/admin";
 
 export async function countAdmins(): Promise<number> {
   return db.user.count({ where: { role: UserRole.ADMIN, isSuspended: false } });
 }
 
-export async function getAdminUsers(query?: string): Promise<AdminUserSummary[]> {
+function buildUserWhere(query?: string) {
   const q = query?.trim();
+  return q
+    ? {
+        OR: [
+          { username: { contains: q, mode: "insensitive" as const } },
+          { email: { contains: q, mode: "insensitive" as const } },
+          { displayName: { contains: q, mode: "insensitive" as const } },
+        ],
+      }
+    : undefined;
+}
 
-  const users = await db.user.findMany({
-    where: q
-      ? {
-          OR: [
-            { username: { contains: q, mode: "insensitive" } },
-            { email: { contains: q, mode: "insensitive" } },
-            { displayName: { contains: q, mode: "insensitive" } },
-          ],
-        }
-      : undefined,
-    orderBy: { createdAt: "desc" },
-    include: {
-      _count: { select: { reviews: true, followers: true } },
-    },
-  });
+export async function getAdminUsers(
+  query?: string,
+  page = 1,
+  pageSize = ADMIN_LIST_PAGE_SIZE
+): Promise<AdminListPage<AdminUserSummary>> {
+  const where = buildUserWhere(query);
+  const safePage = Math.max(1, page);
+  const [total, users] = await Promise.all([
+    db.user.count({ where }),
+    db.user.findMany({
+      where,
+      orderBy: { createdAt: "desc" },
+      skip: (safePage - 1) * pageSize,
+      take: pageSize,
+      include: {
+        _count: { select: { reviews: true, followers: true } },
+      },
+    }),
+  ]);
 
-  return users.map((user) => ({
-    id: user.id,
-    email: user.email,
-    username: user.username,
-    displayName: user.displayName,
-    role: user.role,
-    isSuspended: user.isSuspended,
-    reviewCount: user._count.reviews,
-    followerCount: user._count.followers,
-    createdAt: user.createdAt.toISOString(),
-  }));
+  return {
+    items: users.map((user) => ({
+      id: user.id,
+      email: user.email,
+      username: user.username,
+      displayName: user.displayName,
+      role: user.role,
+      isSuspended: user.isSuspended,
+      reviewCount: user._count.reviews,
+      followerCount: user._count.followers,
+      createdAt: user.createdAt.toISOString(),
+    })),
+    total,
+    page: safePage,
+    pageSize,
+    totalPages: Math.max(1, Math.ceil(total / pageSize)),
+  };
 }
 
 export async function getAdminUserById(

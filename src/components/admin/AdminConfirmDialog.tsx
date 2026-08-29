@@ -40,7 +40,7 @@ export function AdminConfirmDialog({
     "Working…"
   ) : (
     <>
-      {showDeleteIcon ? <Trash2 className="admin-icon-destructive size-3.5" aria-hidden /> : null}
+      {showDeleteIcon ? <Trash2 className="size-3.5" aria-hidden /> : null}
       {confirmLabel}
     </>
   );
@@ -69,7 +69,7 @@ export function AdminConfirmDialog({
           setOpen(true);
         }}
       >
-        {showDeleteIcon ? <Trash2 className="admin-icon-destructive size-3.5" aria-hidden /> : null}
+        {showDeleteIcon ? <Trash2 className="size-3.5" aria-hidden /> : null}
         {confirmLabel}
       </Button>
 

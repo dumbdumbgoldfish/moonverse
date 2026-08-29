@@ -3,22 +3,18 @@
 import { useState, useTransition } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { FolderOpen, MoreVertical, Pencil, Plus, Trash2 } from "lucide-react";
+import { BookOpen, MoreVertical, Pencil, Plus, Trash2 } from "lucide-react";
+import { SITE_SHELL_CLASS } from "@/lib/site-shell";
+import { cn } from "@/lib/utils";
 import {
   createFolderAction,
   deleteFolderAction,
   updateFolderAction,
 } from "@/actions/folder.actions";
-import { PageHeader } from "@/components/layout/PageHeader";
-import { Badge } from "@/components/ui/badge";
+import { FolderFormDialog } from "@/components/folders/FolderFormDialog";
+import { LibraryListCard } from "@/components/folders/LibraryListCard";
+import { NovelCoverCard } from "@/components/discovery/NovelCoverCard";
 import { Button } from "@/components/ui/button";
-import {
-  Card,
-  CardContent,
-  CardDescription,
-  CardHeader,
-  CardTitle,
-} from "@/components/ui/card";
 import {
   Dialog,
   DialogContent,
@@ -27,22 +23,21 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
-import { FolderFormDialog } from "@/components/folders/FolderFormDialog";
 import type { FolderListItem } from "@/types/folder";
+import type { ReadingListPreview } from "@/types/discovery";
+import type { ReviewListItem } from "@/types/review";
 
 interface FoldersListProps {
   folders: FolderListItem[];
+  readingLists?: ReadingListPreview[];
+  continueReading?: ReviewListItem[];
 }
 
-function formatDate(iso: string) {
-  return new Intl.DateTimeFormat("en-GB", {
-    day: "numeric",
-    month: "short",
-    year: "numeric",
-  }).format(new Date(iso));
-}
-
-export function FoldersList({ folders }: FoldersListProps) {
+export function FoldersList({
+  folders,
+  readingLists = [],
+  continueReading = [],
+}: FoldersListProps) {
   const router = useRouter();
   const [isPending, startTransition] = useTransition();
   const [createOpen, setCreateOpen] = useState(false);
@@ -108,141 +103,160 @@ export function FoldersList({ folders }: FoldersListProps) {
     });
   };
 
-  return (
-    <div className="mx-auto max-w-7xl px-4 py-10 sm:px-6 lg:px-8">
-      <div className="mb-8 flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
-        <PageHeader
-          title="My Folders"
-          description="Organise reviews into personal collections. Save the best finds for later."
-        />
-        <Button
-          className="shrink-0"
-          onClick={() => setCreateOpen(true)}
-          aria-label="Create folder"
-        >
-          <Plus data-icon="inline-start" aria-hidden="true" />
-          Create folder
-        </Button>
-      </div>
+  const isEmpty = folders.length === 0 && continueReading.length === 0;
 
-      {folders.length === 0 ? (
-        <div className="rounded-2xl border border-dashed border-border/60 bg-white px-6 py-16 text-center">
-          <div className="mx-auto mb-4 flex size-12 items-center justify-center rounded-full bg-primary/10 text-primary">
-            <FolderOpen size={24} aria-hidden="true" />
-          </div>
-          <h2 className="text-lg font-semibold">No folders yet</h2>
-          <p className="mt-2 text-sm text-muted-foreground">
-            Create your first folder to start saving reviews from any review page.
+  return (
+    <div className={cn(SITE_SHELL_CLASS, "space-y-8 py-6")}>
+      <header className="flex flex-wrap items-end justify-between gap-4">
+        <div>
+          <p className="text-[10px] font-bold uppercase tracking-[0.18em] text-[#6E46C7]">
+            Your shelf
           </p>
-          <Button className="mt-6" onClick={() => setCreateOpen(true)}>
-            <Plus data-icon="inline-start" aria-hidden="true" />
-            Create folder
+          <h1 className="mt-1 font-serif text-2xl font-medium tracking-tight text-[#1A1224] sm:text-[1.75rem]">
+            Library
+          </h1>
+          <p className="mt-1 text-[13px] text-[#1A1224]/55">
+            Continue reading, saved stories, and your lists.
+          </p>
+        </div>
+        <Button size="sm" onClick={() => setCreateOpen(true)} aria-label="Create reading list">
+          <Plus data-icon="inline-start" aria-hidden />
+          New list
+        </Button>
+      </header>
+
+      {continueReading.length > 0 ? (
+        <section className="rounded-[1.25rem] border border-[#1A1224]/8 bg-white p-4 shadow-[0_20px_48px_-36px_rgba(26,18,36,0.15)] sm:p-5">
+          <div className="mb-4">
+            <p className="text-[10px] font-bold uppercase tracking-[0.18em] text-[#6E46C7]">
+              In progress
+            </p>
+            <h2 className="mt-1 font-serif text-xl font-medium tracking-tight text-[#1A1224]">
+              Continue reading
+            </h2>
+          </div>
+          <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6">
+            {continueReading.map((review, index) => (
+              <NovelCoverCard
+                key={review.id}
+                href={`/reviews/${review.id}`}
+                coverUrl={review.coverUrl}
+                title={review.novelTitle}
+                viewCount={review.likeCount}
+                tags={review.genres}
+                progress={40 + (index % 3) * 20}
+                size="lg"
+                showTitle
+                className="w-full"
+              />
+            ))}
+          </div>
+        </section>
+      ) : null}
+
+      {isEmpty ? (
+        <div className="rounded-[1.25rem] border border-dashed border-[#1A1224]/15 bg-[#FBF7F1]/60 px-6 py-16 text-center">
+          <BookOpen className="mx-auto size-10 text-[#6E46C7]/40" aria-hidden />
+          <p className="mt-4 font-serif text-lg text-[#1A1224]">Your library is empty</p>
+          <p className="mx-auto mt-2 max-w-sm text-[13px] text-[#1A1224]/55">
+            Save reviews while browsing and they&apos;ll show up here.
+          </p>
+          <Button onClick={() => setCreateOpen(true)} className="mt-5" size="sm">
+            <Plus data-icon="inline-start" aria-hidden />
+            Create reading list
           </Button>
         </div>
-      ) : (
-        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-          {folders.map((folder) => (
-            <Card
-              key={folder.id}
-              className="relative h-full overflow-hidden rounded-2xl border-border/60 bg-white shadow-sm transition-shadow hover:shadow-md"
-            >
-              <div className="h-2 gradient-moonverse" aria-hidden="true" />
-              <CardHeader>
-                <div className="flex items-start justify-between gap-2">
-                  <div className="mb-2 flex size-11 items-center justify-center rounded-xl bg-moon-purple-soft text-primary">
-                    <FolderOpen size={22} aria-hidden="true" />
-                  </div>
-                  <div className="relative">
-                    <Button
-                      variant="ghost"
-                      size="icon-sm"
-                      aria-label={`Folder options for ${folder.name}`}
-                      aria-expanded={menuOpenId === folder.id}
-                      aria-haspopup="menu"
-                      onClick={() =>
-                        setMenuOpenId((current) =>
-                          current === folder.id ? null : folder.id
-                        )
-                      }
-                    >
-                      <MoreVertical aria-hidden="true" />
-                    </Button>
-                    {menuOpenId === folder.id && (
-                      <>
-                        <div
-                          className="fixed inset-0 z-40"
-                          aria-hidden="true"
-                          onClick={() => setMenuOpenId(null)}
-                        />
-                        <div
-                          role="menu"
-                          className="absolute right-0 z-50 mt-1 min-w-[140px] rounded-lg border border-border/60 bg-popover p-1 shadow-md"
-                        >
-                          <button
-                            type="button"
-                            role="menuitem"
-                            className="flex w-full items-center gap-2 rounded-md px-3 py-2 text-sm hover:bg-muted"
-                            onClick={() => {
-                              setMenuOpenId(null);
-                              setEditFolder(folder);
-                            }}
+      ) : folders.length > 0 ? (
+        <section>
+          <div className="mb-4 flex items-end justify-between gap-3">
+            <div>
+              <p className="text-[10px] font-bold uppercase tracking-[0.18em] text-[#6E46C7]">
+                Collections
+              </p>
+              <h2 className="mt-1 font-serif text-xl font-medium tracking-tight text-[#1A1224]">
+                Reading lists
+              </h2>
+            </div>
+            <span className="text-[13px] text-[#1A1224]/45">
+              {folders.length} {folders.length === 1 ? "list" : "lists"}
+            </span>
+          </div>
+
+          <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+            {readingLists.length > 0
+              ? readingLists.map((list) => {
+                  const folder = folders.find((item) => item.id === list.id);
+                  return (
+                    <div key={list.id} className="relative">
+                      <LibraryListCard list={list} />
+                      {folder ? (
+                        <div className="absolute right-2 top-2">
+                          <Button
+                            variant="ghost"
+                            size="icon-sm"
+                            className="bg-white/90 shadow-sm backdrop-blur-sm"
+                            aria-label={`Options for ${folder.name}`}
+                            onClick={() =>
+                              setMenuOpenId((current) =>
+                                current === folder.id ? null : folder.id,
+                              )
+                            }
                           >
-                            <Pencil size={14} aria-hidden="true" />
-                            Edit
-                          </button>
-                          <button
-                            type="button"
-                            role="menuitem"
-                            className="flex w-full items-center gap-2 rounded-md px-3 py-2 text-sm text-destructive hover:bg-muted"
-                            onClick={() => {
-                              setMenuOpenId(null);
-                              setDeleteFolder(folder);
-                              setDeleteError(null);
-                            }}
-                          >
-                            <Trash2 size={14} aria-hidden="true" />
-                            Delete
-                          </button>
+                            <MoreVertical aria-hidden />
+                          </Button>
+                          {menuOpenId === folder.id ? (
+                            <>
+                              <div
+                                className="fixed inset-0 z-40"
+                                onClick={() => setMenuOpenId(null)}
+                              />
+                              <div className="absolute right-0 z-50 mt-1 min-w-[120px] rounded-lg bg-white p-1 shadow-lg ring-1 ring-[#1A1224]/8">
+                                <button
+                                  type="button"
+                                  className="flex w-full gap-2 rounded-md px-3 py-2 text-sm hover:bg-muted"
+                                  onClick={() => {
+                                    setMenuOpenId(null);
+                                    setEditFolder(folder);
+                                  }}
+                                >
+                                  <Pencil size={14} /> Edit
+                                </button>
+                                <button
+                                  type="button"
+                                  className="flex w-full gap-2 rounded-md px-3 py-2 text-sm text-destructive hover:bg-muted"
+                                  onClick={() => {
+                                    setMenuOpenId(null);
+                                    setDeleteFolder(folder);
+                                  }}
+                                >
+                                  <Trash2 size={14} /> Delete
+                                </button>
+                              </div>
+                            </>
+                          ) : null}
                         </div>
-                      </>
-                    )}
-                  </div>
-                </div>
-                <CardTitle>
+                      ) : null}
+                    </div>
+                  );
+                })
+              : folders.map((folder) => (
                   <Link
+                    key={folder.id}
                     href={`/folders/${folder.id}`}
-                    className="hover:text-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent rounded-sm"
+                    className="rounded-[1.25rem] border border-[#1A1224]/8 bg-white p-4 transition hover:border-[#6E46C7]/25 hover:shadow-[0_12px_28px_-20px_rgba(110,70,199,0.35)]"
                   >
-                    {folder.name}
+                    <p className="font-serif text-lg font-medium text-[#1A1224]">
+                      {folder.name}
+                    </p>
+                    <p className="mt-1 text-[13px] text-[#1A1224]/50">
+                      {folder.reviewCount}{" "}
+                      {folder.reviewCount === 1 ? "story" : "stories"}
+                    </p>
                   </Link>
-                </CardTitle>
-                {folder.description && (
-                  <CardDescription>{folder.description}</CardDescription>
-                )}
-              </CardHeader>
-              <CardContent className="space-y-2">
-                <p className="text-sm text-muted-foreground">
-                  {folder.reviewCount} review
-                  {folder.reviewCount !== 1 ? "s" : ""}
-                </p>
-                <div className="flex flex-wrap items-center gap-2">
-                  {folder.isPublic ? (
-                    <Badge variant="secondary">Public</Badge>
-                  ) : (
-                    <Badge variant="outline">Private</Badge>
-                  )}
-                  <time
-                    dateTime={folder.createdAt}
-                    className="text-xs text-muted-foreground"
-                  >
-                    Created {formatDate(folder.createdAt)}
-                  </time>
-                </div>
-              </CardContent>
-            </Card>
-          ))}
-        </div>
-      )}
+                ))}
+          </div>
+        </section>
+      ) : null}
 
       <FolderFormDialog
         open={createOpen}
@@ -279,11 +293,11 @@ export function FoldersList({ folders }: FoldersListProps) {
               MoonVerse.
             </DialogDescription>
           </DialogHeader>
-          {deleteError && (
+          {deleteError ? (
             <p className="text-sm text-destructive" role="alert">
               {deleteError}
             </p>
-          )}
+          ) : null}
           <DialogFooter>
             <Button
               variant="outline"
@@ -292,11 +306,8 @@ export function FoldersList({ folders }: FoldersListProps) {
             >
               Cancel
             </Button>
-            <Button
-              variant="destructive"
-              onClick={handleDelete}
-              disabled={isPending}
-            >
+            <Button variant="destructive" onClick={handleDelete} disabled={isPending}>
+              <Trash2 className="size-4" aria-hidden />
               Delete folder
             </Button>
           </DialogFooter>

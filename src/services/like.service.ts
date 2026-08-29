@@ -41,7 +41,12 @@ export async function toggleLike(
 
   const review = await db.review.findUnique({
     where: { id: reviewId },
-    select: { userId: true, title: true },
+    select: {
+      userId: true,
+      title: true,
+      novelId: true,
+      novel: { select: { title: true, coverUrl: true } },
+    },
   });
 
   if (!review) {
@@ -62,7 +67,7 @@ export async function toggleLike(
   if (review.userId !== userId) {
     const liker = await db.user.findUnique({
       where: { id: userId },
-      select: { displayName: true },
+      select: { id: true, displayName: true, username: true, avatarUrl: true },
     });
 
     await createNotification({
@@ -70,6 +75,17 @@ export async function toggleLike(
       type: NotificationType.REVIEW_LIKE,
       message: `${liker?.displayName ?? "Someone"} liked your review "${review.title}"`,
       link: `/reviews/${reviewId}`,
+      actorId: liker?.id,
+      metadata: {
+        actorDisplayName: liker?.displayName,
+        actorUsername: liker?.username,
+        actorAvatarUrl: liker?.avatarUrl,
+        reviewId,
+        reviewTitle: review.title,
+        novelId: review.novelId,
+        novelTitle: review.novel.title,
+        coverUrl: review.novel.coverUrl,
+      },
     });
   }
 

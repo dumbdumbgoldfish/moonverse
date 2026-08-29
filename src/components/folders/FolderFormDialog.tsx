@@ -1,6 +1,8 @@
 "use client";
 
 import { useState, useTransition } from "react";
+import { useSession } from "next-auth/react";
+import { triggerMoonieReaction } from "@/lib/moonie/reactions";
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
@@ -42,6 +44,10 @@ function FolderFormFields({
   onSubmit,
   onClose,
 }: FolderFormFieldsProps) {
+  const { data: session } = useSession();
+  const fieldScope = session?.user?.id ?? "guest";
+  const nameFieldId = `folder-name-${fieldScope}`;
+  const descriptionFieldId = `folder-description-${fieldScope}`;
   const [isPending, startTransition] = useTransition();
   const [error, setError] = useState<string | null>(null);
   const [name, setName] = useState(initialFolder?.name ?? "");
@@ -58,12 +64,15 @@ function FolderFormFields({
         setError(result.error ?? "Something went wrong.");
         return;
       }
+      if (mode === "create") {
+        triggerMoonieReaction("createReadingList");
+      }
       onClose();
     });
   };
 
   return (
-    <form onSubmit={handleSubmit}>
+    <form onSubmit={handleSubmit} autoComplete="off">
       <DialogHeader>
         <DialogTitle>
           {mode === "create" ? "Create folder" : "Edit folder"}
@@ -77,28 +86,36 @@ function FolderFormFields({
 
       <div className="grid gap-4 py-4">
         <div className="grid gap-2">
-          <Label htmlFor="folder-name">Name</Label>
+          <Label htmlFor={nameFieldId}>Name</Label>
           <Input
-            id="folder-name"
+            id={nameFieldId}
+            name={nameFieldId}
             value={name}
             onChange={(event) => setName(event.target.value)}
             placeholder="e.g. Best Romance"
             required
             maxLength={100}
             disabled={isPending}
+            autoComplete="off"
+            data-1p-ignore
+            data-lpignore="true"
           />
         </div>
 
         <div className="grid gap-2">
-          <Label htmlFor="folder-description">Description</Label>
+          <Label htmlFor={descriptionFieldId}>Description</Label>
           <Textarea
-            id="folder-description"
+            id={descriptionFieldId}
+            name={descriptionFieldId}
             value={description}
             onChange={(event) => setDescription(event.target.value)}
             placeholder="Optional notes about this collection"
             rows={3}
             maxLength={500}
             disabled={isPending}
+            autoComplete="off"
+            data-1p-ignore
+            data-lpignore="true"
           />
         </div>
 

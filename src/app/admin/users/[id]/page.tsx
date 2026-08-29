@@ -27,9 +27,9 @@ export default async function AdminUserDetailPage({
       >
         <Link
           href="/admin/users"
-          className="text-sm font-medium text-[#fcd34d] hover:underline"
+          className="text-sm font-medium text-[#e6d2a3] hover:underline"
         >
-          ← All users
+          All users
         </Link>
       </AdminPageHeader>
       <AdminUserDetailView user={user} />

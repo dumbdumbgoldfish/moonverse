@@ -13,9 +13,9 @@ interface EditReviewPageProps {
 export async function generateMetadata({ params }: EditReviewPageProps) {
   const { id } = await params;
   const review = await getReviewById(id);
-  if (!review) return { title: "Review not found — MoonVerse" };
+  if (!review) return { title: "Review not found · MoonVerse" };
   return {
-    title: `Edit ${review.title} — MoonVerse`,
+    title: `Edit ${review.title} · MoonVerse`,
   };
 }
 

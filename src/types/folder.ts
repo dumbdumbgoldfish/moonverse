@@ -5,6 +5,7 @@ export interface FolderListItem {
   name: string;
   description: string | null;
   isPublic: boolean;
+  isFeatured?: boolean;
   reviewCount: number;
   createdAt: string;
 }
@@ -13,6 +14,7 @@ export interface FolderDetail extends FolderListItem {
   userId: string;
   canManage: boolean;
   reviews: ReviewListItem[];
+  hasMoreReviews: boolean;
 }
 
 export interface CreateFolderInput {

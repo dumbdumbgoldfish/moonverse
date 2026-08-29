@@ -5,6 +5,7 @@ import { auth } from "@/lib/auth";
 import {
   markAllNotificationsAsRead,
   markNotificationAsRead,
+  markNotificationsAsRead,
 } from "@/services/notification.service";
 
 export type NotificationActionResult =
@@ -37,6 +38,22 @@ export async function markNotificationAsReadAction(
       return { success: false, error: error.message };
     }
     return { success: false, error: "Failed to mark notification as read." };
+  }
+}
+
+export async function markNotificationsAsReadAction(
+  notificationIds: string[]
+): Promise<NotificationActionResult> {
+  try {
+    const userId = await requireUserId();
+    await markNotificationsAsRead(notificationIds, userId);
+    revalidateNotifications();
+    return { success: true };
+  } catch (error) {
+    if (error instanceof Error) {
+      return { success: false, error: error.message };
+    }
+    return { success: false, error: "Failed to mark notifications as read." };
   }
 }
 

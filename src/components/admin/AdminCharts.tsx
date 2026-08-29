@@ -34,13 +34,13 @@ const tooltipStyle = {
 };
 
 const tooltipLabelStyle = {
-  color: "#ffffff",
+  color: "rgba(255, 255, 255, 0.65)",
   fontWeight: 600,
   marginBottom: 4,
 };
 
 const tooltipItemStyle = {
-  color: "#fcd34d",
+  color: "#f9db7e",
 };
 
 /** Recharts default bar hover cursor is light gray — override for dark admin charts. */
@@ -93,14 +93,14 @@ export function AdminChartPanel({
   return (
     <div
       className={cn(
-        "rounded-[1rem] border border-[#c89b4a]/20 bg-[#1f1a2e] p-4 text-white shadow-[0_16px_40px_-28px_rgba(0,0,0,0.4)]",
+        "rounded-[1rem] border border-[#f9db7e]/20 bg-[#1f1a2e] p-4 text-white shadow-[0_16px_40px_-28px_rgba(0,0,0,0.4)]",
         className
       )}
     >
       <div className="mb-3">
         <h3 className="text-sm font-semibold text-white">{title}</h3>
         {subtitle ? (
-          <p className="mt-0.5 text-[11px] text-[#fcd34d]">{subtitle}</p>
+          <p className="mt-0.5 text-[11px] text-[#fce9a8]">{subtitle}</p>
         ) : null}
       </div>
       <div style={{ height }}>{children}</div>
@@ -182,7 +182,7 @@ export function AdminDonutChart({
       </ResponsiveContainer>
       <div className="pointer-events-none absolute inset-0 flex items-center justify-center">
         <div className="text-center">
-          <p className="text-[10px] font-semibold uppercase tracking-[0.14em] text-[#fcd34d]">Total</p>
+          <p className="text-[10px] font-semibold uppercase tracking-[0.14em] text-[#fde68a]">Total</p>
           <p className="font-serif text-2xl font-medium text-white">{total.toLocaleString()}</p>
         </div>
       </div>

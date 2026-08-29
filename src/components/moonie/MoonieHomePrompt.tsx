@@ -1,50 +1,60 @@
 "use client";
 
-import { Sparkles } from "lucide-react";
-import { MoonieMascot } from "@/components/brand/MoonieMascot";
-import { Button } from "@/components/ui/button";
+import { FloatingMoonie } from "@/components/brand/FloatingMoonie";
+import { AskMoonieButton } from "@/components/moonie/AskMoonieButton";
 import { Input } from "@/components/ui/input";
 import { MOONIE_QUICK_PROMPTS } from "@/lib/moonie/constants";
+import { moonieVariantFor } from "@/lib/moonie/variants";
+import { openMoonie } from "@/lib/moonie/open-moonie";
 
 interface MoonieHomePromptProps {
   variant?: "hero" | "sidebar" | "section";
+  /** Use on dark section backgrounds (e.g. Meet Moonie shelf). */
+  tone?: "light" | "dark";
 }
 
-export function MoonieHomePrompt({ variant = "section" }: MoonieHomePromptProps) {
-  const openMoonie = (prompt?: string) => {
-    window.dispatchEvent(
-      new CustomEvent("moonie:open", { detail: prompt ? { prompt } : undefined })
-    );
-  };
-
+export function MoonieHomePrompt({
+  variant = "section",
+  tone = "light",
+}: MoonieHomePromptProps) {
   if (variant === "hero") {
-    return null;
+    return (
+      <section className="relative mx-4 overflow-visible py-4">
+        <div className="flex flex-col items-center gap-4 text-center sm:flex-row sm:text-left">
+          <FloatingMoonie variant={moonieVariantFor("homepageGreeting")} size={140} priority />
+          <div>
+            <h2 className="text-2xl font-bold">Discover with Moonie</h2>
+            <p className="mt-2 text-sm text-muted-foreground">
+              Moonie helps you discover your next favorite novel.
+            </p>
+            <AskMoonieButton className="mt-4" />
+          </div>
+        </div>
+      </section>
+    );
   }
 
   const isSidebar = variant === "sidebar";
+  const onDark = tone === "dark";
+  const titleClass = isSidebar
+    ? "text-sm font-semibold"
+    : "text-xl font-bold sm:text-2xl";
+  const titleTone = onDark ? "text-[#F7F5FF]" : "text-foreground";
+  const subtitleTone = onDark ? "text-[#B7BDD1]" : "text-muted-foreground";
 
   return (
-    <div
-      className={
-        isSidebar
-          ? "rounded-2xl border border-primary/15 bg-gradient-to-br from-moon-purple-soft to-white p-4 shadow-sm"
-          : "rounded-3xl border border-primary/20 bg-gradient-to-br from-moon-purple-soft via-white to-sky-50 p-6 shadow-md sm:p-8"
-      }
-    >
-      <div className="flex items-start gap-3">
-        <MoonieMascot size={isSidebar ? 40 : 56} animated />
+    <div className={isSidebar ? "p-1" : "py-2"}>
+      <div className="flex items-start gap-2">
+        <FloatingMoonie
+          variant="thinking"
+          size={isSidebar ? 56 : 88}
+          display="badge"
+          compact={isSidebar}
+        />
         <div className="min-w-0 flex-1">
-          <h3
-            className={
-              isSidebar
-                ? "text-sm font-semibold text-foreground"
-                : "text-xl font-bold text-foreground sm:text-2xl"
-            }
-          >
-            Ask Moonie
-          </h3>
-          <p className="mt-1 text-xs text-muted-foreground sm:text-sm">
-            Get personalised web novel picks from MoonVerse data.
+          <h3 className={`${titleClass} ${titleTone}`}>Ask Moonie</h3>
+          <p className={`mt-1 text-xs sm:text-sm ${subtitleTone}`}>
+            Get personalised web novel picks from MoonVerse.
           </p>
         </div>
       </div>
@@ -59,7 +69,7 @@ export function MoonieHomePrompt({ variant = "section" }: MoonieHomePromptProps)
             key={prompt}
             type="button"
             onClick={() => openMoonie(prompt)}
-            className="rounded-full border border-primary/20 bg-white px-2.5 py-1 text-xs text-primary transition-colors hover:bg-primary hover:text-primary-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+            className="rounded-full border border-primary/20 bg-white px-2.5 py-1 text-xs text-primary transition-colors mv-hover-signup focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring dark:bg-card"
           >
             {prompt}
           </button>
@@ -84,13 +94,19 @@ export function MoonieHomePrompt({ variant = "section" }: MoonieHomePromptProps)
         <Input
           id={isSidebar ? "moonie-sidebar-prompt" : "moonie-home-prompt"}
           name="moonie-prompt"
-          placeholder="e.g. slow-burn romance with magic school"
-          className="bg-white text-sm"
+          placeholder="What should I read next?"
+          className="bg-white text-sm dark:bg-card"
         />
-        <Button type="submit" size={isSidebar ? "sm" : "default"}>
-          <Sparkles data-icon="inline-start" aria-hidden="true" />
+        <AskMoonieButton
+          type="button"
+          onClick={(event) => {
+            event.preventDefault();
+            event.currentTarget.closest("form")?.requestSubmit();
+          }}
+          size={isSidebar ? "sm" : "md"}
+        >
           Ask
-        </Button>
+        </AskMoonieButton>
       </form>
     </div>
   );

@@ -1,14 +1,18 @@
 import { LoginForm } from "@/components/auth/LoginForm";
+import { AuthMarketingShell } from "@/components/auth/AuthMarketingShell";
+import { getAuthShowcaseNovels } from "@/services/discovery.service";
 
 export const metadata = {
-  title: "Log in — MoonVerse",
+  title: "Log in · MoonVerse",
   description: "Log in to your MoonVerse account.",
 };
 
-export default function LoginPage() {
+export default async function LoginPage() {
+  const showcaseNovels = await getAuthShowcaseNovels(3);
+
   return (
-    <div className="flex flex-1 items-center justify-center px-4 py-12 sm:py-16">
+    <AuthMarketingShell showcaseNovels={showcaseNovels}>
       <LoginForm />
-    </div>
+    </AuthMarketingShell>
   );
 }

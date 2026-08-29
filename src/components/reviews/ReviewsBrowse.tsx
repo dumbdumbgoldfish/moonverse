@@ -100,7 +100,7 @@ export function ReviewsBrowse({
           Community Reviews
         </h1>
         <p className="mt-1 text-sm text-muted-foreground">
-          Honest reviews from readers like you — filter, search, and join the conversation.
+          Honest reviews from readers like you. Filter, search and join the conversation.
         </p>
       </div>
 

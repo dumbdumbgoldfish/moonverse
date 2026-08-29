@@ -107,9 +107,9 @@ export function AdminCommandPalette() {
       <button
         type="button"
         onClick={() => setOpen(true)}
-        className="flex h-8 w-full max-w-md items-center gap-2 rounded-xl border border-[#241630]/10 bg-white px-3 text-left text-xs text-[#7a7284] shadow-sm transition hover:border-[#c89b4a]/35"
+        className="flex h-8 w-full max-w-md items-center gap-2 rounded-xl border border-[#241630]/10 bg-white px-3 text-left text-xs text-[#7a7284] shadow-sm transition hover:border-[#f9db7e]/35"
       >
-        <Search size={14} className="shrink-0 text-[#c89b4a]/80" />
+        <Search size={14} className="shrink-0 text-[#f9db7e]/80" />
         <span className="flex-1 truncate">Search admin records…</span>
         <kbd className="hidden rounded-md bg-[#faf8fc] px-1.5 py-0.5 font-mono text-[10px] text-[#4c2a67]/70 sm:inline">
           ⌘K
@@ -152,14 +152,14 @@ export function AdminCommandPalette() {
                         index === activeIndex ? "bg-[#faf8fc] text-[#4c2a67]" : "hover:bg-[#f3f0f6]"
                       )}
                     >
-                      <span className="flex size-8 shrink-0 items-center justify-center rounded-lg bg-white ring-1 ring-[#c89b4a]/20">
+                      <span className="flex size-8 shrink-0 items-center justify-center rounded-lg bg-white ring-1 ring-[#f9db7e]/20">
                         <Icon size={14} />
                       </span>
                       <span className="min-w-0 flex-1">
                         <span className="block truncate text-sm font-medium">{result.label}</span>
                         <span className="block truncate text-xs text-[#7a7284]">{result.meta}</span>
                       </span>
-                      <span className="shrink-0 text-[10px] font-semibold uppercase tracking-wide text-[#c89b4a]/75">
+                      <span className="shrink-0 text-[10px] font-semibold uppercase tracking-wide text-[#f9db7e]/75">
                         {result.type}
                       </span>
                     </button>

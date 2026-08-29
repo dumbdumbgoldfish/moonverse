@@ -2,21 +2,20 @@ import Link from "next/link";
 import { FolderOpen, TrendingUp, Users } from "lucide-react";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { MoonieHomePrompt } from "@/components/moonie/MoonieHomePrompt";
-import { mockCommunityStats } from "@/lib/mock-data";
+import type { FeaturedReviewer } from "@/services/community.service";
 import type { FolderListItem } from "@/types/folder";
-
-const REVIEWER_USERNAMES: Record<string, string> = {
-  StarReader: "starreader",
-  QuestLog: "questlog",
-  CosmoReads: "cosmoreads",
-};
 
 interface FeedSidebarProps {
   folders?: FolderListItem[];
+  featuredReviewers?: FeaturedReviewer[];
   isLoggedIn?: boolean;
 }
 
-export function FeedSidebar({ folders = [], isLoggedIn = false }: FeedSidebarProps) {
+export function FeedSidebar({
+  folders = [],
+  featuredReviewers = [],
+  isLoggedIn = false,
+}: FeedSidebarProps) {
   return (
     <>
       <MoonieHomePrompt variant="sidebar" />
@@ -27,10 +26,10 @@ export function FeedSidebar({ folders = [], isLoggedIn = false }: FeedSidebarPro
           <h2 className="text-sm font-semibold">Trending reviewers</h2>
         </div>
         <ul className="mt-3 space-y-3">
-          {mockCommunityStats.featuredReviewers.map((reviewer) => (
-            <li key={reviewer.name}>
+          {featuredReviewers.map((reviewer) => (
+            <li key={reviewer.username}>
               <Link
-                href={`/users/${REVIEWER_USERNAMES[reviewer.name] ?? reviewer.name.toLowerCase()}`}
+                href={`/users/${reviewer.username}`}
                 className="flex items-center gap-3 rounded-xl p-2 transition-colors hover:bg-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
               >
                 <Avatar size="sm">
@@ -39,7 +38,7 @@ export function FeedSidebar({ folders = [], isLoggedIn = false }: FeedSidebarPro
                   </AvatarFallback>
                 </Avatar>
                 <div className="min-w-0 flex-1">
-                  <p className="truncate text-sm font-medium">{reviewer.name}</p>
+                  <p className="truncate text-sm font-medium">{reviewer.displayName}</p>
                   <p className="text-xs text-muted-foreground">
                     {reviewer.reviewCount} reviews
                   </p>

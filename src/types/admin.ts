@@ -1,4 +1,9 @@
-import type { NotificationType, UserRole } from "@prisma/client";
+import type {
+  ContentModerationStatus,
+  NotificationType,
+  UserRole,
+} from "@prisma/client";
+import type { TagKind } from "@prisma/client";
 
 export interface AdminDashboardStats {
   users: number;
@@ -7,6 +12,14 @@ export interface AdminDashboardStats {
   comments: number;
   likes: number;
   folders: number;
+}
+
+export interface AdminDashboardAttention {
+  openReports: number;
+  pendingReadingLinks: number;
+  pendingTagSuggestions: number;
+  autoFlaggedReviews: number;
+  autoFlaggedComments: number;
 }
 
 export interface AdminReviewSummary {
@@ -19,7 +32,16 @@ export interface AdminReviewSummary {
   commentCount: number;
   saveCount: number;
   shareCount: number;
+  moderationStatus: ContentModerationStatus;
   createdAt: string;
+}
+
+export interface AdminListPage<T> {
+  items: T[];
+  total: number;
+  page: number;
+  pageSize: number;
+  totalPages: number;
 }
 
 export interface AdminUserSummary {
@@ -42,6 +64,7 @@ export interface AdminCommentSummary {
   authorUsername: string;
   authorDisplayName: string;
   parentCommentId: string | null;
+  moderationStatus: ContentModerationStatus;
   createdAt: string;
 }
 
@@ -70,6 +93,7 @@ export interface AdminTagSummary {
   id: string;
   name: string;
   slug: string;
+  kind: TagKind;
   novelCount: number;
 }
 

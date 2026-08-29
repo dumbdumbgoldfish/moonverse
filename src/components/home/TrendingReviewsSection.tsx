@@ -1,6 +1,5 @@
-import Link from "next/link";
-import { ArrowRight, TrendingUp } from "lucide-react";
-import { Button } from "@/components/ui/button";
+import { TrendingUp } from "lucide-react";
+import { CatalogLink } from "@/components/ui/CatalogLink";
 import { SocialReviewCard } from "@/components/reviews/SocialReviewCard";
 import type { ReviewListItem } from "@/types/review";
 
@@ -28,14 +27,9 @@ export function TrendingReviewsSection({ reviews }: TrendingReviewsSectionProps)
               The most-loved reviews from the MoonVerse community this week.
             </p>
           </div>
-          <Button
-            variant="ghost"
-            className="hidden sm:inline-flex"
-            render={<Link href="/reviews" />}
-          >
+          <CatalogLink href="/discover" className="hidden sm:inline-flex">
             View all
-            <ArrowRight data-icon="inline-end" />
-          </Button>
+          </CatalogLink>
         </div>
 
         <div className="mt-8 flex gap-4 overflow-x-auto pb-4 snap-x snap-mandatory scrollbar-thin">
@@ -47,10 +41,9 @@ export function TrendingReviewsSection({ reviews }: TrendingReviewsSectionProps)
         </div>
 
         <div className="mt-4 sm:hidden">
-          <Button variant="outline" className="w-full" render={<Link href="/reviews" />}>
+          <CatalogLink href="/discover" className="w-full">
             View all reviews
-            <ArrowRight data-icon="inline-end" />
-          </Button>
+          </CatalogLink>
         </div>
       </div>
     </section>

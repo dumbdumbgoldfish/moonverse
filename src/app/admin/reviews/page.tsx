@@ -6,6 +6,7 @@ import {
   AdminEmptyState,
   AdminFilterChips,
   AdminPageHeader,
+  AdminPagination,
   AdminSection,
   AdminToolbar,
 } from "@/components/admin/AdminUi";
@@ -16,18 +17,20 @@ export const metadata = { title: "Admin Reviews · MoonVerse" };
 const moderationStatuses = Object.values(ContentModerationStatus);
 
 interface AdminReviewsPageProps {
-  searchParams: Promise<{ q?: string; rating?: string; status?: string }>;
+  searchParams: Promise<{ q?: string; rating?: string; status?: string; page?: string }>;
 }
 
 function buildHref(
   q?: string,
   rating?: number,
-  status?: string
+  status?: string,
+  page?: number
 ): string {
   const params = new URLSearchParams();
   if (q) params.set("q", q);
   if (rating) params.set("rating", String(rating));
   if (status) params.set("status", status);
+  if (page && page > 1) params.set("page", String(page));
   const qs = params.toString();
   return qs ? `?${qs}` : "/admin/reviews";
 }
@@ -35,7 +38,8 @@ function buildHref(
 export default async function AdminReviewsPage({
   searchParams,
 }: AdminReviewsPageProps) {
-  const { q, rating, status } = await searchParams;
+  const { q, rating, status, page: pageParam } = await searchParams;
+  const page = Math.max(1, Number(pageParam) || 1);
   const ratingNum = rating ? Number(rating) : undefined;
   const moderationStatus = moderationStatuses.includes(
     status as ContentModerationStatus
@@ -43,11 +47,14 @@ export default async function AdminReviewsPage({
     ? (status as ContentModerationStatus)
     : undefined;
 
-  const reviews = await getAdminReviews({
-    query: q,
-    rating: ratingNum && ratingNum >= 1 && ratingNum <= 5 ? ratingNum : undefined,
-    moderationStatus,
-  });
+  const result = await getAdminReviews(
+    {
+      query: q,
+      rating: ratingNum && ratingNum >= 1 && ratingNum <= 5 ? ratingNum : undefined,
+      moderationStatus,
+    },
+    page
+  );
 
   return (
     <>
@@ -78,10 +85,23 @@ export default async function AdminReviewsPage({
           }))}
         />
       </AdminSection>
-      {reviews.length === 0 ? (
+      {result.items.length === 0 ? (
         <AdminEmptyState title="No reviews found" description="Try another search or filter." />
       ) : (
-        <AdminReviewsTable reviews={reviews} />
+        <>
+          <AdminReviewsTable reviews={result.items} />
+          <AdminPagination
+            page={result.page}
+            totalPages={result.totalPages}
+            total={result.total}
+            basePath="/admin/reviews"
+            params={{
+              q,
+              rating: ratingNum ? String(ratingNum) : undefined,
+              status: moderationStatus,
+            }}
+          />
+        </>
       )}
     </>
   );

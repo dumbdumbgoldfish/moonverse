@@ -1,9 +1,11 @@
 "use client";
 
 import { useRouter } from "next/navigation";
+import { ADMIN_BTN_GOLD } from "@/components/admin/admin-styles";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
+import { cn } from "@/lib/utils";
 
 interface AdminAuditFiltersProps {
   actions: string[];
@@ -14,6 +16,9 @@ interface AdminAuditFiltersProps {
     actor?: string;
   };
 }
+
+const adminFieldClass =
+  "h-9 rounded-xl border-white/10 bg-white/[0.06] text-sm text-white placeholder:text-white/35";
 
 export function AdminAuditFilters({ actions, current }: AdminAuditFiltersProps) {
   const router = useRouter();
@@ -35,7 +40,7 @@ export function AdminAuditFilters({ actions, current }: AdminAuditFiltersProps) 
       }}
     >
       <div className="space-y-1.5 sm:col-span-2">
-        <Label htmlFor="audit-query" className="text-xs">
+        <Label htmlFor="audit-query" className="text-xs text-white/80">
           Search
         </Label>
         <Input
@@ -43,15 +48,18 @@ export function AdminAuditFilters({ actions, current }: AdminAuditFiltersProps) 
           name="query"
           defaultValue={current.query ?? ""}
           placeholder="Action, entity, ID…"
-          className="h-9 rounded-xl text-sm"
+          className={adminFieldClass}
         />
       </div>
       <div className="space-y-1.5">
-        <Label className="text-xs">Action</Label>
+        <Label htmlFor="audit-action" className="text-xs text-white/80">
+          Action
+        </Label>
         <select
+          id="audit-action"
           name="action"
           defaultValue={current.action ?? ""}
-          className="h-9 w-full rounded-xl border border-white/10 bg-white/[0.06] px-2 text-sm text-white"
+          className={cn(adminFieldClass, "w-full px-2")}
         >
           <option value="">All actions</option>
           {actions.map((action) => (
@@ -62,7 +70,7 @@ export function AdminAuditFilters({ actions, current }: AdminAuditFiltersProps) 
         </select>
       </div>
       <div className="space-y-1.5">
-        <Label htmlFor="audit-entity" className="text-xs">
+        <Label htmlFor="audit-entity" className="text-xs text-white/80">
           Entity type
         </Label>
         <Input
@@ -70,11 +78,11 @@ export function AdminAuditFilters({ actions, current }: AdminAuditFiltersProps) 
           name="entityType"
           defaultValue={current.entityType ?? ""}
           placeholder="Review, User…"
-          className="h-9 rounded-xl text-sm"
+          className={adminFieldClass}
         />
       </div>
       <div className="space-y-1.5">
-        <Label htmlFor="audit-actor" className="text-xs">
+        <Label htmlFor="audit-actor" className="text-xs text-white/80">
           Actor
         </Label>
         <Input
@@ -82,11 +90,11 @@ export function AdminAuditFilters({ actions, current }: AdminAuditFiltersProps) 
           name="actor"
           defaultValue={current.actor ?? ""}
           placeholder="username"
-          className="h-9 rounded-xl text-sm"
+          className={adminFieldClass}
         />
       </div>
       <div className="flex items-end sm:col-span-2 lg:col-span-5">
-        <Button type="submit" size="sm">
+        <Button type="submit" size="sm" className={ADMIN_BTN_GOLD}>
           Apply filters
         </Button>
       </div>

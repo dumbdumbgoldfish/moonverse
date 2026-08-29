@@ -7,6 +7,8 @@ import {
   createFolder,
   deleteFolder,
   removeReviewFromFolder,
+  saveReviewToLibrary,
+  toggleFolderFeatured,
   updateFolder,
 } from "@/services/folder.service";
 import type { CreateFolderInput, UpdateFolderInput } from "@/types/folder";
@@ -100,6 +102,53 @@ export async function addReviewToFolderAction(
       return { success: false, error: error.message };
     }
     return { success: false, error: "Failed to save review to folder." };
+  }
+}
+
+export async function saveReviewToLibraryAction(
+  reviewId: string
+): Promise<
+  FolderActionResult & {
+    added?: boolean;
+    folderId?: string;
+    folderName?: string;
+  }
+> {
+  try {
+    const userId = await requireUserId();
+    const result = await saveReviewToLibrary(reviewId, userId);
+    // Revalidate only library paths; refreshing /home reshuffles Discover and
+    // can remove the newly saved review from personalized shelves.
+    revalidateFolderPaths(result.folderId, reviewId);
+    return {
+      success: true,
+      added: result.added,
+      folderId: result.folderId,
+      folderName: result.folderName,
+    };
+  } catch (error) {
+    if (error instanceof Error) {
+      return { success: false, error: error.message };
+    }
+    return { success: false, error: "Failed to add to library." };
+  }
+}
+
+export async function toggleFolderFeaturedAction(
+  folderId: string,
+  isFeatured: boolean
+): Promise<FolderActionResult> {
+  try {
+    const userId = await requireUserId();
+    await toggleFolderFeatured(folderId, userId, isFeatured);
+    revalidateFolderPaths(folderId);
+    revalidatePath("/lists");
+    return { success: true };
+  } catch (error) {
+    if (error instanceof Error) {
+      return { success: false, error: error.message };
+    }
+    return { success: false, error: "Failed to update featured status." };
   }
 }
 

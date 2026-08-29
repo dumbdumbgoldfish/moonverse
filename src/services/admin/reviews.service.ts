@@ -1,10 +1,12 @@
-import { Prisma } from "@prisma/client";
+import { ContentModerationStatus, Prisma } from "@prisma/client";
+import { ADMIN_LIST_PAGE_SIZE } from "@/components/admin/admin-styles";
 import { db } from "@/lib/db";
-import type { AdminReviewSummary } from "@/types/admin";
+import type { AdminListPage, AdminReviewSummary } from "@/types/admin";
 
 export interface AdminReviewFilters {
   query?: string;
   rating?: number;
+  moderationStatus?: ContentModerationStatus;
 }
 
 function buildReviewWhere(filters: AdminReviewFilters): Prisma.ReviewWhereInput {
@@ -12,6 +14,10 @@ function buildReviewWhere(filters: AdminReviewFilters): Prisma.ReviewWhereInput 
 
   if (filters.rating) {
     where.rating = filters.rating;
+  }
+
+  if (filters.moderationStatus) {
+    where.moderationStatus = filters.moderationStatus;
   }
 
   if (filters.query?.trim()) {
@@ -27,29 +33,45 @@ function buildReviewWhere(filters: AdminReviewFilters): Prisma.ReviewWhereInput 
 }
 
 export async function getAdminReviews(
-  filters: AdminReviewFilters = {}
-): Promise<AdminReviewSummary[]> {
-  const reviews = await db.review.findMany({
-    where: buildReviewWhere(filters),
-    orderBy: { createdAt: "desc" },
-    include: {
-      user: { select: { username: true } },
-      novel: { select: { title: true } },
-    },
-  });
+  filters: AdminReviewFilters = {},
+  page = 1,
+  pageSize = ADMIN_LIST_PAGE_SIZE
+): Promise<AdminListPage<AdminReviewSummary>> {
+  const where = buildReviewWhere(filters);
+  const safePage = Math.max(1, page);
+  const [total, reviews] = await Promise.all([
+    db.review.count({ where }),
+    db.review.findMany({
+      where,
+      orderBy: { createdAt: "desc" },
+      skip: (safePage - 1) * pageSize,
+      take: pageSize,
+      include: {
+        user: { select: { username: true } },
+        novel: { select: { title: true } },
+      },
+    }),
+  ]);
 
-  return reviews.map((review) => ({
-    id: review.id,
-    title: review.title,
-    rating: review.rating,
-    novelTitle: review.novel.title,
-    reviewerUsername: review.user.username,
-    likeCount: review.likeCount,
-    commentCount: review.commentCount,
-    saveCount: review.saveCount,
-    shareCount: review.shareCount,
-    createdAt: review.createdAt.toISOString(),
-  }));
+  return {
+    items: reviews.map((review) => ({
+      id: review.id,
+      title: review.title,
+      rating: review.rating,
+      novelTitle: review.novel.title,
+      reviewerUsername: review.user.username,
+      likeCount: review.likeCount,
+      commentCount: review.commentCount,
+      saveCount: review.saveCount,
+      shareCount: review.shareCount,
+      moderationStatus: review.moderationStatus,
+      createdAt: review.createdAt.toISOString(),
+    })),
+    total,
+    page: safePage,
+    pageSize,
+    totalPages: Math.max(1, Math.ceil(total / pageSize)),
+  };
 }
 
 export async function getAdminReviewById(
@@ -76,10 +98,27 @@ export async function getAdminReviewById(
     commentCount: review.commentCount,
     saveCount: review.saveCount,
     shareCount: review.shareCount,
+    moderationStatus: review.moderationStatus,
     createdAt: review.createdAt.toISOString(),
   };
 }
 
 export async function adminDeleteReview(reviewId: string): Promise<void> {
   await db.review.delete({ where: { id: reviewId } });
+}
+
+export async function adminSetReviewModerationStatus(
+  reviewId: string,
+  moderationStatus: ContentModerationStatus
+): Promise<void> {
+  const review = await db.review.findUnique({
+    where: { id: reviewId },
+    select: { id: true },
+  });
+  if (!review) throw new Error("Review not found.");
+
+  await db.review.update({
+    where: { id: reviewId },
+    data: { moderationStatus },
+  });
 }

@@ -1,10 +1,11 @@
 "use client";
 
 import Link from "next/link";
-import Image from "next/image";
 import { Heart, MessageCircle, Share2, Bookmark } from "lucide-react";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
+import { CoverImage } from "@/components/ui/CoverImage";
+import { ExpandableReviewBody } from "@/components/reviews/ExpandableReviewBody";
 import { StarRating } from "@/components/reviews/StarRating";
 import { cn } from "@/lib/utils";
 import type { ReviewListItem } from "@/types/review";
@@ -33,11 +34,11 @@ export function SocialReviewCard({
   return (
     <article
       className={cn(
-        "overflow-hidden rounded-2xl border border-border/60 bg-white shadow-sm transition-shadow hover:shadow-md",
+        "overflow-hidden rounded-2xl border border-border/60 bg-white shadow-sm transition-[box-shadow,transform] duration-200 hover:shadow-md",
         isCompact && "rounded-xl"
       )}
     >
-      {/* Post header — reviewer */}
+      {/* Post header. reviewer */}
       <div className="flex items-center gap-3 px-4 pt-4">
         <Link
           href={`/users/${review.reviewerUsername}`}
@@ -75,12 +76,16 @@ export function SocialReviewCard({
 
         <div className="mt-3 flex gap-3 rounded-xl bg-bg-warm p-3">
           <div className="relative h-[88px] w-[60px] shrink-0 overflow-hidden rounded-lg shadow-sm">
-            <Image
+            <CoverImage
               src={review.coverUrl}
               alt={`Cover of ${review.novelTitle}`}
-              fill
-              className="object-cover"
+              title={review.novelTitle}
+              author={review.novelAuthor}
+              genres={review.genres}
+              rating={review.rating}
+              themeSeed={review.novelId}
               sizes="60px"
+              compactFallback
             />
           </div>
           <div className="min-w-0 flex-1">
@@ -96,9 +101,13 @@ export function SocialReviewCard({
           </div>
         </div>
 
-        <p className="mt-3 line-clamp-3 text-sm leading-relaxed text-muted-foreground">
-          {review.excerpt}
-        </p>
+        <div className="mt-3">
+          <ExpandableReviewBody
+            text={review.body}
+            collapsedLength={420}
+            className="text-sm text-muted-foreground"
+          />
+        </div>
 
         <div className="mt-3 flex flex-wrap gap-1.5">
           {review.genres.map((genre) => (
@@ -127,7 +136,7 @@ export function SocialReviewCard({
           className="flex flex-1 items-center justify-center gap-1.5 rounded-lg py-2.5 text-xs font-medium text-muted-foreground transition-colors hover:bg-muted hover:text-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
         >
           <MessageCircle className="size-4" aria-hidden="true" />
-          Comment
+          {review.commentCount ?? 0}
         </Link>
         <Link
           href={`/reviews/${review.id}`}

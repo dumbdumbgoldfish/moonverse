@@ -1,16 +1,18 @@
 "use client";
 
 import { useState, useTransition } from "react";
+import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useSession } from "next-auth/react";
 import { updateProfileAction } from "@/actions/user.actions";
-import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+import { ProfileImageUpload } from "@/components/settings/ProfileImageUpload";
+import { ProfileBackgroundUpload } from "@/components/settings/ProfileBackgroundUpload";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { LIMITS } from "@/lib/validation";
-import { getInitials } from "@/lib/review-utils";
+import { resolveSessionImageUrl } from "@/lib/session-image";
 import type { UserSettings } from "@/types/user";
 
 interface SettingsFormProps {
@@ -19,15 +21,16 @@ interface SettingsFormProps {
 
 export function SettingsForm({ settings }: SettingsFormProps) {
   const router = useRouter();
-  const { update } = useSession();
+  const { data: session, update } = useSession();
   const [isPending, startTransition] = useTransition();
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
   const [displayName, setDisplayName] = useState(settings.displayName);
   const [bio, setBio] = useState(settings.bio ?? "");
   const [avatarUrl, setAvatarUrl] = useState(settings.avatarUrl ?? "");
-
-  const previewInitials = getInitials(displayName || settings.displayName);
+  const [profileBackgroundUrl, setProfileBackgroundUrl] = useState(
+    settings.profileBackgroundUrl ?? "",
+  );
 
   function handleSubmit(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -39,6 +42,7 @@ export function SettingsForm({ settings }: SettingsFormProps) {
         displayName,
         bio,
         avatarUrl,
+        profileBackgroundUrl,
       });
 
       if (!result.success) {
@@ -46,9 +50,14 @@ export function SettingsForm({ settings }: SettingsFormProps) {
         return;
       }
 
-      if (result.displayName) {
-        await update({ name: result.displayName });
-      }
+      await update({
+        name: result.displayName ?? displayName,
+        image:
+          resolveSessionImageUrl(
+            (result.avatarUrl ?? avatarUrl.trim()) || null,
+            session?.user?.id ?? "",
+          ) ?? null,
+      });
 
       setSuccess("Profile updated successfully.");
       router.refresh();
@@ -79,8 +88,8 @@ export function SettingsForm({ settings }: SettingsFormProps) {
         </p>
       )}
 
-      <section className="rounded-xl border border-border/60 bg-bg-elevated p-6">
-        <h2 className="text-lg font-semibold">Account</h2>
+      <section className="rounded-[1.25rem] border border-[#1A1224]/8 bg-white p-5 shadow-[0_20px_48px_-36px_rgba(26,18,36,0.12)] sm:p-6">
+        <h2 className="font-serif text-lg font-medium text-[#1A1224]">Account</h2>
         <p className="mt-1 text-sm text-muted-foreground">
           Email and username cannot be changed.
         </p>
@@ -109,27 +118,36 @@ export function SettingsForm({ settings }: SettingsFormProps) {
         </div>
       </section>
 
-      <section className="rounded-xl border border-border/60 bg-bg-elevated p-6">
-        <h2 className="text-lg font-semibold">Public profile</h2>
-        <p className="mt-1 text-sm text-muted-foreground">
-          These details appear on your profile page.
-        </p>
-
-        <div className="mt-6 flex items-center gap-4">
-          <Avatar className="size-16">
-            {avatarUrl.trim() ? (
-              <AvatarImage src={avatarUrl.trim()} alt="" />
-            ) : null}
-            <AvatarFallback className="bg-primary/20 text-primary">
-              {previewInitials}
-            </AvatarFallback>
-          </Avatar>
-          <p className="text-sm text-muted-foreground">
-            Avatar preview updates as you type a URL.
-          </p>
+      <section className="rounded-[1.25rem] border border-[#1A1224]/8 bg-white p-5 shadow-[0_20px_48px_-36px_rgba(26,18,36,0.12)] sm:p-6">
+        <div className="flex flex-wrap items-start justify-between gap-3">
+          <div>
+            <h2 className="font-serif text-lg font-medium text-[#1A1224]">Public profile</h2>
+            <p className="mt-1 text-sm text-muted-foreground">
+              These details appear on your profile page.
+            </p>
+          </div>
+          <Link
+            href={`/users/${settings.username}`}
+            className="shrink-0 text-[13px] font-semibold text-[#6E46C7] hover:underline"
+          >
+            See your profile
+          </Link>
         </div>
 
         <div className="mt-6 space-y-4">
+          <ProfileBackgroundUpload
+            value={profileBackgroundUrl}
+            onChange={setProfileBackgroundUrl}
+            disabled={isPending}
+          />
+
+          <ProfileImageUpload
+            value={avatarUrl}
+            onChange={setAvatarUrl}
+            displayName={displayName || settings.displayName}
+            disabled={isPending}
+          />
+
           <div className="space-y-2">
             <Label htmlFor="settings-display-name">Display name</Label>
             <Input
@@ -157,19 +175,6 @@ export function SettingsForm({ settings }: SettingsFormProps) {
             <p className="text-xs text-muted-foreground">
               {bio.length}/{LIMITS.bio.max} characters
             </p>
-          </div>
-
-          <div className="space-y-2">
-            <Label htmlFor="settings-avatar-url">Avatar URL</Label>
-            <Input
-              id="settings-avatar-url"
-              type="url"
-              value={avatarUrl}
-              onChange={(event) => setAvatarUrl(event.target.value)}
-              placeholder="https://…"
-              maxLength={LIMITS.avatarUrl.max}
-              disabled={isPending}
-            />
           </div>
         </div>
       </section>

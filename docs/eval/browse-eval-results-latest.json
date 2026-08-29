@@ -1,0 +1,59 @@
+{
+ "generatedAt": "2026-08-18T03:09:12.916Z",
+ "passed": 10,
+ "total": 10,
+ "nl": [
+ {
+ "id": "BN01",
+ "pass": true,
+ "summary": "Mapped to Romance · slow-burn · official link only"
+ },
+ {
+ "id": "BN02",
+ "pass": true,
+ "summary": "Mapped to Fantasy · found family · sort: community-strength"
+ },
+ {
+ "id": "BN03",
+ "pass": true,
+ "summary": "Mapped to LitRPG · sort: affinity"
+ },
+ {
+ "id": "BN04",
+ "pass": true,
+ "summary": "Mapped to Romance · enemies-to-lovers · mode: reviews"
+ },
+ {
+ "id": "BN05",
+ "pass": true,
+ "summary": "Mapped to Science Fiction · sort: catalogue-confidence"
+ }
+ ],
+ "polish": [
+ {
+ "id": "BP02",
+ "pass": true,
+ "summary": "Density parser accepts comfortable / compact / coverwall"
+ },
+ {
+ "id": "BRC-hot",
+ "pass": true,
+ "summary": "Hot: Recent community activity (reviews + likes). Not a sales cha…"
+ },
+ {
+ "id": "BRC-community-strength",
+ "pass": true,
+ "summary": "Community strength: Bayesian rating with a catalogue prior: few reviews pull to…"
+ },
+ {
+ "id": "BRC-catalogue-confidence",
+ "pass": true,
+ "summary": "Catalogue confidence: Prioritises verified official links and trusted covers befor…"
+ },
+ {
+ "id": "BRC-affinity",
+ "pass": true,
+ "summary": "My affinity: Ranks by overlap with your Moonie taste and onboarding genre…"
+ }
+ ]
+}

@@ -19,10 +19,10 @@ export default async function AdminTagsPage() {
         description="Manage the canonical tag taxonomy. Reader-submitted tags are reviewed in the moderation queue."
       />
       {pendingTagSuggestions > 0 ? (
-        <p className="mb-6 rounded-xl border border-amber-200/80 bg-amber-50/60 px-4 py-3 text-sm text-amber-950">
+        <p className="mb-6 rounded-xl border border-[#f9db7e]/30 bg-[#f9db7e]/10 px-4 py-3 text-sm text-[#fef08a]">
           {pendingTagSuggestions} pending tag suggestion
           {pendingTagSuggestions === 1 ? "" : "s"} —{" "}
-          <Link href="/admin/inbox" className="font-semibold underline">
+          <Link href="/admin/inbox" className="font-semibold text-[#f9db7e] underline underline-offset-2 hover:text-[#fde68a]">
             review in moderation queue
           </Link>
           .

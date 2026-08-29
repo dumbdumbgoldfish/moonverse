@@ -6,9 +6,10 @@ import {
   ADMIN_CARD_CLASS,
   ADMIN_CARD_GLOW_CLASS,
   ADMIN_FILTER_CHIP_ACTIVE,
+  ADMIN_FILTER_CHIP_BASE,
   ADMIN_FILTER_CHIP_IDLE,
+  ADMIN_FILTER_CHIP_ROW_CLASS,
   ADMIN_FORM_CARD_CLASS,
-  ADMIN_ICON_SHELL,
   ADMIN_STAT_TONE_STYLES,
   ADMIN_SURFACE_LABEL,
   ADMIN_SURFACE_MUTED,
@@ -79,8 +80,8 @@ export function AdminStatCard({
 
 export function AdminEmptyState({ title, description }: { title: string; description: string }) {
   return (
-    <div className={cn(ADMIN_CARD_CLASS, "border-dashed border-[#c89b4a]/25 px-6 py-12 text-center")}>
-      <span className={cn("mx-auto flex size-12 items-center justify-center rounded-xl ring-1", ADMIN_ICON_SHELL)}>
+    <div className={cn(ADMIN_CARD_CLASS, "border-dashed border-[#f9db7e]/25 px-6 py-12 text-center")}>
+      <span className="mx-auto flex size-12 items-center justify-center rounded-xl bg-white/[0.06] text-[#f9db7e] ring-1 ring-[#f9db7e]/25">
         <Sparkles size={20} aria-hidden />
       </span>
       <h3 className="mt-3 text-sm font-semibold text-white">{title}</h3>
@@ -101,14 +102,14 @@ export function AdminPageHeader({
   return (
     <header className="mb-4 flex shrink-0 flex-col gap-3 border-b border-white/[0.08] pb-4 sm:flex-row sm:items-end sm:justify-between">
       <div>
-        <p className="mb-1 text-[10px] font-bold uppercase tracking-[0.16em] text-[#fcd34d]">
+        <p className="mb-1 text-[10px] font-bold uppercase tracking-[0.16em] text-[#fce9a8]">
           MoonVerse Admin
         </p>
         <h1 className="font-serif text-xl font-medium tracking-tight text-white sm:text-[1.45rem]">
           {title}
         </h1>
         {description ? (
-          <p className="mt-1 max-w-2xl text-xs leading-relaxed text-white/90">{description}</p>
+          <p className="mt-1 max-w-2xl text-xs leading-relaxed text-[#ede9fe]">{description}</p>
         ) : null}
       </div>
       {children ? <div className="shrink-0">{children}</div> : null}
@@ -130,8 +131,8 @@ export function AdminSection({
   return (
     <section className={cn("space-y-3", className)}>
       <div>
-        <h2 className="text-xs font-semibold uppercase tracking-[0.12em] text-[#fcd34d]">{title}</h2>
-        {description ? <p className="mt-0.5 text-[11px] text-white/90">{description}</p> : null}
+        <h2 className="text-xs font-semibold uppercase tracking-[0.12em] text-[#fce9a8]">{title}</h2>
+        {description ? <p className="mt-0.5 text-[11px] text-[#ede9fe]">{description}</p> : null}
       </div>
       {children}
     </section>
@@ -198,14 +199,14 @@ export function AdminFilterChips({
   className?: string;
 }) {
   return (
-    <div className={cn("flex flex-wrap gap-1.5", className)}>
+    <div className={cn(ADMIN_FILTER_CHIP_ROW_CLASS, className)}>
       {items.map((item) => (
         <Link
           key={item.href}
           href={item.href}
           aria-current={item.active ? "page" : undefined}
           className={cn(
-            "rounded-full px-3 py-1 text-[11px] font-semibold transition duration-150",
+            ADMIN_FILTER_CHIP_BASE,
             item.active ? ADMIN_FILTER_CHIP_ACTIVE : ADMIN_FILTER_CHIP_IDLE
           )}
         >
@@ -218,8 +219,8 @@ export function AdminFilterChips({
 
 export function AdminAttentionBanner({ title, children }: { title: string; children: React.ReactNode }) {
   return (
-    <div className="mb-4 rounded-xl border border-[#c89b4a]/25 bg-white/[0.04] p-3.5 sm:p-4">
-      <h2 className="text-xs font-semibold uppercase tracking-[0.1em] text-[#fcd34d]">{title}</h2>
+    <div className="mb-4 rounded-xl border border-[#f9db7e]/25 bg-white/[0.04] p-3.5 sm:p-4">
+      <h2 className="text-xs font-semibold uppercase tracking-[0.1em] text-[#fde68a]">{title}</h2>
       <div className="mt-2.5">{children}</div>
     </div>
   );
@@ -229,10 +230,10 @@ export function AdminAttentionLink({ href, count, label }: { href: string; count
   return (
     <Link
       href={href}
-      className="inline-flex items-center gap-2 rounded-full bg-white/[0.08] px-3 py-1 text-xs ring-1 ring-[#c89b4a]/25 transition hover:bg-white/[0.12]"
+      className="inline-flex items-center gap-2 rounded-full bg-white/[0.08] px-3 py-1 text-xs ring-1 ring-[#f9db7e]/25 transition hover:bg-white/[0.12]"
     >
-      <span className="font-semibold tabular-nums text-[#fcd34d]">{count}</span>
-      <span className="text-white">{label}</span>
+      <span className="font-semibold tabular-nums text-[#fde68a]">{count}</span>
+      <span className="text-white/95">{label}</span>
     </Link>
   );
 }
@@ -256,7 +257,7 @@ export function AdminListPanel({
       <ul className="divide-y divide-white/[0.06]">{children}</ul>
       {footerHref && footerLabel ? (
         <div className="border-t border-white/10 bg-white/[0.04] px-4 py-2.5">
-          <Link href={footerHref} className="inline-flex items-center gap-1 text-xs font-semibold text-[#fcd34d] hover:underline">
+          <Link href={footerHref} className="inline-flex items-center gap-1 text-xs font-semibold text-[#f9db7e] hover:underline">
             {footerLabel}
             <ChevronRight size={14} aria-hidden />
           </Link>
@@ -271,10 +272,10 @@ export function AdminListItem({ href, title, meta }: { href: string; title: stri
     <li>
       <Link href={href} className="group flex items-center justify-between gap-3 px-4 py-3 transition hover:bg-white/[0.04]">
         <span className="min-w-0">
-          <p className="truncate font-medium text-white">{title}</p>
+          <p className="truncate font-medium text-white group-hover:text-white">{title}</p>
           <p className={cn("mt-0.5 line-clamp-1 text-xs", ADMIN_SURFACE_MUTED)}>{meta}</p>
         </span>
-        <ChevronRight size={16} className="shrink-0 transition group-hover:translate-x-0.5" aria-hidden />
+        <ChevronRight size={16} className="shrink-0 text-[#f9db7e]/45 transition group-hover:translate-x-0.5 group-hover:text-[#f9db7e]" aria-hidden />
       </Link>
     </li>
   );
@@ -311,6 +312,62 @@ export function AdminTableCell({ children, className }: { children: React.ReactN
   return <td className={cn(ADMIN_TABLE_CELL_CLASS, className)}>{children}</td>;
 }
 
+export function AdminPagination({
+  page,
+  totalPages,
+  total,
+  basePath,
+  params,
+  className,
+}: {
+  page: number;
+  totalPages: number;
+  total: number;
+  basePath: string;
+  params?: Record<string, string | undefined>;
+  className?: string;
+}) {
+  if (totalPages <= 1) return null;
+
+  function hrefFor(nextPage: number) {
+    const search = new URLSearchParams();
+    if (params) {
+      for (const [key, value] of Object.entries(params)) {
+        if (value) search.set(key, value);
+      }
+    }
+    if (nextPage > 1) search.set("page", String(nextPage));
+    const qs = search.toString();
+    return qs ? `${basePath}?${qs}` : basePath;
+  }
+
+  return (
+    <div className={cn("mt-4 flex flex-wrap items-center justify-between gap-3", className)}>
+      <p className="text-xs text-white/55">
+        {total.toLocaleString()} total · page {page} of {totalPages}
+      </p>
+      <div className="flex flex-wrap gap-2">
+        {page > 1 ? (
+          <Link
+            href={hrefFor(page - 1)}
+            className={cn(ADMIN_FILTER_CHIP_BASE, ADMIN_FILTER_CHIP_IDLE, "px-3 py-1.5 text-xs")}
+          >
+            Previous
+          </Link>
+        ) : null}
+        {page < totalPages ? (
+          <Link
+            href={hrefFor(page + 1)}
+            className={cn(ADMIN_FILTER_CHIP_BASE, ADMIN_FILTER_CHIP_IDLE, "px-3 py-1.5 text-xs")}
+          >
+            Next
+          </Link>
+        ) : null}
+      </div>
+    </div>
+  );
+}
+
 export function AdminQuickAction({
   href,
   label,
@@ -326,20 +383,20 @@ export function AdminQuickAction({
 }) {
   const accents = [
     "from-[#6e46c7]/16 to-transparent",
-    "from-[#C89B4A]/14 to-transparent",
+    "from-[#f9db7e]/14 to-transparent",
     "from-[#5B9FD4]/12 to-transparent",
     "from-[#4FAF8C]/10 to-transparent",
   ] as const;
   const accent = accents[accentIndex % accents.length];
 
   return (
-    <Link href={href} className={cn(ADMIN_CARD_CLASS, ADMIN_CARD_GLOW_CLASS, "group relative flex items-start gap-3 overflow-hidden p-3.5 transition hover:border-[#c89b4a]/30")}>
+    <Link href={href} className={cn(ADMIN_CARD_CLASS, ADMIN_CARD_GLOW_CLASS, "group relative flex items-start gap-3 overflow-hidden p-3.5 transition hover:border-[#f9db7e]/30")}>
       <div className={cn("pointer-events-none absolute inset-0 bg-gradient-to-br opacity-80", accent)} aria-hidden />
-      <span className={cn("relative flex size-9 shrink-0 items-center justify-center rounded-lg shadow-sm", ADMIN_ICON_SHELL)}>
+      <span className="relative flex size-9 shrink-0 items-center justify-center rounded-lg bg-white/[0.08] text-[#e6d2a3] shadow-sm ring-1 ring-[#f9db7e]/20">
         <Icon size={16} aria-hidden />
       </span>
       <span className="relative min-w-0">
-        <span className="block text-sm font-semibold text-white">{label}</span>
+        <span className="block text-sm font-semibold text-white group-hover:text-[#e6d2a3]">{label}</span>
         <span className={cn("mt-0.5 block text-[11px] leading-relaxed", ADMIN_SURFACE_MUTED)}>{description}</span>
       </span>
     </Link>

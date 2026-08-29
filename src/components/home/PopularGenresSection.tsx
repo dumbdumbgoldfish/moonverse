@@ -2,6 +2,7 @@ import Link from "next/link";
 import { BookMarked } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import type { GenreOption } from "@/types/review";
+import { SITE_SHELL_CLASS } from "@/lib/site-shell";
 
 interface PopularGenresSectionProps {
   genres: GenreOption[];
@@ -24,7 +25,7 @@ export function PopularGenresSection({ genres }: PopularGenresSectionProps) {
       className="border-y border-border/60 bg-bg-warm py-16 sm:py-20"
       aria-labelledby="genres-heading"
     >
-      <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
+      <div className={SITE_SHELL_CLASS}>
         <div className="mb-8 flex items-center gap-2 text-primary">
           <BookMarked size={18} aria-hidden="true" />
           <span className="text-sm font-medium">Browse by genre</span>
@@ -36,7 +37,7 @@ export function PopularGenresSection({ genres }: PopularGenresSectionProps) {
           Popular Genres
         </h2>
         <p className="mt-2 max-w-xl text-muted-foreground">
-          From cultivation epics to litRPG adventures — find reviews in your
+          From cultivation epics to litRPG adventures. Find reviews in your
           favourite genres.
         </p>
 
@@ -44,7 +45,7 @@ export function PopularGenresSection({ genres }: PopularGenresSectionProps) {
           {genres.map((genre, index) => (
             <Link
               key={genre.id}
-              href={`/reviews?genre=${genre.slug}`}
+              href={`/search?genre=${genre.slug}`}
               className={`group rounded-2xl border bg-gradient-to-br p-5 transition-all hover:shadow-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring ${genreColors[index % genreColors.length]}`}
             >
               <h3 className="font-semibold text-foreground group-hover:text-primary">
@@ -62,7 +63,7 @@ export function PopularGenresSection({ genres }: PopularGenresSectionProps) {
             <Badge
               key={genre.id}
               variant="outline"
-              render={<Link href={`/reviews?genre=${genre.slug}`} />}
+              render={<Link href={`/search?genre=${genre.slug}`} />}
               className="cursor-pointer rounded-full border-primary/20 bg-white hover:bg-moon-purple-soft"
             >
               {genre.name}

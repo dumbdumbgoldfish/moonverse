@@ -74,14 +74,14 @@ export function AdminAnalyticsView({
           {hasActivity ? (
             <AdminActivityTrendChart data={dailySeries} />
           ) : (
-            <p className="flex h-full items-center justify-center text-xs text-white">No platform activity in the last 14 days.</p>
+            <p className="flex h-full items-center justify-center text-xs text-white/70">No platform activity in the last 14 days.</p>
           )}
         </AdminChartPanel>
         <AdminChartPanel title="Content volume (7d)" subtitle="New records by type">
           {contentVolume7d.length > 0 ? (
             <AdminGroupedBarChart data={contentVolume7d} />
           ) : (
-            <p className="flex h-full items-center justify-center text-xs text-white">No new content in the last 7 days.</p>
+            <p className="flex h-full items-center justify-center text-xs text-white/70">No new content in the last 7 days.</p>
           )}
         </AdminChartPanel>
       </div>
@@ -94,14 +94,14 @@ export function AdminAnalyticsView({
         {queueBreakdown.length > 0 ? (
           <AdminDonutChart data={queueBreakdown.map((item) => ({ label: item.label, count: item.count }))} />
         ) : (
-          <p className="flex h-full items-center justify-center text-xs text-white">Moderation queue is empty.</p>
+          <p className="flex h-full items-center justify-center text-xs text-white/70">Moderation queue is empty.</p>
         )}
       </AdminChartPanel>
       <AdminChartPanel title="Open reports by reason" subtitle="Grouped from live report records">
         {reportReasons.length > 0 ? (
           <AdminBarCountChart data={reportReasons} />
         ) : (
-          <p className="flex h-full items-center justify-center text-xs text-white">No open reports.</p>
+          <p className="flex h-full items-center justify-center text-xs text-white/70">No open reports.</p>
         )}
       </AdminChartPanel>
       {auditActions.length > 0 ? (
@@ -120,7 +120,7 @@ export function AdminAnalyticsView({
         </AdminChartPanel>
       ) : (
         <AdminPanel>
-          <p className="text-sm text-white">No Moonie recommendation events recorded in the last 7 days.</p>
+          <p className="text-sm text-white/70">No Moonie recommendation events recorded in the last 7 days.</p>
         </AdminPanel>
       )}
       {moonieMetrics.intentDistribution.length > 0 ? (
@@ -145,22 +145,22 @@ export function AdminAnalyticsView({
     <AdminPanel>
       <div className="grid gap-4 sm:grid-cols-3">
         <div>
-          <p className="text-[10px] font-bold uppercase tracking-[0.12em] text-white">Database</p>
+          <p className="text-[10px] font-bold uppercase tracking-[0.12em] text-white/70">Database</p>
           <p className={systemInfo.databaseStatus === "connected" ? "mt-1 text-sm font-medium text-[#256B53]" : "mt-1 text-sm font-medium text-[#BE4F7D]"}>
             {systemInfo.databaseStatus === "connected" ? "Connected" : "Error"}
           </p>
         </div>
         <div>
-          <p className="text-[10px] font-bold uppercase tracking-[0.12em] text-white">Environment</p>
+          <p className="text-[10px] font-bold uppercase tracking-[0.12em] text-white/70">Environment</p>
           <p className="mt-1 text-sm font-medium text-white">{systemInfo.environment}</p>
         </div>
         <div>
-          <p className="text-[10px] font-bold uppercase tracking-[0.12em] text-white">Moonie mode</p>
+          <p className="text-[10px] font-bold uppercase tracking-[0.12em] text-white/70">Moonie mode</p>
           <p className="mt-1 text-sm font-medium text-white">{systemInfo.moonieMode}</p>
         </div>
       </div>
       {moonieMetrics.avgResultCount7d !== null ? (
-        <p className="mt-3 text-xs text-white">
+        <p className="mt-3 text-xs text-white/70">
           Avg. Moonie results per recommend request (7d):{" "}
           <span className="font-medium text-white">{moonieMetrics.avgResultCount7d.toFixed(1)}</span>
         </p>

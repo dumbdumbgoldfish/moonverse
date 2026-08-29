@@ -1,5 +1,7 @@
 import { db } from "@/lib/db";
+import { countOpenReports } from "@/services/report.service";
 import type {
+  AdminDashboardAttention,
   AdminDashboardStats,
   AdminReviewSummary,
   AdminUserSummary,
@@ -16,6 +18,32 @@ export async function getAdminDashboardStats(): Promise<AdminDashboardStats> {
   ]);
 
   return { users, reviews, novels, comments, likes, folders };
+}
+
+export async function getAdminDashboardAttention(): Promise<AdminDashboardAttention> {
+  const [
+    openReports,
+    pendingReadingLinks,
+    pendingTagSuggestions,
+    autoFlaggedReviews,
+    autoFlaggedComments,
+  ] = await Promise.all([
+    countOpenReports(),
+    db.readingLink.count({
+      where: { moderationStatus: { in: ["PENDING", "NEEDS_REVIEW"] } },
+    }),
+    db.tagSuggestion.count({ where: { status: "PENDING" } }),
+    db.review.count({ where: { moderationStatus: "AUTO_FLAGGED" } }),
+    db.comment.count({ where: { moderationStatus: "AUTO_FLAGGED" } }),
+  ]);
+
+  return {
+    openReports,
+    pendingReadingLinks,
+    pendingTagSuggestions,
+    autoFlaggedReviews,
+    autoFlaggedComments,
+  };
 }
 
 export async function getAdminLatestReviews(
@@ -40,6 +68,7 @@ export async function getAdminLatestReviews(
     commentCount: review.commentCount,
     saveCount: review.saveCount,
     shareCount: review.shareCount,
+    moderationStatus: review.moderationStatus,
     createdAt: review.createdAt.toISOString(),
   }));
 }
@@ -80,6 +109,8 @@ export async function getSystemInfo() {
     appName: "MoonVerse",
     environment: process.env.NODE_ENV ?? "development",
     databaseStatus,
-    moonieMode: process.env.OPENAI_API_KEY ? "OpenAI" : "Mock",
+    moonieMode: process.env.OPENAI_API_KEY
+      ? "Grounded + OpenAI explanations"
+      : "Grounded catalogue",
   };
 }

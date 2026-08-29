@@ -13,7 +13,7 @@ import { AdminScrollPanel, AdminTabs } from "@/components/admin/AdminLayoutPrimi
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { ADMIN_FILTER_CHIP_ACTIVE, ADMIN_FILTER_CHIP_IDLE, ADMIN_FORM_CARD_CLASS } from "@/components/admin/admin-styles";
+import { ADMIN_FILTER_CHIP_ACTIVE, ADMIN_FILTER_CHIP_BASE, ADMIN_FILTER_CHIP_IDLE, ADMIN_FILTER_CHIP_ROW_CLASS, ADMIN_FORM_CARD_CLASS } from "@/components/admin/admin-styles";
 import {
   AdminTableCell,
   AdminTableHead,
@@ -118,14 +118,14 @@ export function AdminNovelsManager({
           {novels.map((novel) => (
             <AdminTableRow key={novel.id}>
               <AdminTableCell>
-                <p className="font-semibold text-white">{novel.title}</p>
+                <p className="font-semibold text-white/90">{novel.title}</p>
                 {novel.author ? (
-                  <p className="text-xs text-white">by {novel.author}</p>
+                  <p className="text-xs text-white/70">by {novel.author}</p>
                 ) : null}
-                <p className="text-xs text-white">{formatDate(novel.createdAt)}</p>
+                <p className="text-xs text-white/70">{formatDate(novel.createdAt)}</p>
               </AdminTableCell>
               <AdminTableCell>{novel.reviewCount}</AdminTableCell>
-              <AdminTableCell className="text-xs text-white">
+              <AdminTableCell className="text-xs text-white/70">
                 {novel.genreNames.join(", ") || "—"}
                 <br />
                 {novel.tagNames.join(", ") || "—"}
@@ -178,7 +178,7 @@ export function AdminNovelsManager({
       </div>
       <div>
         <p className="mb-2 text-sm font-medium">Genres</p>
-        <div className="flex flex-wrap gap-2">
+        <div className={ADMIN_FILTER_CHIP_ROW_CLASS}>
           {genres.map((genre) => (
             <button
               key={genre.id}
@@ -186,7 +186,8 @@ export function AdminNovelsManager({
               disabled={isPending}
               onClick={() => setGenreIds((c) => toggleId(c, genre.id))}
               className={cn(
-                "rounded-full px-3 py-1 text-xs font-semibold transition duration-150",
+                ADMIN_FILTER_CHIP_BASE,
+                "text-xs",
                 genreIds.includes(genre.id)
                   ? ADMIN_FILTER_CHIP_ACTIVE
                   : ADMIN_FILTER_CHIP_IDLE
@@ -199,7 +200,7 @@ export function AdminNovelsManager({
       </div>
       <div>
         <p className="mb-2 text-sm font-medium">Tags</p>
-        <div className="flex flex-wrap gap-2">
+        <div className={ADMIN_FILTER_CHIP_ROW_CLASS}>
           {tags.map((tag) => (
             <button
               key={tag.id}
@@ -207,7 +208,8 @@ export function AdminNovelsManager({
               disabled={isPending}
               onClick={() => setTagIds((c) => toggleId(c, tag.id))}
               className={cn(
-                "rounded-full px-3 py-1 text-xs font-semibold transition duration-150",
+                ADMIN_FILTER_CHIP_BASE,
+                "text-xs",
                 tagIds.includes(tag.id)
                   ? ADMIN_FILTER_CHIP_ACTIVE
                   : ADMIN_FILTER_CHIP_IDLE

@@ -95,8 +95,8 @@ export function StarRatingInput({
                   "inline-flex size-11 items-center justify-center rounded-xl transition",
                   "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--mv-plum)]",
                   active
-                    ? "scale-105 text-[var(--mv-star-gold)]"
-                    : "text-[var(--mv-border)] hover:scale-105 hover:text-[var(--mv-star-gold)]/70"
+                    ? "scale-105 text-[var(--mv-gold)]"
+                    : "text-[var(--mv-border)] hover:scale-105 hover:text-[var(--mv-gold)]/70"
                 )}
               >
                 <Star

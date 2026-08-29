@@ -1,6 +1,5 @@
 "use client";
 
-import { useEffect, useState } from "react";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { Search } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -22,18 +21,15 @@ export function AdminSearchBar({
   const pathname = usePathname();
   const searchParams = useSearchParams();
   const queryFromUrl = searchParams.get(paramName) ?? "";
-  const [value, setValue] = useState(queryFromUrl);
-
-  useEffect(() => {
-    setValue(queryFromUrl);
-  }, [queryFromUrl]);
 
   return (
     <form
+      key={queryFromUrl}
       className={cn("flex w-full max-w-md gap-2", className)}
       onSubmit={(event) => {
         event.preventDefault();
-        const q = value.trim();
+        const data = new FormData(event.currentTarget);
+        const q = String(data.get(paramName) ?? "").trim();
         const params = new URLSearchParams(searchParams.toString());
         if (q) params.set(paramName, q);
         else params.delete(paramName);
@@ -47,10 +43,9 @@ export function AdminSearchBar({
       <Input
         id={`admin-search-${paramName}`}
         name={paramName}
-        value={value}
-        onChange={(event) => setValue(event.target.value)}
+        defaultValue={queryFromUrl}
         placeholder={placeholder}
-        className="h-10 rounded-xl border-white/10 bg-white/[0.06] text-white placeholder:text-white/75 shadow-[0_10px_24px_-18px_rgba(0,0,0,0.25)]"
+        className="h-10 rounded-xl border-white/10 bg-white/[0.06] text-white placeholder:text-white/35 shadow-[0_10px_24px_-18px_rgba(0,0,0,0.25)]"
       />
       <Button
         type="submit"

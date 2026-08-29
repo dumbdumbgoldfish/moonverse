@@ -55,11 +55,11 @@ export function AdminUsersTable({ users, currentAdminId }: AdminUsersTableProps)
             <AdminTableCell>
               <Link
                 href={`/admin/users/${user.id}`}
-                className="font-semibold text-[#fcd34d] hover:underline"
+                className="font-semibold text-[#6e46c7] hover:underline"
               >
                 {user.displayName}
               </Link>
-              <p className="text-xs text-white">
+              <p className="text-xs text-white/70">
                 @{user.username} ·{" "}
                 <Link
                   href={`/users/${user.username}`}
@@ -68,7 +68,7 @@ export function AdminUsersTable({ users, currentAdminId }: AdminUsersTableProps)
                   public profile
                 </Link>
               </p>
-                <p className="text-xs text-white">{user.email}</p>
+                <p className="text-xs text-white/70">{user.email}</p>
                 {user.isSuspended && (
                   <Badge variant="destructive" className="mt-1">
                     Suspended
@@ -80,10 +80,10 @@ export function AdminUsersTable({ users, currentAdminId }: AdminUsersTableProps)
                   {user.role}
                 </Badge>
               </AdminTableCell>
-              <AdminTableCell className="text-white">
+              <AdminTableCell className="text-white/70">
                 {user.reviewCount} reviews · {user.followerCount} followers
               </AdminTableCell>
-              <AdminTableCell className="text-white">
+              <AdminTableCell className="text-white/70">
                 {formatDate(user.createdAt)}
               </AdminTableCell>
               <AdminTableCell>

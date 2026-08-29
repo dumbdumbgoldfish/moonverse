@@ -1,8 +1,7 @@
 import { Star } from "lucide-react";
 import { cn } from "@/lib/utils";
 
-export const STAR_GOLD_CLASS =
-  "fill-[var(--mv-star-gold)] text-[var(--mv-star-gold)]";
+export const STAR_GOLD_CLASS = "fill-[var(--mv-gold)] text-[var(--mv-gold)]";
 export const STAR_EMPTY_CLASS =
   "fill-transparent text-[var(--mv-text-muted)]/35";
 

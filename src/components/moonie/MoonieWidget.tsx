@@ -1,150 +1,111 @@
 "use client";
 
-import { useCallback, useEffect, useState, useSyncExternalStore } from "react";
+import { useCallback, useEffect, useSyncExternalStore } from "react";
 import { usePathname } from "next/navigation";
 import { MoonieChatPanel } from "@/components/moonie/MoonieChatPanel";
 import { MoonieFab } from "@/components/moonie/MoonieFab";
 import {
-  createMessageId,
-  MOONIE_OPEN_STORAGE_KEY,
-} from "@/lib/moonie/constants";
-import type {
-  MoonieChatMessage,
-  MoonieRecommendErrorResponse,
-  MoonieRecommendResponse,
-} from "@/types/moonie";
+  closeMooniePanel,
+  getMooniePanelOpenSnapshot,
+  setMooniePanelOpen,
+  subscribeMooniePanelOpen,
+} from "@/lib/moonie/panel-open-state";
+import { useMoonieChat } from "@/hooks/use-moonie-chat";
 
 interface MoonieWidgetProps {
   isLoggedIn: boolean;
+  /** Lift FAB above the mobile bottom nav when it is visible. */
+  elevateForMobileNav?: boolean;
 }
 
-const openListeners = new Set<() => void>();
-
-function subscribeMoonieOpen(onStoreChange: () => void): () => void {
-  openListeners.add(onStoreChange);
-  return () => openListeners.delete(onStoreChange);
-}
-
-function getMoonieOpenSnapshot(): boolean {
-  if (typeof window === "undefined") return false;
-  return sessionStorage.getItem(MOONIE_OPEN_STORAGE_KEY) === "true";
-}
-
-function setMoonieOpenStorage(open: boolean): void {
-  sessionStorage.setItem(MOONIE_OPEN_STORAGE_KEY, open ? "true" : "false");
-  openListeners.forEach((listener) => listener());
-}
-
-export function MoonieWidget({ isLoggedIn }: MoonieWidgetProps) {
+export function MoonieWidget({
+  isLoggedIn,
+  elevateForMobileNav = false,
+}: MoonieWidgetProps) {
   const pathname = usePathname();
+  const hideFab = pathname.startsWith("/moonie");
+  const novelMatch = pathname.match(/^\/novels\/([^/]+)/);
+  const contextNovelId = novelMatch?.[1];
+
   const open = useSyncExternalStore(
-    subscribeMoonieOpen,
-    getMoonieOpenSnapshot,
+    subscribeMooniePanelOpen,
+    getMooniePanelOpenSnapshot,
     () => false
   );
-  const [messages, setMessages] = useState<MoonieChatMessage[]>([]);
-  const [input, setInput] = useState("");
-  const [isLoading, setIsLoading] = useState(false);
+
+  // Guest open state must not leak into authenticated sessions or survive refresh.
+  useEffect(() => {
+    if (isLoggedIn) {
+      closeMooniePanel();
+    }
+  }, [isLoggedIn]);
+
+  const {
+    messages,
+    input,
+    setInput,
+    isLoading,
+    loadingPhase,
+    handleSubmit,
+    hideNovel,
+    quotaRemaining,
+  } = useMoonieChat({ isLoggedIn, contextNovelId });
+
+  const setPanelOpen = useCallback((next: boolean) => {
+    setMooniePanelOpen(next);
+  }, []);
+
+  const handleClosePanel = useCallback(() => {
+    setPanelOpen(false);
+  }, [setPanelOpen]);
 
   useEffect(() => {
     const handleOpen = (event: Event) => {
-      setMoonieOpenStorage(true);
+      if (pathname.startsWith("/moonie")) return;
+      setMooniePanelOpen(true);
       const detail = (event as CustomEvent<{ prompt?: string }>).detail;
-      if (detail?.prompt) {
+      if (detail?.prompt && isLoggedIn) {
         setInput(detail.prompt);
+        void handleSubmit(detail.prompt);
       }
     };
     window.addEventListener("moonie:open", handleOpen);
     return () => window.removeEventListener("moonie:open", handleOpen);
-  }, []);
+  }, [handleSubmit, isLoggedIn, pathname, setInput]);
 
-  const setPanelOpen = useCallback((next: boolean) => {
-    setMoonieOpenStorage(next);
-  }, []);
-
-  const handleSubmit = useCallback(
-    async (message: string) => {
-      if (!isLoggedIn || isLoading) return;
-
-      const userMessage: MoonieChatMessage = {
-        id: createMessageId(),
-        role: "user",
-        content: message,
-      };
-
-      setMessages((current) => [...current, userMessage]);
-      setInput("");
-      setIsLoading(true);
-
-      try {
-        const response = await fetch("/api/moonie/recommend", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ message }),
-        });
-
-        const data = (await response.json()) as
-          | MoonieRecommendResponse
-          | MoonieRecommendErrorResponse;
-
-        if (!response.ok || "error" in data) {
-          const errorData = data as MoonieRecommendErrorResponse;
-          setMessages((current) => [
-            ...current,
-            {
-              id: createMessageId(),
-              role: "assistant",
-              content: errorData.error,
-              isError: true,
-            },
-          ]);
-          return;
-        }
-
-        const success = data as MoonieRecommendResponse;
-        setMessages((current) => [
-          ...current,
-          {
-            id: createMessageId(),
-            role: "assistant",
-            content: success.reply,
-            recommendations: success.recommendations,
-          },
-        ]);
-      } catch {
-        setMessages((current) => [
-          ...current,
-          {
-            id: createMessageId(),
-            role: "assistant",
-            content:
-              "Something went wrong reaching Moonie. Please check your connection and try again.",
-            isError: true,
-          },
-        ]);
-      } finally {
-        setIsLoading(false);
-      }
-    },
-    [isLoggedIn, isLoading]
-  );
+  if (hideFab) return null;
 
   return (
     <>
-      <MoonieFab open={open} onToggle={() => setPanelOpen(!open)} />
-      <div id="moonie-chat-panel">
-        <MoonieChatPanel
-          open={open}
-          onClose={() => setPanelOpen(false)}
-          isLoggedIn={isLoggedIn}
-          messages={messages}
-          isLoading={isLoading}
-          input={input}
-          onInputChange={setInput}
-          onSubmit={handleSubmit}
-          loginCallbackUrl={pathname}
-        />
-      </div>
+      <MoonieFab
+        open={open}
+        onToggle={() => setPanelOpen(!open)}
+        elevateForMobileNav={elevateForMobileNav}
+        hidden={open}
+      />
+      {open ? (
+        <div id="moonie-chat-panel">
+          <MoonieChatPanel
+            open={open}
+            onClose={handleClosePanel}
+            isLoggedIn={isLoggedIn}
+            messages={messages}
+            isLoading={isLoading}
+            loadingPhase={loadingPhase}
+            input={input}
+            onInputChange={setInput}
+            onSubmit={handleSubmit}
+            onNotForMe={hideNovel}
+            onMoreLikeThis={(novelId) =>
+              void handleSubmit("More like this novel, refined to my taste.", {
+                similarToNovelId: novelId,
+              })
+            }
+            loginCallbackUrl={pathname}
+            quotaRemaining={quotaRemaining}
+          />
+        </div>
+      ) : null}
     </>
   );
 }

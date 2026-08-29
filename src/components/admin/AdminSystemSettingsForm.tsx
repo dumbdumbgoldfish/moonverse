@@ -35,7 +35,7 @@ function Toggle({
       onClick={() => onChange(!checked)}
       className={cn(
         "relative h-7 w-12 shrink-0 rounded-full transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary",
-        checked ? "bg-primary" : "bg-slate-200"
+        checked ? "bg-primary" : "bg-white/20"
       )}
     >
       <span
@@ -82,7 +82,7 @@ export function AdminSystemSettingsForm({ settings }: AdminSystemSettingsFormPro
         <h2 className="font-serif text-lg font-medium text-white">
           Platform settings
         </h2>
-        <p className="mt-1 text-[13px] text-white">
+        <p className="mt-1 text-[13px] text-white/55">
           Changes apply immediately across MoonVerse.
         </p>
       </div>
@@ -100,7 +100,7 @@ export function AdminSystemSettingsForm({ settings }: AdminSystemSettingsFormPro
 
       <div className="flex items-center justify-between gap-4">
         <div>
-          <p className="text-sm font-medium">Require verified email</p>
+          <p className="text-sm font-medium text-white">Require verified email</p>
           <p className="text-xs text-muted-foreground">
             When enabled, users must verify their email before posting reviews or
             comments. Managed in Admin, not via environment variables.
@@ -119,7 +119,7 @@ export function AdminSystemSettingsForm({ settings }: AdminSystemSettingsFormPro
 
       <div className="flex items-center justify-between gap-4">
         <div>
-          <p className="text-sm font-medium">Digest emails enabled</p>
+          <p className="text-sm font-medium text-white">Digest emails enabled</p>
           <p className="text-xs text-muted-foreground">
             Master switch for the digest cron job across all users.
           </p>
@@ -136,7 +136,7 @@ export function AdminSystemSettingsForm({ settings }: AdminSystemSettingsFormPro
       </div>
 
       <div className="space-y-2">
-        <Label htmlFor="guest-moonie-cap">Guest Moonie demo cap</Label>
+        <Label htmlFor="guest-moonie-cap" className="text-white">Guest Moonie demo cap</Label>
         <p className="whitespace-nowrap text-xs text-muted-foreground">
           Number of free chat turns given to guests on /ask-moonie.
         </p>

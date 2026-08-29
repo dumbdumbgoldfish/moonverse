@@ -2,19 +2,20 @@ import { Suspense } from "react";
 import { auth } from "@/lib/auth";
 import { AdminSearchBar } from "@/components/admin/AdminSearchBar";
 import { AdminUsersTable } from "@/components/admin/AdminUsersTable";
-import { AdminEmptyState, AdminPageHeader } from "@/components/admin/AdminUi";
+import { AdminEmptyState, AdminPageHeader, AdminPagination } from "@/components/admin/AdminUi";
 import { getAdminUsers } from "@/services/admin/users.service";
 
 export const metadata = { title: "Admin Users · MoonVerse" };
 
 interface AdminUsersPageProps {
-  searchParams: Promise<{ q?: string }>;
+  searchParams: Promise<{ q?: string; page?: string }>;
 }
 
 export default async function AdminUsersPage({ searchParams }: AdminUsersPageProps) {
-  const { q } = await searchParams;
-  const [users, session] = await Promise.all([
-    getAdminUsers(q),
+  const { q, page: pageParam } = await searchParams;
+  const page = Math.max(1, Number(pageParam) || 1);
+  const [result, session] = await Promise.all([
+    getAdminUsers(q, page),
     auth(),
   ]);
 
@@ -29,13 +30,22 @@ export default async function AdminUsersPage({ searchParams }: AdminUsersPagePro
           <AdminSearchBar placeholder="Search username, email or display name" />
         </div>
       </Suspense>
-      {users.length === 0 ? (
+      {result.items.length === 0 ? (
         <AdminEmptyState title="No users found" description="Try a different search." />
       ) : (
-        <AdminUsersTable
-          users={users}
-          currentAdminId={session!.user!.id}
-        />
+        <>
+          <AdminUsersTable
+            users={result.items}
+            currentAdminId={session!.user!.id}
+          />
+          <AdminPagination
+            page={result.page}
+            totalPages={result.totalPages}
+            total={result.total}
+            basePath="/admin/users"
+            params={{ q }}
+          />
+        </>
       )}
     </>
   );

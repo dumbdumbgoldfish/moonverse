@@ -1,4 +1,3 @@
-import Image from "next/image";
 import Link from "next/link";
 import { Heart } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
@@ -13,6 +12,7 @@ import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { StarRating } from "@/components/reviews/StarRating";
 import { cn } from "@/lib/utils";
 import type { ReviewListItem } from "@/types/review";
+import { CoverImage } from "@/components/ui/CoverImage";
 
 interface ReviewCardProps {
   review: ReviewListItem;
@@ -29,11 +29,10 @@ export function ReviewCard({ review, layout = "carousel" }: ReviewCardProps) {
     >
       <CardHeader className="flex-row gap-3 space-y-0 pb-0">
         <div className="relative h-[100px] w-[72px] shrink-0 overflow-hidden rounded-lg shadow-sm">
-          <Image
+          <CoverImage
             src={review.coverUrl}
             alt={`Cover of ${review.novelTitle}`}
-            fill
-            className="object-cover"
+            title={review.novelTitle}
             sizes="72px"
           />
         </div>

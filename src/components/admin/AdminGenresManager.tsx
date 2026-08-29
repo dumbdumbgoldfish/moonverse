@@ -117,7 +117,7 @@ export function AdminGenresManager({ genres }: { genres: AdminGenreSummary[] }) 
           {genres.map((genre) => (
             <AdminTableRow key={genre.id}>
               <AdminTableCell className="font-medium">{genre.name}</AdminTableCell>
-              <AdminTableCell className="text-white">{genre.slug}</AdminTableCell>
+              <AdminTableCell className="text-white/70">{genre.slug}</AdminTableCell>
               <AdminTableCell>{genre.novelCount}</AdminTableCell>
               <AdminTableCell>
                 <div className="flex gap-2">

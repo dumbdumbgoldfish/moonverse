@@ -18,7 +18,6 @@ async function requireUserId(): Promise<string> {
 
 function revalidateProfile(username: string) {
   revalidatePath(`/users/${username}`);
-  revalidatePath("/", "layout");
 }
 
 export async function followUserAction(
@@ -30,7 +29,6 @@ export async function followUserAction(
     await followUser(followerId, followingId);
     revalidateProfile(username);
     revalidatePath("/notifications");
-    revalidatePath("/", "layout");
     return { success: true, following: true };
   } catch (error) {
     if (error instanceof Error) {
@@ -48,7 +46,6 @@ export async function unfollowUserAction(
     const followerId = await requireUserId();
     await unfollowUser(followerId, followingId);
     revalidateProfile(username);
-    revalidatePath("/", "layout");
     return { success: true, following: false };
   } catch (error) {
     if (error instanceof Error) {

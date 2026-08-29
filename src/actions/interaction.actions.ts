@@ -2,11 +2,13 @@
 
 import { revalidatePath } from "next/cache";
 import { auth } from "@/lib/auth";
-import { createComment, deleteComment } from "@/services/comment.service";
+import { assertEmailVerifiedForUser } from "@/lib/email-verification-gate";
+import { createComment, deleteComment, toggleCommentLike, updateComment } from "@/services/comment.service";
 import {
   incrementShareCount,
   toggleLike,
 } from "@/services/like.service";
+import type { CommentItem } from "@/types/review";
 
 export type ActionResult =
   | { success: true }
@@ -23,30 +25,35 @@ async function requireUserId(): Promise<string> {
 function revalidateReview(reviewId: string) {
   revalidatePath(`/reviews/${reviewId}`);
   revalidatePath("/reviews");
+  revalidatePath("/discover");
+  revalidatePath("/search");
   revalidatePath("/");
 }
 
 export async function createCommentAction(
   reviewId: string,
   body: string,
-  parentCommentId?: string
-): Promise<ActionResult> {
+  parentCommentId?: string,
+  containsSpoilers?: boolean
+): Promise<ActionResult & { comment?: CommentItem }> {
   try {
     const userId = await requireUserId();
+    await assertEmailVerifiedForUser(userId);
 
     if (!body.trim()) {
       return { success: false, error: "Comment cannot be empty." };
     }
 
-    await createComment({
+    const comment = await createComment({
       reviewId,
       userId,
       body,
       parentCommentId,
+      containsSpoilers,
     });
 
     revalidateReview(reviewId);
-    return { success: true };
+    return { success: true, comment };
   } catch (error) {
     if (error instanceof Error) {
       return { success: false, error: error.message };
@@ -58,17 +65,50 @@ export async function createCommentAction(
 export async function deleteCommentAction(
   commentId: string,
   reviewId: string
-): Promise<ActionResult> {
+): Promise<ActionResult & { decrementBy?: number }> {
   try {
     const userId = await requireUserId();
-    await deleteComment(commentId, userId);
+    const { decrementBy } = await deleteComment(commentId, userId);
     revalidateReview(reviewId);
-    return { success: true };
+    return { success: true, decrementBy };
   } catch (error) {
     if (error instanceof Error) {
       return { success: false, error: error.message };
     }
     return { success: false, error: "Failed to delete comment." };
+  }
+}
+
+export async function updateCommentAction(
+  commentId: string,
+  reviewId: string,
+  body: string
+): Promise<ActionResult & { comment?: CommentItem }> {
+  try {
+    const userId = await requireUserId();
+    const comment = await updateComment(commentId, userId, body);
+    revalidateReview(reviewId);
+    return { success: true, comment };
+  } catch (error) {
+    if (error instanceof Error) {
+      return { success: false, error: error.message };
+    }
+    return { success: false, error: "Failed to update comment." };
+  }
+}
+
+export async function toggleCommentLikeAction(
+  commentId: string
+): Promise<ActionResult & { liked?: boolean; likeCount?: number }> {
+  try {
+    const userId = await requireUserId();
+    const result = await toggleCommentLike(userId, commentId);
+    return { success: true, liked: result.liked, likeCount: result.likeCount };
+  } catch (error) {
+    if (error instanceof Error) {
+      return { success: false, error: error.message };
+    }
+    return { success: false, error: "Failed to update like." };
   }
 }
 

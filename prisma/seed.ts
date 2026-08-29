@@ -201,13 +201,13 @@ async function main() {
       title: "A cultivation journey that actually delivers",
       body: `After 400 chapters, I can confidently say this is one of the best xianxia novels I've read this year. The power scaling feels earned rather than arbitrary, and the protagonist's growth mirrors the world's expanding scope.
 
-The sect politics are a highlight — every alliance feels fragile and every betrayal hits hard. CloudWalker avoids the common pitfall of making the MC invincible too early.`,
+The sect politics are a highlight: every alliance feels fragile and every betrayal hits hard. CloudWalker avoids the common pitfall of making the MC invincible too early.`,
       rating: 5,
     },
     {
       userId: questLog.id,
       novelTitle: "Dungeon Core Online",
-      title: "LitRPG done right — stats without the grind fatigue",
+      title: "LitRPG done right: stats without the grind fatigue",
       body: `The system mechanics are clever without being overwhelming. Each level-up feels meaningful and the dungeon crawls keep you hooked without becoming repetitive.
 
 PixelSage strikes a balance between stat-heavy litRPG and narrative-driven storytelling.`,
@@ -228,7 +228,7 @@ Romance readers should note: this is slow burn done right, not slow burn as fill
       title: "Underrated sci-fi gem on Royal Road",
       body: `Hard sci-fi meets character drama. The world-building is meticulous and the political intrigue keeps every arc fresh.
 
-Void Station Alpha treats its setting with respect — orbital mechanics, resource economics, and faction politics all feel researched.`,
+Void Station Alpha treats its setting with respect: orbital mechanics, resource economics, and faction politics all feel researched.`,
       rating: 4,
     },
     {
@@ -306,7 +306,7 @@ FunnyBone's comedic timing is excellent.`,
       userId: cosmoReads.id,
       novelTitle: "Dungeon Core Online",
       title: "The AI antagonist is brilliant",
-      body: `Without spoiling too much — the dungeon master AI arc is peak litRPG horror. Genuinely tense.`,
+      body: `Without spoiling too much: the dungeon master AI arc is peak litRPG horror. Genuinely tense.`,
       rating: 5,
     },
     {
@@ -341,7 +341,7 @@ A great crossover pick if you usually read Moonlit Academy-style stories but wan
     (r) => r.title === "A cultivation journey that actually delivers"
   )!;
   const dungeonReview = reviews.find(
-    (r) => r.title === "LitRPG done right — stats without the grind fatigue"
+    (r) => r.title === "LitRPG done right: stats without the grind fatigue"
   )!;
   const moonlitReview = reviews.find(
     (r) => r.title === "Slow burn romance worth the wait"
@@ -368,7 +368,7 @@ A great crossover pick if you usually read Moonlit Academy-style stories but wan
       reviewId: heavenlyReview.id,
       userId: starReader.id,
       parentCommentId: comment2.id,
-      body: "Different vibe — less ruthless MC but equally smart plotting. Give it 50 chapters before deciding.",
+      body: "Different vibe: less ruthless MC but equally smart plotting. Give it 50 chapters before deciding.",
     },
   });
 

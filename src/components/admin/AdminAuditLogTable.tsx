@@ -29,20 +29,20 @@ export function AdminAuditLogTable({ logs }: AdminAuditLogTableProps) {
       <tbody>
         {logs.map((log) => (
           <AdminTableRow key={log.id}>
-            <AdminTableCell className="text-xs text-white">
+            <AdminTableCell className="text-xs text-white/70">
               {formatDate(log.createdAt)}
             </AdminTableCell>
             <AdminTableCell>@{log.actorUsername}</AdminTableCell>
             <AdminTableCell className="font-semibold">{log.action}</AdminTableCell>
-            <AdminTableCell className="text-white">
+            <AdminTableCell className="text-white/65">
               {log.entityType}
-              <span className="mt-0.5 block font-mono text-[11px] text-white">
+              <span className="mt-0.5 block font-mono text-[11px] text-white/70">
                 {log.entityId}
               </span>
             </AdminTableCell>
             <AdminTableCell className="max-w-xs">
               {log.meta ? (
-                <pre className="line-clamp-3 whitespace-pre-wrap break-all text-[11px] text-white">
+                <pre className="line-clamp-3 whitespace-pre-wrap break-all text-[11px] text-white/70">
                   {JSON.stringify(log.meta, null, 0)}
                 </pre>
               ) : (

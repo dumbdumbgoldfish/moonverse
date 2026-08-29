@@ -19,13 +19,13 @@ export default async function AdminSettingsPage() {
       <AdminPanel className="mb-6">
         <dl className="grid gap-5 sm:grid-cols-2">
           <div>
-            <dt className="text-[11px] font-bold uppercase tracking-[0.08em] text-[#fcd34d]">
+            <dt className="text-[11px] font-bold uppercase tracking-[0.08em] text-white/45">
               Application
             </dt>
             <dd className="mt-1 font-medium text-white">{info.appName}</dd>
           </div>
           <div>
-            <dt className="text-[11px] font-bold uppercase tracking-[0.08em] text-[#fcd34d]">
+            <dt className="text-[11px] font-bold uppercase tracking-[0.08em] text-white/45">
               Environment
             </dt>
             <dd className="mt-1 font-medium capitalize text-white">
@@ -33,7 +33,7 @@ export default async function AdminSettingsPage() {
             </dd>
           </div>
           <div>
-            <dt className="text-[11px] font-bold uppercase tracking-[0.08em] text-[#fcd34d]">
+            <dt className="text-[11px] font-bold uppercase tracking-[0.08em] text-white/45">
               Database
             </dt>
             <dd className="mt-1">
@@ -45,7 +45,7 @@ export default async function AdminSettingsPage() {
             </dd>
           </div>
           <div>
-            <dt className="text-[11px] font-bold uppercase tracking-[0.08em] text-[#fcd34d]">
+            <dt className="text-[11px] font-bold uppercase tracking-[0.08em] text-white/45">
               Moonie mode
             </dt>
             <dd className="mt-1 font-medium text-white">{info.moonieMode}</dd>

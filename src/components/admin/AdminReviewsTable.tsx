@@ -73,21 +73,21 @@ export function AdminReviewsTable({ reviews }: AdminReviewsTableProps) {
             <AdminTableCell>
               <Link
                 href={`/reviews/${review.id}`}
-                className="font-semibold text-[#fcd34d] hover:underline"
+                className="font-semibold text-[#6e46c7] hover:underline"
               >
                 {review.title}
               </Link>
-              <p className="mt-0.5 text-xs text-white">
+              <p className="mt-0.5 text-xs text-white/70">
                 {formatDate(review.createdAt)}
               </p>
             </AdminTableCell>
-            <AdminTableCell className="text-white">
+            <AdminTableCell className="text-white/80">
               {review.novelTitle}
             </AdminTableCell>
             <AdminTableCell>
               <Link
                 href={`/users/${review.reviewerUsername}`}
-                className="font-medium text-[#fcd34d] hover:underline"
+                className="font-medium text-[#6e46c7] hover:underline"
               >
                 @{review.reviewerUsername}
               </Link>
@@ -100,7 +100,7 @@ export function AdminReviewsTable({ reviews }: AdminReviewsTableProps) {
                 </Badge>
               )}
             </AdminTableCell>
-            <AdminTableCell className="text-xs text-white">
+            <AdminTableCell className="text-xs text-white/70">
               {review.likeCount} likes · {review.commentCount} comments ·{" "}
               {review.saveCount} saves · {review.shareCount} shares
             </AdminTableCell>

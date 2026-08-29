@@ -138,11 +138,11 @@ export function AdminFeaturedManager({
               <AdminTableCell>
                 <p className="font-medium">{item.novelTitle}</p>
                 {item.novelAuthor ? (
-                  <p className="text-xs text-white">by {item.novelAuthor}</p>
+                  <p className="text-xs text-white/70">by {item.novelAuthor}</p>
                 ) : null}
               </AdminTableCell>
               <AdminTableCell>{item.slot}</AdminTableCell>
-              <AdminTableCell className="text-xs text-white">
+              <AdminTableCell className="text-xs text-white/70">
                 {formatDate(item.startsAt)}
                 {item.endsAt ? ` → ${formatDate(item.endsAt)}` : " → open"}
               </AdminTableCell>

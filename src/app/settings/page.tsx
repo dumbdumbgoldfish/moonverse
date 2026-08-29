@@ -1,11 +1,11 @@
 import { redirect } from "next/navigation";
 import { auth } from "@/lib/auth";
-import { PageHeader } from "@/components/layout/PageHeader";
 import { SettingsForm } from "@/components/settings/SettingsForm";
+import { SettingsShell } from "@/components/settings/SettingsShell";
 import { getUserSettings } from "@/services/user.service";
 
 export const metadata = {
-  title: "Settings — MoonVerse",
+  title: "Settings · MoonVerse",
   description: "Manage your MoonVerse account settings.",
 };
 
@@ -23,12 +23,12 @@ export default async function SettingsPage() {
   }
 
   return (
-    <div className="mx-auto max-w-3xl px-4 py-10 sm:px-6 lg:px-8">
-      <PageHeader
-        title="Settings"
-        description="Manage your profile and account preferences."
-      />
+    <SettingsShell
+      active="profile"
+      title="Profile"
+      description="Update the details shown on your public profile."
+    >
       <SettingsForm settings={settings} />
-    </div>
+    </SettingsShell>
   );
 }

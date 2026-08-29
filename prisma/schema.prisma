@@ -13,6 +13,10 @@ enum NotificationType {
   REVIEW_LIKE
   NEW_FOLLOWER
   REVIEW_SAVED
+  MOONIE_DAILY_PICK
+  REPORT_UPDATE
+  DIGEST
+  DIRECT_MESSAGE
 }
 
 enum UserRole {
@@ -20,71 +24,381 @@ enum UserRole {
   ADMIN
 }
 
-model User {
-  id           String   @id @default(cuid())
-  email        String   @unique
-  username     String   @unique
-  passwordHash String   @map("password_hash")
-  displayName  String   @map("display_name")
-  avatarUrl    String?  @map("avatar_url")
-  bio          String?
-  role         UserRole @default(USER)
-  isSuspended  Boolean  @default(false) @map("is_suspended")
-  createdAt    DateTime @default(now()) @map("created_at")
-  updatedAt    DateTime @updatedAt @map("updated_at")
+enum AuthTokenType {
+  EMAIL_VERIFY
+  PASSWORD_RESET
+}
 
-  reviews       Review[]
-  comments      Comment[]
-  likes         Like[]
-  folders       Folder[]
-  followers     Follow[]       @relation("UserFollowers")
-  following     Follow[]       @relation("UserFollowing")
-  notifications Notification[]
+enum ReadingLinkCategory {
+  OFFICIAL
+  COMMUNITY
+  FAN_TRANSLATION
+}
+
+enum ReadingLinkModerationStatus {
+  PENDING
+  NEEDS_REVIEW
+  APPROVED
+  REJECTED
+}
+
+enum ReadingLinkHealthStatus {
+  UNKNOWN
+  HEALTHY
+  BROKEN
+  REDIRECTED
+  STALE
+}
+
+enum NovelSeriesRelationType {
+  MAIN
+  PREQUEL
+  SEQUEL
+  SIDE_STORY
+  SPINOFF
+}
+
+enum ReportTargetType {
+  REVIEW
+  COMMENT
+  USER
+  NOVEL
+}
+
+enum TagKind {
+  TROPE
+  MOOD
+  STYLE
+}
+
+enum TagSuggestionStatus {
+  PENDING
+  APPROVED
+  MAPPED
+  REJECTED
+}
+
+enum ReportStatus {
+  OPEN
+  RESOLVED
+  DISMISSED
+}
+
+enum ContentModerationStatus {
+  OK
+  AUTO_FLAGGED
+  HIDDEN
+}
+
+enum ReadingStatusValue {
+  WANT
+  READING
+  FINISHED
+}
+
+enum DigestCadence {
+  OFF
+  DAILY
+  WEEKLY
+}
+
+enum RecommendationFeedbackKind {
+  NOT_FOR_ME
+  MORE_LIKE_THIS
+  LESS_LIKE_THIS
+  SAVED
+  CLICKED
+  SOURCE_OPENED
+  HELPFUL
+  NOT_HELPFUL
+}
+
+model User {
+  id                    String    @id @default(cuid())
+  email                 String    @unique
+  username              String    @unique
+  passwordHash          String?   @map("password_hash")
+  displayName           String    @map("display_name")
+  avatarUrl             String?   @map("avatar_url")
+  profileBackgroundUrl  String?   @map("profile_background_url")
+  bio                   String?
+  role                  UserRole  @default(USER)
+  isSuspended           Boolean   @default(false) @map("is_suspended")
+  emailVerified         DateTime? @map("email_verified")
+  onboardingCompletedAt DateTime? @map("onboarding_completed_at")
+  createdAt             DateTime  @default(now()) @map("created_at")
+  updatedAt             DateTime  @updatedAt @map("updated_at")
+
+  accounts               Account[]
+  authTokens             AuthToken[]
+  reviews                Review[]
+  comments               Comment[]
+  likes                  Like[]
+  commentLikes           CommentLike[]
+  folders                Folder[]
+  followers              Follow[]                    @relation("UserFollowers")
+  following              Follow[]                    @relation("UserFollowing")
+  notifications          Notification[]
+  notificationActions    Notification[]              @relation("NotificationActor")
+  submittedReadingLinks  ReadingLink[]               @relation("ReadingLinkSubmitter")
+  preferredGenres        UserPreferredGenre[]
+  notificationPreference NotificationPreference?
+  reportsFiled           Report[]                    @relation("ReportReporter")
+  reportsResolved        Report[]                    @relation("ReportResolver")
+  auditLogs              ModerationAuditLog[]
+  readingStatuses        NovelReadingStatus[]
+  featuredNovelsCreated  FeaturedNovel[]             @relation("FeaturedNovelCreator")
+  reviewDrafts           ReviewDraft[]
+  moonieConversations    MoonieConversation[]
+  conversationsA         Conversation[]              @relation("ConversationUserA")
+  conversationsB         Conversation[]              @relation("ConversationUserB")
+  messagesSent           DirectMessage[]             @relation("MessageSender")
+  moonieTasteProfile     MoonieTasteProfile?
+  recommendationFeedback RecommendationFeedback[]
+  moonieEvents           MoonieRecommendationEvent[]
+  recommendationSessions RecommendationSession[]
+  tagSuggestionsSubmitted TagSuggestion[] @relation("TagSuggestionSubmitter")
+  tagSuggestionsReviewed  TagSuggestion[] @relation("TagSuggestionReviewer")
 
   @@map("users")
 }
 
-model Novel {
-  id           String   @id @default(cuid())
-  title        String
-  author       String?
-  coverUrl     String?  @map("cover_url")
-  externalLink String?  @map("external_link")
-  createdAt    DateTime @default(now()) @map("created_at")
-  updatedAt    DateTime @updatedAt @map("updated_at")
+model Account {
+  id                String  @id @default(cuid())
+  userId            String  @map("user_id")
+  type              String
+  provider          String
+  providerAccountId String  @map("provider_account_id")
+  refresh_token     String? @db.Text
+  access_token      String? @db.Text
+  expires_at        Int?
+  token_type        String?
+  scope             String?
+  id_token          String? @db.Text
+  session_state     String?
 
-  reviews Review[]
-  genres  Genre[]
-  tags    Tag[]
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([provider, providerAccountId])
+  @@index([userId])
+  @@map("accounts")
+}
+
+model AuthToken {
+  id        String        @id @default(cuid())
+  userId    String        @map("user_id")
+  type      AuthTokenType
+  tokenHash String        @unique @map("token_hash")
+  expiresAt DateTime      @map("expires_at")
+  usedAt    DateTime?     @map("used_at")
+  createdAt DateTime      @default(now()) @map("created_at")
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, type])
+  @@map("auth_tokens")
+}
+
+model NotificationPreference {
+  userId           String        @id @map("user_id")
+  emailEnabled     Boolean       @default(true) @map("email_enabled")
+  digestCadence    DigestCadence @default(WEEKLY) @map("digest_cadence")
+  moonieDailyEmail Boolean       @default(true) @map("moonie_daily_email")
+  updatedAt        DateTime      @updatedAt @map("updated_at")
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("notification_preferences")
+}
+
+model UserPreferredGenre {
+  userId    String   @map("user_id")
+  genreId   String   @map("genre_id")
+  createdAt DateTime @default(now()) @map("created_at")
+
+  user  User  @relation(fields: [userId], references: [id], onDelete: Cascade)
+  genre Genre @relation(fields: [genreId], references: [id], onDelete: Cascade)
+
+  @@id([userId, genreId])
+  @@index([genreId])
+  @@map("user_preferred_genres")
+}
+
+model Novel {
+  id                String    @id @default(cuid())
+  title             String
+  author            String?
+  coverUrl          String?   @map("cover_url")
+  externalLink      String?   @map("external_link")
+  synopsis          String?
+  originalLanguage  String?   @map("original_language")
+  publicationStatus String?   @map("publication_status")
+  publisher         String?
+  chapterCount      Int?      @map("chapter_count")
+  lengthBand        String?   @map("length_band")
+  metadataSource    String?   @map("metadata_source")
+  lastVerifiedAt    DateTime? @map("last_verified_at")
+  embedding         Json?
+  createdAt         DateTime  @default(now()) @map("created_at")
+  updatedAt         DateTime  @updatedAt @map("updated_at")
+
+  reviews                Review[]
+  genres                 Genre[]
+  tags                   Tag[]
+  aliases                NovelAlias[]
+  contentWarnings        NovelContentWarning[]
+  readingLinks           ReadingLink[]
+  readingStatuses        NovelReadingStatus[]
+  featuredSlots          FeaturedNovel[]
+  reviewDrafts           ReviewDraft[]
+  recommendationFeedback RecommendationFeedback[]
+  moonieEvents           MoonieRecommendationEvent[]
+  recommendationResults  RecommendationResult[]
+  tagSuggestions         TagSuggestion[]
+  seriesEntries          NovelSeriesEntry[]
 
   @@index([title])
+  @@index([lengthBand])
+  @@index([publicationStatus])
   @@map("novels")
 }
 
-model Review {
-  id           String   @id @default(cuid())
-  userId       String   @map("user_id")
-  novelId      String   @map("novel_id")
-  title        String
-  body         String
-  rating       Int
-  likeCount    Int      @default(0) @map("like_count")
-  commentCount Int      @default(0) @map("comment_count")
-  shareCount   Int      @default(0) @map("share_count")
-  saveCount    Int      @default(0) @map("save_count")
-  createdAt    DateTime @default(now()) @map("created_at")
-  updatedAt    DateTime @updatedAt @map("updated_at")
+model NovelSeries {
+  id                    String   @id @default(cuid())
+  name                  String
+  description           String?
+  readingOrderVerified  Boolean  @default(false) @map("reading_order_verified")
+  createdAt             DateTime @default(now()) @map("created_at")
+  updatedAt             DateTime @updatedAt @map("updated_at")
 
-  user     User           @relation(fields: [userId], references: [id], onDelete: Cascade)
-  novel    Novel          @relation(fields: [novelId], references: [id], onDelete: Cascade)
-  comments Comment[]
-  likes    Like[]
-  folders  FolderReview[]
+  entries NovelSeriesEntry[]
+
+  @@index([name])
+  @@map("novel_series")
+}
+
+model NovelSeriesEntry {
+  id           String                  @id @default(cuid())
+  seriesId     String                  @map("series_id")
+  novelId      String                  @map("novel_id")
+  order        Int
+  relationType NovelSeriesRelationType @default(MAIN) @map("relation_type")
+  createdAt    DateTime                @default(now()) @map("created_at")
+  updatedAt    DateTime                @updatedAt @map("updated_at")
+
+  series NovelSeries @relation(fields: [seriesId], references: [id], onDelete: Cascade)
+  novel  Novel       @relation(fields: [novelId], references: [id], onDelete: Cascade)
+
+  @@unique([seriesId, novelId])
+  @@index([seriesId, order])
+  @@index([novelId])
+  @@map("novel_series_entries")
+}
+
+model NovelAlias {
+  id        String   @id @default(cuid())
+  novelId   String   @map("novel_id")
+  title     String
+  createdAt DateTime @default(now()) @map("created_at")
+
+  novel Novel @relation(fields: [novelId], references: [id], onDelete: Cascade)
+
+  @@index([novelId])
+  @@index([title])
+  @@unique([novelId, title])
+  @@map("novel_aliases")
+}
+
+model ContentWarning {
+  id          String   @id @default(cuid())
+  name        String   @unique
+  slug        String   @unique
+  description String?
+  createdAt   DateTime @default(now()) @map("created_at")
+
+  novels NovelContentWarning[]
+
+  @@map("content_warnings")
+}
+
+model NovelContentWarning {
+  novelId   String @map("novel_id")
+  warningId String @map("warning_id")
+
+  novel   Novel          @relation(fields: [novelId], references: [id], onDelete: Cascade)
+  warning ContentWarning @relation(fields: [warningId], references: [id], onDelete: Cascade)
+
+  @@id([novelId, warningId])
+  @@index([warningId])
+  @@map("novel_content_warnings")
+}
+
+model ReadingLink {
+  id                   String                      @id @default(cuid())
+  novelId              String                      @map("novel_id")
+  submittedByUserId    String?                     @map("submitted_by_user_id")
+  submittedViaReviewId String?                     @map("submitted_via_review_id")
+  platform             String
+  url                  String
+  normalizedUrl        String                      @map("normalized_url")
+  category             ReadingLinkCategory
+  country              String?
+  language             String?
+  label                String?
+  moderationStatus     ReadingLinkModerationStatus @default(PENDING) @map("moderation_status")
+  isOfficial           Boolean                     @default(false) @map("is_official")
+  isVerified           Boolean                     @default(false) @map("is_verified")
+  rejectionReason      String?                     @map("rejection_reason")
+  sortOrder            Int                         @default(0) @map("sort_order")
+  active               Boolean                     @default(true)
+  lastCheckedAt        DateTime?                   @map("last_checked_at")
+  healthStatus         ReadingLinkHealthStatus     @default(UNKNOWN) @map("health_status")
+  lastStatusCode       Int?                        @map("last_status_code")
+  createdAt            DateTime                    @default(now()) @map("created_at")
+  updatedAt            DateTime                    @updatedAt @map("updated_at")
+
+  novel              Novel   @relation(fields: [novelId], references: [id], onDelete: Cascade)
+  submittedByUser    User?   @relation("ReadingLinkSubmitter", fields: [submittedByUserId], references: [id], onDelete: SetNull)
+  submittedViaReview Review? @relation("ReadingLinkViaReview", fields: [submittedViaReviewId], references: [id], onDelete: SetNull)
+
+  @@unique([novelId, normalizedUrl])
+  @@index([novelId])
+  @@index([submittedByUserId])
+  @@index([submittedViaReviewId])
+  @@index([moderationStatus])
+  @@index([active])
+  @@map("reading_links")
+}
+
+model Review {
+  id               String                  @id @default(cuid())
+  userId           String                  @map("user_id")
+  novelId          String                  @map("novel_id")
+  title            String
+  body             String
+  rating           Int
+  containsSpoilers Boolean                 @default(false) @map("contains_spoilers")
+  moderationStatus ContentModerationStatus @default(OK) @map("moderation_status")
+  likeCount        Int                     @default(0) @map("like_count")
+  commentCount     Int                     @default(0) @map("comment_count")
+  shareCount       Int                     @default(0) @map("share_count")
+  saveCount        Int                     @default(0) @map("save_count")
+  createdAt        DateTime                @default(now()) @map("created_at")
+  updatedAt        DateTime                @updatedAt @map("updated_at")
+
+  user                  User           @relation(fields: [userId], references: [id], onDelete: Cascade)
+  novel                 Novel          @relation(fields: [novelId], references: [id], onDelete: Cascade)
+  comments              Comment[]
+  likes                 Like[]
+  folders               FolderReview[]
+  submittedReadingLinks ReadingLink[]  @relation("ReadingLinkViaReview")
 
   @@unique([novelId, userId])
   @@index([createdAt])
   @@index([likeCount])
   @@index([rating])
+  @@index([containsSpoilers])
+  @@index([moderationStatus])
   @@map("reviews")
 }
 
@@ -93,37 +407,85 @@ model Genre {
   name String @unique
   slug String @unique
 
-  novels Novel[]
+  novels           Novel[]
+  preferredByUsers UserPreferredGenre[]
 
   @@map("genres")
 }
 
 model Tag {
-  id   String @id @default(cuid())
-  name String @unique
-  slug String @unique
+  id   String  @id @default(cuid())
+  name String  @unique
+  slug String  @unique
+  kind TagKind @default(TROPE)
 
-  novels Novel[]
+  novels              Novel[]
+  resolvedSuggestions TagSuggestion[]
 
+  @@index([kind])
   @@map("tags")
 }
 
-model Comment {
-  id              String   @id @default(cuid())
-  reviewId        String   @map("review_id")
-  userId          String   @map("user_id")
-  parentCommentId String?  @map("parent_comment_id")
-  body            String
-  createdAt       DateTime @default(now()) @map("created_at")
-  updatedAt       DateTime @updatedAt @map("updated_at")
+model TagSuggestion {
+  id               String               @id @default(cuid())
+  name             String
+  normalizedName   String               @map("normalized_name")
+  compactKey       String               @map("compact_key")
+  status           TagSuggestionStatus  @default(PENDING)
+  suggestedByUserId String              @map("suggested_by_user_id")
+  novelId          String?              @map("novel_id")
+  reason           String?
+  reviewedByUserId String?              @map("reviewed_by_user_id")
+  reviewedAt       DateTime?            @map("reviewed_at")
+  rejectionReason  String?              @map("rejection_reason")
+  resolvedTagId    String?              @map("resolved_tag_id")
+  createdAt        DateTime             @default(now()) @map("created_at")
 
-  review  Review    @relation(fields: [reviewId], references: [id], onDelete: Cascade)
-  user    User      @relation(fields: [userId], references: [id], onDelete: Cascade)
-  parent  Comment?  @relation("CommentReplies", fields: [parentCommentId], references: [id], onDelete: Cascade)
-  replies Comment[] @relation("CommentReplies")
+  suggestedBy User  @relation("TagSuggestionSubmitter", fields: [suggestedByUserId], references: [id], onDelete: Cascade)
+  reviewedBy  User? @relation("TagSuggestionReviewer", fields: [reviewedByUserId], references: [id], onDelete: SetNull)
+  novel       Novel? @relation(fields: [novelId], references: [id], onDelete: SetNull)
+  resolvedTag Tag?  @relation(fields: [resolvedTagId], references: [id], onDelete: SetNull)
+
+  @@index([status, createdAt])
+  @@index([compactKey])
+  @@index([suggestedByUserId, status])
+  @@map("tag_suggestions")
+}
+
+model Comment {
+  id               String                  @id @default(cuid())
+  reviewId         String                  @map("review_id")
+  userId           String                  @map("user_id")
+  parentCommentId  String?                 @map("parent_comment_id")
+  body             String
+  containsSpoilers Boolean                 @default(false) @map("contains_spoilers")
+  moderationStatus ContentModerationStatus @default(OK) @map("moderation_status")
+  createdAt        DateTime                @default(now()) @map("created_at")
+  updatedAt        DateTime                @updatedAt @map("updated_at")
+  likeCount        Int                     @default(0) @map("like_count")
+
+  review  Review        @relation(fields: [reviewId], references: [id], onDelete: Cascade)
+  user    User          @relation(fields: [userId], references: [id], onDelete: Cascade)
+  parent  Comment?      @relation("CommentReplies", fields: [parentCommentId], references: [id], onDelete: Cascade)
+  replies Comment[]     @relation("CommentReplies")
+  likes   CommentLike[]
 
   @@index([reviewId])
+  @@index([moderationStatus])
   @@map("comments")
+}
+
+model CommentLike {
+  userId    String   @map("user_id")
+  commentId String   @map("comment_id")
+  createdAt DateTime @default(now()) @map("created_at")
+
+  user    User    @relation(fields: [userId], references: [id], onDelete: Cascade)
+  comment Comment @relation(fields: [commentId], references: [id], onDelete: Cascade)
+
+  @@id([userId, commentId])
+  @@index([commentId])
+  @@map("comment_likes")
 }
 
 model Like {
@@ -145,6 +507,7 @@ model Folder {
   name        String
   description String?
   isPublic    Boolean  @default(false) @map("is_public")
+  isFeatured  Boolean  @default(false) @map("is_featured")
   createdAt   DateTime @default(now()) @map("created_at")
   updatedAt   DateTime @updatedAt @map("updated_at")
 
@@ -152,6 +515,7 @@ model Folder {
   reviews FolderReview[]
 
   @@index([userId])
+  @@index([isFeatured, isPublic])
   @@map("folders")
 }
 
@@ -186,12 +550,275 @@ model Notification {
   type      NotificationType
   message   String
   link      String?
+  actorId   String?          @map("actor_id")
+  metadata  Json?            @map("metadata")
   isRead    Boolean          @default(false) @map("is_read")
   createdAt DateTime         @default(now()) @map("created_at")
 
-  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+  user  User  @relation(fields: [userId], references: [id], onDelete: Cascade)
+  actor User? @relation("NotificationActor", fields: [actorId], references: [id], onDelete: SetNull)
 
   @@index([userId, isRead])
+  @@index([actorId])
   @@index([createdAt])
   @@map("notifications")
+}
+
+model Report {
+  id           String           @id @default(cuid())
+  reporterId   String           @map("reporter_id")
+  targetType   ReportTargetType @map("target_type")
+  targetId     String           @map("target_id")
+  reason       String
+  details      String?
+  status       ReportStatus     @default(OPEN)
+  resolvedById String?          @map("resolved_by_id")
+  resolution   String?
+  createdAt    DateTime         @default(now()) @map("created_at")
+  updatedAt    DateTime         @updatedAt @map("updated_at")
+
+  reporter   User  @relation("ReportReporter", fields: [reporterId], references: [id], onDelete: Cascade)
+  resolvedBy User? @relation("ReportResolver", fields: [resolvedById], references: [id], onDelete: SetNull)
+
+  @@index([status, createdAt])
+  @@index([targetType, targetId])
+  @@index([reporterId])
+  @@map("reports")
+}
+
+model ModerationAuditLog {
+  id         String   @id @default(cuid())
+  actorId    String   @map("actor_id")
+  action     String
+  entityType String   @map("entity_type")
+  entityId   String   @map("entity_id")
+  meta       Json?
+  createdAt  DateTime @default(now()) @map("created_at")
+
+  actor User @relation(fields: [actorId], references: [id], onDelete: Cascade)
+
+  @@index([createdAt])
+  @@index([entityType, entityId])
+  @@map("moderation_audit_logs")
+}
+
+model NovelReadingStatus {
+  userId    String             @map("user_id")
+  novelId   String             @map("novel_id")
+  status    ReadingStatusValue
+  updatedAt DateTime           @updatedAt @map("updated_at")
+  createdAt DateTime           @default(now()) @map("created_at")
+
+  user  User  @relation(fields: [userId], references: [id], onDelete: Cascade)
+  novel Novel @relation(fields: [novelId], references: [id], onDelete: Cascade)
+
+  @@id([userId, novelId])
+  @@index([novelId])
+  @@index([userId, status])
+  @@map("novel_reading_statuses")
+}
+
+model FeaturedNovel {
+  id          String    @id @default(cuid())
+  novelId     String    @map("novel_id")
+  slot        Int       @default(0)
+  startsAt    DateTime  @default(now()) @map("starts_at")
+  endsAt      DateTime? @map("ends_at")
+  createdById String?   @map("created_by_id")
+  createdAt   DateTime  @default(now()) @map("created_at")
+
+  novel     Novel @relation(fields: [novelId], references: [id], onDelete: Cascade)
+  createdBy User? @relation("FeaturedNovelCreator", fields: [createdById], references: [id], onDelete: SetNull)
+
+  @@index([startsAt, endsAt])
+  @@index([slot])
+  @@map("featured_novels")
+}
+
+model ReviewDraft {
+  id                 String    @id @default(cuid())
+  userId             String    @map("user_id")
+  novelId            String?   @map("novel_id")
+  payload            Json
+  scheduledPublishAt DateTime? @map("scheduled_publish_at")
+  createdAt          DateTime  @default(now()) @map("created_at")
+  updatedAt          DateTime  @updatedAt @map("updated_at")
+
+  user  User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+  novel Novel? @relation(fields: [novelId], references: [id], onDelete: SetNull)
+
+  @@index([userId])
+  @@index([scheduledPublishAt])
+  @@map("review_drafts")
+}
+
+model MoonieConversation {
+  id        String    @id @default(cuid())
+  userId    String?   @map("user_id")
+  guestKey  String?   @map("guest_key")
+  title     String?   @db.VarChar(80)
+  pinnedAt  DateTime? @map("pinned_at")
+  createdAt DateTime  @default(now()) @map("created_at")
+  updatedAt DateTime  @updatedAt @map("updated_at")
+
+  user     User?           @relation(fields: [userId], references: [id], onDelete: Cascade)
+  messages MoonieMessage[]
+
+  @@index([userId])
+  @@index([userId, pinnedAt])
+  @@index([guestKey])
+  @@map("moonie_conversations")
+}
+
+model MoonieMessage {
+  id             String   @id @default(cuid())
+  conversationId String   @map("conversation_id")
+  role           String
+  content        String   @db.Text
+  meta           Json?
+  createdAt      DateTime @default(now()) @map("created_at")
+
+  conversation MoonieConversation @relation(fields: [conversationId], references: [id], onDelete: Cascade)
+
+  @@index([conversationId, createdAt])
+  @@map("moonie_messages")
+}
+
+model Conversation {
+  id            String   @id @default(cuid())
+  userAId       String   @map("user_a_id")
+  userBId       String   @map("user_b_id")
+  lastMessageAt DateTime @default(now()) @map("last_message_at")
+  createdAt     DateTime @default(now()) @map("created_at")
+
+  userA    User            @relation("ConversationUserA", fields: [userAId], references: [id], onDelete: Cascade)
+  userB    User            @relation("ConversationUserB", fields: [userBId], references: [id], onDelete: Cascade)
+  messages DirectMessage[]
+
+  @@unique([userAId, userBId])
+  @@index([lastMessageAt])
+  @@map("conversations")
+}
+
+model DirectMessage {
+  id             String    @id @default(cuid())
+  conversationId String    @map("conversation_id")
+  senderId       String    @map("sender_id")
+  body           String    @db.Text
+  readAt         DateTime? @map("read_at")
+  createdAt      DateTime  @default(now()) @map("created_at")
+
+  conversation Conversation @relation(fields: [conversationId], references: [id], onDelete: Cascade)
+  sender       User         @relation("MessageSender", fields: [senderId], references: [id], onDelete: Cascade)
+
+  @@index([conversationId, createdAt])
+  @@index([senderId])
+  @@map("direct_messages")
+}
+
+model SystemSetting {
+  key       String   @id
+  value     Json
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  @@map("system_settings")
+}
+
+/// Explicit long-term taste memory for Moonie (editable / resettable).
+model MoonieTasteProfile {
+  userId               String   @id @map("user_id")
+  favouriteGenres      String[] @default([]) @map("favourite_genres")
+  favouriteTags        String[] @default([]) @map("favourite_tags")
+  favouriteMoods       String[] @default([]) @map("favourite_moods")
+  avoidedTags          String[] @default([]) @map("avoided_tags")
+  preferredStatus      String?  @map("preferred_status")
+  preferredLength      String?  @map("preferred_length")
+  preferredPlatforms   String[] @default([]) @map("preferred_platforms")
+  romanceLevel         String?  @map("romance_level")
+  preferredProtagonist String?  @map("preferred_protagonist")
+  preferredLanguage    String?  @map("preferred_language")
+  useTasteByDefault    Boolean  @default(true) @map("use_taste_by_default")
+  useSavedNovels       Boolean  @default(true) @map("use_saved_novels")
+  useSavedReviews      Boolean  @default(true) @map("use_saved_reviews")
+  useReadingList       Boolean  @default(true) @map("use_reading_list")
+  useLikes             Boolean  @default(true) @map("use_likes")
+  useFollowedReviewers Boolean  @default(true) @map("use_followed_reviewers")
+  useSearchHistory     Boolean  @default(true) @map("use_search_history")
+  updatedAt            DateTime @updatedAt @map("updated_at")
+  createdAt            DateTime @default(now()) @map("created_at")
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("moonie_taste_profiles")
+}
+
+model RecommendationSession {
+  id                      String   @id @default(cuid())
+  userId                  String?  @map("user_id")
+  conversationId          String?  @map("conversation_id")
+  query                   String
+  interpretedPreferences  Json     @map("interpreted_preferences")
+  createdAt               DateTime @default(now()) @map("created_at")
+
+  user    User?                  @relation(fields: [userId], references: [id], onDelete: SetNull)
+  results RecommendationResult[]
+
+  @@index([userId, createdAt])
+  @@index([conversationId])
+  @@map("recommendation_sessions")
+}
+
+model RecommendationResult {
+  id             String   @id @default(cuid())
+  sessionId      String   @map("session_id")
+  novelId        String   @map("novel_id")
+  rank           Int
+  matchScore     Float    @map("match_score")
+  scoreBreakdown Json     @map("score_breakdown")
+  reasons        String[]
+  caveat         String?
+  explanation    String?
+  createdAt      DateTime @default(now()) @map("created_at")
+
+  session RecommendationSession @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+  novel   Novel                 @relation(fields: [novelId], references: [id], onDelete: Cascade)
+
+  @@unique([sessionId, novelId])
+  @@index([novelId])
+  @@map("recommendation_results")
+}
+
+model RecommendationFeedback {
+  id        String                     @id @default(cuid())
+  userId    String                     @map("user_id")
+  novelId   String                     @map("novel_id")
+  sessionId String?                    @map("session_id")
+  kind      RecommendationFeedbackKind
+  note      String?
+  createdAt DateTime                   @default(now()) @map("created_at")
+
+  user  User  @relation(fields: [userId], references: [id], onDelete: Cascade)
+  novel Novel @relation(fields: [novelId], references: [id], onDelete: Cascade)
+
+  @@index([userId, novelId])
+  @@index([userId, kind])
+  @@index([sessionId])
+  @@map("recommendation_feedback")
+}
+
+model MoonieRecommendationEvent {
+  id        String   @id @default(cuid())
+  userId    String?  @map("user_id")
+  event     String
+  novelId   String?  @map("novel_id")
+  meta      Json?
+  createdAt DateTime @default(now()) @map("created_at")
+
+  user  User?  @relation(fields: [userId], references: [id], onDelete: SetNull)
+  novel Novel? @relation(fields: [novelId], references: [id], onDelete: SetNull)
+
+  @@index([event, createdAt])
+  @@index([userId])
+  @@index([novelId])
+  @@map("moonie_recommendation_events")
 }

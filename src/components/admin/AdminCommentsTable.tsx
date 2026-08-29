@@ -70,15 +70,15 @@ export function AdminCommentsTable({ comments }: AdminCommentsTableProps) {
         {comments.map((comment) => (
           <AdminTableRow key={comment.id}>
             <AdminTableCell className="max-w-xs">
-              <p className="line-clamp-3 text-white">{comment.body}</p>
-              <p className="mt-1 text-xs text-white">
+              <p className="line-clamp-3 text-white/90">{comment.body}</p>
+              <p className="mt-1 text-xs text-white/70">
                 {formatDate(comment.createdAt)}
               </p>
             </AdminTableCell>
             <AdminTableCell>
               <Link
                 href={`/reviews/${comment.reviewId}`}
-                className="font-medium text-[#fcd34d] hover:underline"
+                className="font-medium text-[#6e46c7] hover:underline"
               >
                 {comment.reviewTitle}
               </Link>
@@ -86,7 +86,7 @@ export function AdminCommentsTable({ comments }: AdminCommentsTableProps) {
             <AdminTableCell>
               <Link
                 href={`/users/${comment.authorUsername}`}
-                className="font-medium text-white"
+                className="font-medium text-white/90 hover:text-[#6e46c7]"
               >
                 {comment.authorDisplayName}
               </Link>

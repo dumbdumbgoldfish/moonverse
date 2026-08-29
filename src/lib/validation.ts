@@ -1,12 +1,18 @@
+import { isAvatarDataUrl } from "@/lib/avatar-upload";
+import { isProfileBackgroundDataUrl } from "@/lib/profile-background-upload";
+
 export const LIMITS = {
   displayName: { min: 1, max: 80 },
   bio: { max: 500 },
   avatarUrl: { max: 2048 },
+  profileBackgroundUrl: { max: 2048 },
   username: { min: 3, max: 30 },
   password: { min: 8, max: 128 },
   email: { max: 254 },
-  reviewTitle: { min: 3, max: 200 },
-  reviewBody: { min: 20, max: 20000 },
+  reviewTitle: { min: 8, max: 200 },
+  /** Recommended display length for review titles (UI guidance). */
+  reviewTitleRecommended: { max: 160 },
+  reviewBody: { min: 100, max: 20000 },
   commentBody: { min: 1, max: 2000 },
   folderName: { min: 1, max: 100 },
   folderDescription: { max: 500 },
@@ -23,6 +29,18 @@ export function isValidUrl(value: string): boolean {
   try {
     const url = new URL(value);
     return url.protocol === "http:" || url.protocol === "https:";
+  } catch {
+    return false;
+  }
+}
+
+/** Strict HTTPS URL for covers and reading sources (blocks javascript:/data:). */
+export function isSafeHttpsUrl(value: string): boolean {
+  try {
+    const url = new URL(value.trim());
+    if (url.protocol !== "https:") return false;
+    if (!url.hostname || url.hostname.includes(" ")) return false;
+    return true;
   } catch {
     return false;
   }
@@ -49,11 +67,35 @@ export function validateBio(value: string): string | null {
 export function validateAvatarUrl(value: string): string | null {
   const trimmed = value.trim();
   if (!trimmed) return null;
+  if (isAvatarDataUrl(trimmed)) {
+    if (trimmed.length > 220_000) {
+      return "Profile image is too large.";
+    }
+    return null;
+  }
   if (trimmed.length > LIMITS.avatarUrl.max) {
     return "Avatar URL is too long.";
   }
   if (!isValidUrl(trimmed)) {
-    return "Avatar URL must be a valid http or https link.";
+    return "Avatar must be an uploaded image or a valid http or https link.";
+  }
+  return null;
+}
+
+export function validateProfileBackgroundUrl(value: string): string | null {
+  const trimmed = value.trim();
+  if (!trimmed) return null;
+  if (isProfileBackgroundDataUrl(trimmed)) {
+    if (trimmed.length > 450_000) {
+      return "Profile background image is too large.";
+    }
+    return null;
+  }
+  if (trimmed.length > LIMITS.profileBackgroundUrl.max) {
+    return "Profile background URL is too long.";
+  }
+  if (!isValidUrl(trimmed)) {
+    return "Background must be an uploaded image or a valid http or https link.";
   }
   return null;
 }
@@ -102,9 +144,14 @@ export function validateFolderName(value: string): string | null {
   return null;
 }
 
+import { isAllowedShortMoonieMessage } from "@/lib/moonie/intent";
+
 export function validateMoonieMessage(value: string): string | null {
   const trimmed = value.trim();
-  if (trimmed.length < LIMITS.moonieMessage.min) {
+  if (!trimmed) {
+    return "Please enter a message.";
+  }
+  if (!isAllowedShortMoonieMessage(trimmed)) {
     return "Please describe what kind of web novel you're looking for.";
   }
   if (trimmed.length > LIMITS.moonieMessage.max) {

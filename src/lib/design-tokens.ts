@@ -1,5 +1,5 @@
 /**
- * MoonVerse design tokens — WCAG AA compliant, color-blind friendly palette.
+ * MoonVerse design tokens. WCAG AA compliant, color-blind friendly palette.
  * CSS variables in globals.css are the source of truth for styling.
  */
 export const colors = {

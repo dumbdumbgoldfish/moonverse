@@ -1,0 +1,87 @@
+{
+  "generatedAt": "2026-08-18T04:57:26.279Z",
+  "passed": 16,
+  "total": 16,
+  "checks": [
+    {
+      "id": "DM01",
+      "pass": true,
+      "detail": "default mode=shelves"
+    },
+    {
+      "id": "DM02",
+      "pass": true,
+      "detail": "for-you parses"
+    },
+    {
+      "id": "DM03",
+      "pass": true,
+      "detail": "modes=for-you,trending,shelves,people"
+    },
+    {
+      "id": "DM04",
+      "pass": true,
+      "detail": "/discover?mode=trending"
+    },
+    {
+      "id": "DM05",
+      "pass": true,
+      "detail": "/discover"
+    },
+    {
+      "id": "DM06",
+      "pass": true,
+      "detail": "for-you default sort"
+    },
+    {
+      "id": "DP01",
+      "pass": true,
+      "detail": "compact layout"
+    },
+    {
+      "id": "DP02",
+      "pass": true,
+      "detail": "unknown falls back"
+    },
+    {
+      "id": "DP03",
+      "pass": true,
+      "detail": "covers layout"
+    },
+    {
+      "id": "DG01",
+      "pass": true,
+      "detail": "glossary size=10"
+    },
+    {
+      "id": "DG02",
+      "pass": true,
+      "detail": "Recent community activity (reviews + likes). Not a sales chart."
+    },
+    {
+      "id": "DR01",
+      "pass": true,
+      "detail": "Loved this week"
+    },
+    {
+      "id": "DR02",
+      "pass": true,
+      "detail": "Quietly loved"
+    },
+    {
+      "id": "DN01",
+      "pass": true,
+      "detail": "Mapped to Romance · slow-burn · official link only"
+    },
+    {
+      "id": "DN02",
+      "pass": true,
+      "detail": "Mapped to LitRPG · sort: community-strength"
+    },
+    {
+      "id": "DN03",
+      "pass": true,
+      "detail": "/browse/romance?tags=slow-burn&link=official"
+    }
+  ]
+}

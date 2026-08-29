@@ -1,13 +1,14 @@
-import { notFound } from "next/navigation";
+import { redirect } from "next/navigation";
 import { auth } from "@/lib/auth";
-import { NotificationsList } from "@/components/notifications/NotificationsList";
+import { NotificationInbox } from "@/components/notifications/NotificationInbox";
+import { NotificationSetupError } from "@/components/notifications/NotificationSetupError";
 import {
-  getNotificationsByUser,
+  getEnrichedNotificationsByUser,
   getUnreadNotificationCount,
 } from "@/services/notification.service";
 
 export const metadata = {
-  title: "Notifications — MoonVerse",
+  title: "Notifications · MoonVerse",
   description: "View your MoonVerse notifications.",
 };
 
@@ -17,18 +18,34 @@ export default async function NotificationsPage() {
   const session = await auth();
 
   if (!session?.user?.id) {
-    notFound();
+    redirect("/login?callbackUrl=/notifications");
   }
 
-  const [notifications, unreadCount] = await Promise.all([
-    getNotificationsByUser(session.user.id),
-    getUnreadNotificationCount(session.user.id),
-  ]);
+  let notifications;
+  let unreadCount;
+  let setupMessage: string | undefined;
+
+  try {
+    [notifications, unreadCount] = await Promise.all([
+      getEnrichedNotificationsByUser(session.user.id),
+      getUnreadNotificationCount(session.user.id),
+    ]);
+  } catch (error) {
+    setupMessage =
+      error instanceof Error &&
+      error.message.includes("actor_id")
+        ? "The notifications table is missing new columns (`actor_id`, `metadata`). Apply migrations and restart the app."
+        : undefined;
+  }
+
+  if (setupMessage) {
+    return <NotificationSetupError message={setupMessage} />;
+  }
 
   return (
-    <NotificationsList
-      notifications={notifications}
-      unreadCount={unreadCount}
+    <NotificationInbox
+      notifications={notifications!}
+      unreadCount={unreadCount!}
     />
   );
 }

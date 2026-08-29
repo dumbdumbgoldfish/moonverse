@@ -125,8 +125,8 @@
   --accent-foreground: #c2410c;
   --accent-brand: #ea580c;
   --accent-soft: #fdba74;
-  --rating-accent: #fcd34d;
-  --rating-accent-soft: #fef9c3;
+  --rating-accent: #f9db7e;
+  --rating-accent-soft: #fff8e6;
   --moon-purple: #6246ea;
   --moon-purple-soft: #ede8ff;
   --soft-lavender: #a594f9;
@@ -165,7 +165,7 @@
   --cosmic-text: #f7f5ff;
   --cosmic-muted: #b7bdd1;
   --cosmic-violet: #a99bff;
-  --cosmic-gold: #ffd978;
+  --cosmic-gold: #f9db7e;
   --cosmic-success: #4ed6a7;
   --cosmic-danger: #ff7a90;
 
@@ -175,11 +175,10 @@
   --mv-plum: #4c2a67;
   --mv-violet: #6e46c7;
   --mv-lavender: #8b6ad9;
-  --mv-gold: #c89b4a;
-  --mv-star-gold: #fcd34d;
+  --mv-gold: #f9db7e;
   --mv-ivory: #ffffff;
   --mv-paper: #fbf6fc;
-  --mv-muted-gold: #e6d2a3;
+  --mv-muted-gold: #fce9a8;
   --mv-text-muted: #7a7284;
   --mv-muted: #7a7284;
   --mv-border: rgba(36, 22, 48, 0.1);
@@ -225,8 +224,8 @@
   --accent-foreground: #fdba74;
   --accent-brand: #fb923c;
   --accent-soft: #fdba74;
-  --rating-accent: #fcd34d;
-  --rating-accent-soft: #2d2618;
+  --rating-accent: #f9db7e;
+  --rating-accent-soft: #3d3218;
   --moon-purple: #8b7cf7;
   --moon-purple-soft: #2a2540;
   --soft-lavender: #b8a9f5;
@@ -389,7 +388,7 @@
 
   .mv-moonie-fab {
     background: var(--mv-dark-surface, #2a1840);
-    border: 2px solid var(--mv-gold, #c89b4a);
+    border: 2px solid var(--mv-gold, #f9db7e);
     box-shadow: 0 8px 24px -8px rgba(26, 18, 36, 0.55);
     transition: transform 0.2s ease, box-shadow 0.2s ease;
   }
@@ -837,19 +836,19 @@
     transition: color 0.2s ease;
   }
   .group:hover .mv-wordmark-sub {
-    color: #c89b4a;
+    color: var(--mv-gold);
   }
   .mv-wordmark--inverse .mv-wordmark-moon {
-    color: #ffffff;
+    color: #fffbff;
   }
   .mv-wordmark--inverse .mv-wordmark-verse {
-    color: #fcd34d;
+    color: var(--mv-gold);
   }
   .mv-wordmark--inverse .mv-wordmark-sub {
-    color: rgba(255, 255, 255, 0.88);
+    color: rgba(255, 251, 255, 0.55);
   }
   .group:hover .mv-wordmark--inverse .mv-wordmark-sub {
-    color: #fcd34d;
+    color: var(--mv-gold);
   }
   .mv-wordmark--mono .mv-wordmark-moon,
   .mv-wordmark--mono .mv-wordmark-verse {
@@ -1165,7 +1164,7 @@
       radial-gradient(1px 1px at 28% 62%, rgba(255, 255, 255, 0.7) 50%, transparent),
       radial-gradient(1.5px 1.5px at 44% 12%, rgba(214, 203, 255, 0.85) 50%, transparent),
       radial-gradient(1px 1px at 61% 48%, rgba(255, 255, 255, 0.6) 50%, transparent),
-      radial-gradient(2px 2px at 76% 26%, rgba(252, 211, 77, 0.9) 50%, transparent),
+      radial-gradient(2px 2px at 76% 26%, rgba(246, 200, 95, 0.8) 50%, transparent),
       radial-gradient(1px 1px at 88% 70%, rgba(255, 255, 255, 0.7) 50%, transparent),
       radial-gradient(1.5px 1.5px at 52% 82%, rgba(255, 255, 255, 0.75) 50%, transparent),
       radial-gradient(1px 1px at 8% 88%, rgba(214, 203, 255, 0.7) 50%, transparent),
@@ -1400,58 +1399,23 @@
   .mv-admin-root {
     color-scheme: dark;
     --background: #14111f;
-    --foreground: #ffffff;
+    --foreground: #f4f0ff;
     --card: #1c1729;
-    --card-foreground: #ffffff;
+    --card-foreground: #f4f0ff;
     --popover: #1c1729;
-    --popover-foreground: #ffffff;
-    --primary: #a78bfa;
+    --popover-foreground: #f4f0ff;
+    --primary: #8b7cf7;
     --primary-foreground: #14111f;
     --secondary: #2a2540;
-    --secondary-foreground: #fcd34d;
+    --secondary-foreground: #e6d2a3;
     --muted: rgba(255, 255, 255, 0.08);
-    --muted-foreground: #ffffff;
+    --muted-foreground: rgba(255, 255, 255, 0.68);
     --accent: #2d2618;
-    --accent-foreground: #fcd34d;
+    --accent-foreground: #e6d2a3;
     --border: rgba(255, 255, 255, 0.14);
     --input: rgba(255, 255, 255, 0.14);
-    --ring: #fcd34d;
-    --destructive: #ff6666;
-  }
-
-  .mv-admin-root svg.lucide {
-    stroke: url(#mv-admin-icon-gradient);
-    opacity: 1;
-    stroke-width: 2.35;
-  }
-
-  .mv-admin-root .admin-icon-on-gold svg.lucide {
-    stroke: url(#mv-admin-icon-gradient-on-gold);
-  }
-
-  .mv-admin-root svg.lucide.admin-icon-destructive,
-  .mv-admin-root .admin-icon-destructive svg.lucide {
-    stroke: #ff6666;
-  }
-
-  .mv-admin-root .mv-wordmark--inverse .mv-wordmark-moon {
-    color: #ffffff;
-  }
-
-  .mv-admin-root .mv-wordmark--inverse .mv-wordmark-verse {
-    color: #fcd34d;
-  }
-
-  .mv-admin-root .group:hover .mv-wordmark--inverse .mv-wordmark-verse {
-    color: #fef08a;
-  }
-
-  .mv-admin-root .mv-wordmark--inverse .mv-wordmark-sub {
-    color: rgba(255, 255, 255, 0.9);
-  }
-
-  .mv-admin-root .group:hover .mv-wordmark--inverse .mv-wordmark-sub {
-    color: #fcd34d;
+    --ring: #f9db7e;
+    --destructive: #f87171;
   }
 }
 

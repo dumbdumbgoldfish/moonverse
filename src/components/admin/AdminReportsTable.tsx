@@ -58,21 +58,21 @@ function ReportRow({ report }: { report: ReportSummary }) {
           {report.targetLink ? (
             <Link
               href={report.targetLink}
-              className="font-medium text-[#fcd34d] hover:underline"
+              className="font-medium text-[#6e46c7] hover:underline"
             >
               {report.targetPreview}
             </Link>
           ) : (
-            <span className="text-white">
+            <span className="text-white/70">
               {report.targetPreview ?? "(unavailable)"}
             </span>
           )}
         </p>
       </AdminTableCell>
       <AdminTableCell className="max-w-xs">
-        <p className="font-semibold text-white">{report.reason}</p>
+        <p className="font-semibold text-white/90">{report.reason}</p>
         {report.details ? (
-          <p className="mt-1 text-xs leading-relaxed text-white">
+          <p className="mt-1 text-xs leading-relaxed text-white/70">
             {report.details}
           </p>
         ) : null}
@@ -80,23 +80,23 @@ function ReportRow({ report }: { report: ReportSummary }) {
       <AdminTableCell>
         <Link
           href={`/users/${report.reporterUsername}`}
-          className="font-medium text-[#fcd34d] hover:underline"
+          className="font-medium text-[#6e46c7] hover:underline"
         >
           @{report.reporterUsername}
         </Link>
-        <p className="mt-1 text-xs text-white">
+        <p className="mt-1 text-xs text-white/70">
           {formatRelativeTime(report.createdAt)} · {formatDate(report.createdAt)}
         </p>
       </AdminTableCell>
       <AdminTableCell>
         <Badge variant={statusVariant(report.status)}>{report.status}</Badge>
         {report.resolvedByUsername ? (
-          <p className="mt-1 text-xs text-white">
+          <p className="mt-1 text-xs text-white/70">
             by @{report.resolvedByUsername}
           </p>
         ) : null}
         {report.resolution ? (
-          <p className="mt-1 text-xs text-white">{report.resolution}</p>
+          <p className="mt-1 text-xs text-white/70">{report.resolution}</p>
         ) : null}
       </AdminTableCell>
       <AdminTableCell>
@@ -162,7 +162,7 @@ function ReportRow({ report }: { report: ReportSummary }) {
             </div>
           </div>
         ) : (
-          <span className="text-xs text-white">No action needed</span>
+          <span className="text-xs text-white/70">No action needed</span>
         )}
       </AdminTableCell>
     </AdminTableRow>

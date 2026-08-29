@@ -6,7 +6,9 @@ import {
   ADMIN_CARD_CLASS,
   ADMIN_CARD_GLOW_CLASS,
   ADMIN_FILTER_CHIP_ACTIVE,
+  ADMIN_FILTER_CHIP_BASE,
   ADMIN_FILTER_CHIP_IDLE,
+  ADMIN_FILTER_CHIP_ROW_CLASS,
 } from "@/components/admin/admin-styles";
 
 export function AdminScrollPanel({
@@ -93,7 +95,7 @@ export function AdminTabs({
       <div
         role="tablist"
         aria-label="Admin sections"
-        className="mb-4 flex flex-wrap gap-1.5 border-b border-white/[0.08] pb-3"
+        className={cn(ADMIN_FILTER_CHIP_ROW_CLASS, "mb-4 border-b border-white/[0.08] pb-3")}
       >
         {tabs.map((tab) => {
           const selected = tab.id === active;
@@ -105,7 +107,8 @@ export function AdminTabs({
               aria-selected={selected}
               onClick={() => setActive(tab.id)}
               className={cn(
-                "inline-flex items-center rounded-full px-3.5 py-1.5 text-xs font-semibold transition duration-150",
+                ADMIN_FILTER_CHIP_BASE,
+                "px-3.5 py-1.5 text-xs",
                 selected ? ADMIN_FILTER_CHIP_ACTIVE : ADMIN_FILTER_CHIP_IDLE
               )}
             >
@@ -119,7 +122,7 @@ export function AdminTabs({
       </div>
       <div
         role="tabpanel"
-        className={cn("min-h-0 flex-1 overflow-hidden", panelClassName)}
+        className={cn("min-h-0 flex-1 overflow-visible", panelClassName)}
       >
         {current.content}
       </div>
@@ -141,7 +144,7 @@ export function AdminCollapsibleSection({
   const [open, setOpen] = useState(defaultOpen);
 
   return (
-    <section className={ADMIN_CARD_CLASS}>
+    <section className={cn(ADMIN_CARD_CLASS, "overflow-visible")}>
       <button
         type="button"
         onClick={() => setOpen((value) => !value)}
@@ -151,12 +154,12 @@ export function AdminCollapsibleSection({
         <span>
           <span className="block text-sm font-semibold text-white">{title}</span>
           {description ? (
-            <span className="mt-0.5 block text-xs text-white">{description}</span>
+            <span className="mt-0.5 block text-xs text-white/70">{description}</span>
           ) : null}
         </span>
-        <span className="text-xs font-semibold text-[#fcd34d]">{open ? "Hide" : "Show"}</span>
+        <span className="text-xs font-semibold text-[#f9db7e]">{open ? "Hide" : "Show"}</span>
       </button>
-      {open ? <div className="border-t border-white/10 p-4">{children}</div> : null}
+      {open ? <div className="overflow-visible border-t border-white/10 p-4">{children}</div> : null}
     </section>
   );
 }

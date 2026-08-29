@@ -1,6 +1,6 @@
 # MoonVerse
 
-MoonVerse is a web novel review community platform built for an MSc project. Members discover, write, and discuss web novel reviews, organise saves into folders, follow each other, receive notifications, and get AI-powered recommendations from **Moonie** — a floating assistant that suggests novels based on MoonVerse data (not a general chatbot).
+MoonVerse is a web novel review community platform built for an MSc project. Members discover, write, and discuss web novel reviews, organise saves into folders, follow each other, receive notifications, and get AI-powered recommendations from **Moonie**: a floating assistant that suggests novels based on MoonVerse data (not a general chatbot).
 
 ## Stack
 
@@ -17,8 +17,8 @@ MoonVerse is a web novel review community platform built for an MSc project. Mem
 
 ## Run locally
 
-> **Before `npm run dev`:** copy `.env.example` to `.env` and set **`DATABASE_URL`** and **`AUTH_SECRET`**.  
-> Without them you will see **Prisma `DATABASE_URL` missing** or **Auth.js `MissingSecret`** at runtime.  
+> **Before `npm run dev`:** copy `.env.example` to `.env` and set **`DATABASE_URL`** and **`AUTH_SECRET`**. 
+> Without them you will see **Prisma `DATABASE_URL` missing** or **Auth.js `MissingSecret`** at runtime. 
 > Restart the dev server after creating or editing `.env`.
 
 ### 1. Install dependencies
@@ -39,7 +39,7 @@ Required variables (the app will not run without these):
 
 ```env
 DATABASE_URL="postgresql://moonverse:moonverse@localhost:5432/moonverse?schema=public"
-AUTH_SECRET="your-secret-here"   # openssl rand -base64 32
+AUTH_SECRET="your-secret-here" # openssl rand -base64 32
 AUTH_URL="http://localhost:3000"
 ```
 
@@ -53,7 +53,8 @@ Optional (Moonie live AI):
 
 ```env
 OPENAI_API_KEY="sk-..."
-OPENAI_MODEL="gpt-4o-mini"
+OPENAI_MODEL="gpt-5.6-luna"
+OPENAI_VISION_MODEL="gpt-5.6-terra"
 ```
 
 ### 3. Start PostgreSQL
@@ -99,10 +100,11 @@ Open [http://localhost:3000](http://localhost:3000).
 | `AUTH_SECRET` | Yes | Auth.js session secret (`openssl rand -base64 32`) |
 | `AUTH_URL` | Yes (production) | Canonical app URL, e.g. `https://your-app.vercel.app` |
 | `OPENAI_API_KEY` | No | Enables live Moonie AI; mock mode used when unset |
-| `OPENAI_MODEL` | No | OpenAI model (default: `gpt-4o-mini`) |
+| `OPENAI_MODEL` | No | OpenAI text model (default: `gpt-5.6-luna`) |
+| `OPENAI_VISION_MODEL` | No | OpenAI vision model (default: `gpt-5.6-terra`) |
 | `NEXTAUTH_URL` | No | Legacy alias for `AUTH_URL`; set both if auth issues occur |
 
-Copy `.env.example` to `.env` locally. **Never commit `.env`** — it is gitignored.
+Copy `.env.example` to `.env` locally. **Never commit `.env`**: it is gitignored.
 
 ## Deploy to Vercel
 
@@ -122,11 +124,13 @@ Choose a provider and create a database. Copy the connection string.
 
 Ensure the repo includes `prisma/migrations/` (initial migration is committed).
 
+See [docs/migrations.md](./docs/migrations.md) for known historical migration notes (Aug 18 browse placeholders, checksum drift).
+
 ### 3. Import project in Vercel
 
 1. Go to [vercel.com](https://vercel.com) → **Add New Project** → import your GitHub repo.
 2. Framework preset: **Next.js** (auto-detected).
-3. Build command: leave default — Vercel runs the `vercel-build` script automatically when present.
+3. Build command: leave default: Vercel runs the `vercel-build` script automatically when present.
 4. Install command: `npm install` (default).
 
 ### 4. Add environment variables in Vercel
@@ -139,7 +143,8 @@ In **Project → Settings → Environment Variables**, add for **Production** (a
 | `AUTH_SECRET` | *(output of `openssl rand -base64 32`)* |
 | `AUTH_URL` | `https://your-app.vercel.app` |
 | `OPENAI_API_KEY` | *(optional)* |
-| `OPENAI_MODEL` | `gpt-4o-mini` *(optional)* |
+| `OPENAI_MODEL` | `gpt-5.6-luna` *(optional)* |
+| `OPENAI_VISION_MODEL` | `gpt-5.6-terra` *(optional)* |
 
 Redeploy after adding variables.
 
@@ -151,9 +156,9 @@ Trigger a deploy (push to main or **Deploy** in Vercel). The `vercel-build` scri
 2. `prisma migrate deploy` (apply migrations to production DB)
 3. `next build`
 
-### 6. Seed demo data (recommended for MSc demo)
+### 6. Seed the novel catalog
 
-Migrations create empty tables. Seed once from your machine:
+Migrations create empty tables. Seed once to load real web novel titles, authors, covers and reading links (no fake users or reviews):
 
 ```bash
 # Option A: pull production env (requires Vercel CLI)
@@ -164,57 +169,60 @@ DATABASE_URL="..." AUTH_SECRET="..." npm run prisma:seed
 DATABASE_URL="postgresql://..." npm run prisma:seed
 ```
 
-Seed accounts (password **`Password123!`**) will then be available on production.
+Register a real account after seeding. Promote an admin from `/admin` once you have an account (or set `role` in the database).
 
 ### 7. Verify
 
 - Open `https://your-app.vercel.app`
-- Log in with a seed account
-- Visit `/demo` for the walkthrough
-- Test Moonie (works in mock mode without `OPENAI_API_KEY`)
+- Register or log in with your own account
+- Browse the real novel catalog and write reviews
+- Test Moonie (heuristic mode without `OPENAI_API_KEY` still uses only real community reviews)
 
 ## Production security notes
 
-- **Do not commit `.env`** — secrets belong only in Vercel environment variables or local `.env`.
-- **Use a strong, unique `AUTH_SECRET`** for production — generate with `openssl rand -base64 32`.
+- **Do not commit `.env`**: secrets belong only in Vercel environment variables or local `.env`.
+- **Use a strong, unique `AUTH_SECRET`** for production: generate with `openssl rand -base64 32`.
 - **Use a hosted PostgreSQL URL** with SSL; do not expose the database publicly without credentials.
 - **Set `AUTH_URL`** to your exact production domain (including `https://`).
-- **Moonie** runs in **mock mode** without `OPENAI_API_KEY` — safe for demos; add the key only if you want live AI.
-- Re-running `prisma:seed` on production **wipes and recreates demo data** — only run intentionally.
+- **Moonie** ranks real community reviews without `OPENAI_API_KEY`; add the key only if you want live AI.
+- Re-running `prisma:seed` **wipes users and reviews** and reloads the novel catalog: only run intentionally.
 
-## Test accounts
+## Development dataset (optional)
 
-All seed users share the password **`Password123!`**
+For a large realistic production-load dataset with **original** (non-scraped) reviews:
 
-| Email | Username | Display name |
-|-------|----------|--------------|
-| starreader@example.com | starreader | StarReader |
-| questlog@example.com | questlog | QuestLog |
-| cosmoreads@example.com | cosmoreads | CosmoReads |
-| romancefan@example.com | romancefan42 | RomanceFan42 |
+```bash
+npm run demo:load # generate full + seed Postgres (auto)
+npm run demo:generate -- --batch 1 # 20 users / 200 novels / 400 reviews
+npm run demo:generate -- --batch full
+npm run prisma:seed:demo
+```
 
-## MSc demo walkthrough
+- ~100 users, ~1000 real novels, ~2000 long-form original reviews (~800–1100 words)
+- Every novel gets multiple reviews; verified official reading links only
+- Do not scrape Goodreads, Amazon, NovelUpdates or Reddit review text
+- Catalog-only seed remains: `npm run prisma:seed`
 
-Visit **[http://localhost:3000/demo](http://localhost:3000/demo)** for a step-by-step demo guide in the app.
+Demo admin login is printed at the end of `prisma:seed:demo` (password `Password123!`).
 
-Suggested flow:
+## Getting started locally
 
-1. **Log in** with a seed account
-2. **Browse reviews** — search, filter by genre, sort
-3. **Create a review** — `/reviews/new`
+1. **Register** an account at `/register`
+2. **Browse novels**: search and filter by genre
+3. **Create a review**: `/reviews/new`
 4. **Like & comment** on a review detail page
-5. **Save to folder** — use the bookmark button on a review
-6. **Follow a user** — e.g. `/users/questlog`
-7. **Notifications** — bell icon or `/notifications`
-8. **Moonie** — click the moon FAB (bottom-right), try “Slow-burn romance”
-9. **Settings** — `/settings` to edit profile
+5. **Save to folder**: use the bookmark button on a review
+6. **Follow a user**: open any profile
+7. **Notifications**: bell icon or `/notifications`
+8. **Moonie**: click the moon FAB (bottom-right)
+9. **Settings**: `/settings` to edit profile
 
 ## Testing Moonie
 
-- **Without `OPENAI_API_KEY`:** Moonie uses mock recommendations scored from MoonVerse reviews (likes, saves, ratings). Fine for local demos.
+- **Without `OPENAI_API_KEY`:** Moonie ranks real MoonVerse reviews (likes, saves, ratings). No invented novels.
 - **With `OPENAI_API_KEY`:** Moonie calls OpenAI with user context (profile, likes, saves, genres, tags).
-- **Rate limit:** 10 requests per user per day (in-memory).
-- Moonie only recommends novels — it does not write reviews.
+- **Rate limit:** 30 discovery requests per user per day (server-enforced). Casual chat is quota-free.
+- Moonie only recommends novels: it does not write reviews.
 
 ## Testing folders
 
@@ -239,8 +247,7 @@ Check the **bell icon** (latest 5) or **Notifications** page for the full list.
 
 Admins can open **`/admin`** from the navbar (Admin link) or directly.
 
-**Seed admin account:** `starreader@example.com` / `Password123!` (role `ADMIN` after migrate + seed).
-
+Promote the first admin by setting a user’s `role` to `ADMIN` in the database (or via an existing admin in `/admin/users`).
 | Route | Purpose |
 |-------|---------|
 | `/admin` | Overview stats, latest reviews/users, quick links |
@@ -266,12 +273,12 @@ npm run prisma:seed
 
 ```
 src/
-├── app/              # Routes (pages, API)
-├── actions/          # Server actions
-├── components/       # UI components
-├── lib/              # Auth, validation, Moonie helpers
-├── services/         # Database access layer
-└── types/            # Shared TypeScript types
+├── app/ # Routes (pages, API)
+├── actions/ # Server actions
+├── components/ # UI components
+├── lib/ # Auth, validation, Moonie helpers
+├── services/ # Database access layer
+└── types/ # Shared TypeScript types
 ```
 
 ## Known limitations
@@ -285,4 +292,4 @@ src/
 
 ## Licence
 
-Academic project — see course submission requirements.
+Academic project: see course submission requirements.

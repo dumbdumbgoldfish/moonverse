@@ -31,7 +31,9 @@ import { cn } from "@/lib/utils";
 import { AdminWorkspace } from "@/components/admin/AdminLayoutPrimitives";
 import {
   ADMIN_FILTER_CHIP_ACTIVE,
+  ADMIN_FILTER_CHIP_BASE,
   ADMIN_FILTER_CHIP_IDLE,
+  ADMIN_FILTER_CHIP_ROW_CLASS,
 } from "@/components/admin/admin-styles";
 import {
   getReportRemediationOptions,
@@ -59,7 +61,7 @@ const INBOX_PANEL_CLASS =
 function slaTone(hours: number) {
   if (hours >= 72) return "text-red-300 bg-red-500/15 ring-red-400/25";
   if (hours >= 24) return "text-amber-200 bg-amber-500/15 ring-amber-400/25";
-  return "text-white bg-white/[0.06] ring-white/10";
+  return "text-white/55 bg-white/[0.06] ring-white/10";
 }
 
 export function AdminInboxTriage({
@@ -100,14 +102,15 @@ export function AdminInboxTriage({
   return (
     <AdminWorkspace>
       <div className={INBOX_PANEL_CLASS}>
-        <div className="flex flex-wrap gap-1.5 border-b border-white/10 bg-white/[0.04] p-3">
+        <div className={cn(ADMIN_FILTER_CHIP_ROW_CLASS, "border-b border-white/10 bg-white/[0.04]")}>
           {FILTER_OPTIONS.map((option) => (
             <button
               key={option.id}
               type="button"
               onClick={() => setFilter(option.id)}
               className={cn(
-                "rounded-full px-2.5 py-1 text-[11px] font-semibold transition duration-150",
+                ADMIN_FILTER_CHIP_BASE,
+                "text-[11px]",
                 filter === option.id ? ADMIN_FILTER_CHIP_ACTIVE : ADMIN_FILTER_CHIP_IDLE
               )}
             >
@@ -117,7 +120,7 @@ export function AdminInboxTriage({
         </div>
         <ul className="min-h-0 flex-1 divide-y divide-white/[0.06] overflow-y-auto">
           {filtered.length === 0 ? (
-            <li className="px-4 py-12 text-center text-sm text-white">
+            <li className="px-4 py-12 text-center text-sm text-white/70">
               Queue clear — nothing needs attention in this filter.
             </li>
           ) : (
@@ -136,7 +139,7 @@ export function AdminInboxTriage({
                   <div className="flex items-start justify-between gap-2">
                     <Badge
                       variant="outline"
-                      className="border-[#c89b4a]/35 bg-[#6e46c7]/25 text-[10px] font-semibold text-[#fcd34d]"
+                      className="border-[#f9db7e]/35 bg-[#6e46c7]/25 text-[10px] font-semibold text-[#e6d2a3]"
                     >
                       {item.badge}
                     </Badge>
@@ -152,7 +155,7 @@ export function AdminInboxTriage({
                   <p className="mt-2 truncate text-sm font-semibold text-white">
                     {item.title}
                   </p>
-                  <p className="mt-0.5 truncate text-xs text-white/90">
+                  <p className="mt-0.5 truncate text-xs text-[#c4b5fd]/80">
                     {item.subtitle}
                   </p>
                 </button>
@@ -165,16 +168,16 @@ export function AdminInboxTriage({
       <div className={cn(INBOX_PANEL_CLASS, "p-5 sm:p-6")}>
         <div className="min-h-0 flex-1 overflow-y-auto">
         {!selected ? (
-          <p className="text-sm text-white">Select an item to triage.</p>
+          <p className="text-sm text-white/70">Select an item to triage.</p>
         ) : (
           <>
             <div className="flex flex-wrap items-start justify-between gap-3">
               <div>
-                <Badge className="bg-[#6e46c7]/30 text-[#fcd34d]">{selected.badge}</Badge>
+                <Badge className="bg-[#6e46c7]/30 text-[#e6d2a3]">{selected.badge}</Badge>
                 <h2 className="mt-2 font-serif text-xl font-medium text-white">
                   {selected.title}
                 </h2>
-                <p className="mt-1 text-sm text-white/90">{selected.subtitle}</p>
+                <p className="mt-1 text-sm text-[#c4b5fd]/80">{selected.subtitle}</p>
               </div>
               <span
                 className={cn(
@@ -187,7 +190,7 @@ export function AdminInboxTriage({
             </div>
 
             {selected.detail ? (
-              <p className="mt-4 rounded-xl border border-white/10 bg-white/[0.06] px-4 py-3 text-sm leading-relaxed text-white">
+              <p className="mt-4 rounded-xl border border-white/10 bg-white/[0.06] px-4 py-3 text-sm leading-relaxed text-white/85">
                 {selected.detail}
               </p>
             ) : null}
@@ -216,7 +219,7 @@ export function AdminInboxTriage({
 }
 
 const INBOX_LINK_CLASS =
-  "inline-flex h-8 items-center justify-center rounded-lg border border-white/10 bg-white/[0.06] px-3 text-xs font-medium text-[#fcd34d] transition hover:bg-white/[0.1]";
+  "inline-flex h-8 items-center justify-center rounded-lg border border-white/10 bg-white/[0.06] px-3 text-xs font-medium text-[#e6d2a3] transition hover:bg-white/[0.1]";
 
 function InboxDetailActions({
   item,
@@ -240,7 +243,7 @@ function InboxDetailActions({
           onChange={(e) => onResolutionChange(e.target.value)}
           placeholder="Resolution note (optional)"
           disabled={isPending}
-          className="h-9 rounded-xl border-white/10 bg-white/[0.06] text-sm text-white placeholder:text-white/75"
+          className="h-9 rounded-xl border-white/10 bg-white/[0.06] text-sm text-white placeholder:text-white/35"
         />
         <div className="flex flex-wrap gap-2">
           {options.map((option) => (

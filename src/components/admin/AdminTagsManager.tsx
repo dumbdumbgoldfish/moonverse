@@ -147,7 +147,7 @@ export function AdminTagsManager({ tags }: { tags: AdminTagSummary[] }) {
           {tags.map((tag) => (
             <AdminTableRow key={tag.id}>
               <AdminTableCell className="font-semibold">{tag.name}</AdminTableCell>
-              <AdminTableCell className="text-white">{tag.slug}</AdminTableCell>
+              <AdminTableCell className="text-white/70">{tag.slug}</AdminTableCell>
               <AdminTableCell className="capitalize">{tag.kind.toLowerCase()}</AdminTableCell>
               <AdminTableCell>{tag.novelCount}</AdminTableCell>
               <AdminTableCell>
