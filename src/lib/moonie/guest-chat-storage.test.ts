@@ -103,4 +103,70 @@ describe("guest chat storage", () => {
     clearAllGuestMoonieConversations();
     assert.equal(listGuestMoonieConversations().length, 0);
   });
+
+  it("migrates v1 storage to v2 and removes the legacy key", () => {
+    storage.set(
+      "mv-moonie-guest-chat-v1",
+      JSON.stringify({
+        conversationId: "legacy-1",
+        messages: [{ id: "m1", role: "user", content: "Old chat" }],
+        updatedAt: "2024-01-01T00:00:00.000Z",
+      })
+    );
+
+    const restored = resolveInitialGuestMoonieState();
+    assert.equal(restored.conversationId, "legacy-1");
+    assert.equal(restored.messages[0]?.content, "Old chat");
+    assert.equal(storage.has("mv-moonie-guest-chat-v1"), false);
+    assert.equal(readGuestMoonieStore().conversations["legacy-1"]?.messages.length, 1);
+  });
+
+  it("removes empty v1 storage without creating a conversation", () => {
+    storage.set("mv-moonie-guest-chat-v1", JSON.stringify({ messages: [] }));
+
+    const restored = resolveInitialGuestMoonieState();
+    assert.equal(restored.conversationId, undefined);
+    assert.equal(restored.messages.length, 0);
+    assert.equal(storage.has("mv-moonie-guest-chat-v1"), false);
+    assert.equal(listGuestMoonieConversations().length, 0);
+  });
+
+  it("treats malformed v2 storage as an empty safe state", () => {
+    storage.set("mv-moonie-guest-chats-v2", "{not-json");
+
+    const restored = resolveInitialGuestMoonieState();
+    assert.equal(restored.conversationId, undefined);
+    assert.equal(restored.messages.length, 0);
+    assert.equal(listGuestMoonieConversations().length, 0);
+    assert.deepEqual(readGuestMoonieStore().conversations, {});
+  });
+
+  it("falls back to the newest conversation when no active id is stored", () => {
+    storage.set(
+      "mv-moonie-guest-chats-v2",
+      JSON.stringify({
+        version: 2,
+        conversations: {
+          older: {
+            id: "older",
+            title: "Older",
+            messages: [{ id: "m1", role: "user", content: "First" }],
+            createdAt: "2024-01-01T00:00:00.000Z",
+            updatedAt: "2024-01-01T00:00:00.000Z",
+          },
+          newer: {
+            id: "newer",
+            title: "Newer",
+            messages: [{ id: "m2", role: "user", content: "Second" }],
+            createdAt: "2024-06-01T00:00:00.000Z",
+            updatedAt: "2024-06-01T00:00:00.000Z",
+          },
+        },
+      })
+    );
+
+    const restored = resolveInitialGuestMoonieState();
+    assert.equal(restored.conversationId, "newer");
+    assert.equal(restored.messages[0]?.content, "Second");
+  });
 });

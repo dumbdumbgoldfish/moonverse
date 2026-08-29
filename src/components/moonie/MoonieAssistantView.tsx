@@ -152,6 +152,7 @@ export function MoonieAssistantView({
   useEffect(() => {
     const prompt = initialPrompt?.trim();
     if (!prompt || autoSent.current === prompt) return;
+    if (isRestoring) return;
     if (routeConversationId) return;
     if (!isLoggedIn && !isGuestDemo) return;
     autoSent.current = prompt;
@@ -161,6 +162,7 @@ export function MoonieAssistantView({
     initialPrompt,
     isGuestDemo,
     isLoggedIn,
+    isRestoring,
     routeConversationId,
     useTaste,
   ]);

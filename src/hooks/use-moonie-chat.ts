@@ -1,6 +1,13 @@
 "use client";
 
-import { useCallback, useEffect, useRef, useState, useSyncExternalStore } from "react";
+import {
+  useCallback,
+  useEffect,
+  useRef,
+  useState,
+  useSyncExternalStore,
+  type SetStateAction,
+} from "react";
 import { useRouter } from "next/navigation";
 import { useSession } from "next-auth/react";
 import {
@@ -26,6 +33,7 @@ import {
   getGuestMoonieConversation,
   listGuestMoonieConversations,
   renameGuestMoonieConversation,
+  readGuestMoonieStore,
   resolveInitialGuestMoonieState,
   setActiveGuestMoonieConversation,
   upsertGuestMoonieConversation,
@@ -71,6 +79,42 @@ interface SubmitOptions {
   similarToNovelId?: string;
   excludeNovelIds?: string[];
   useTaste?: boolean;
+}
+
+interface GuestChatBox {
+  guestHydrated: boolean;
+  messages: MoonieChatMessage[];
+  conversationId: string | undefined;
+  guestConversations: GuestMoonieConversationSummary[];
+}
+
+let guestClientPrepared = false;
+
+function subscribeGuestClientReady(onStoreChange: () => void) {
+  if (typeof window !== "undefined") {
+    readGuestMoonieStore();
+    guestClientPrepared = true;
+  }
+  onStoreChange();
+  return () => {};
+}
+
+function subscribeGuestClientIdle() {
+  return () => {};
+}
+
+function getGuestClientReadySnapshot() {
+  return guestClientPrepared;
+}
+
+function getGuestClientReadyServerSnapshot() {
+  return false;
+}
+
+function applyStateUpdate<T>(current: T, update: SetStateAction<T>): T {
+  return typeof update === "function"
+    ? (update as (previous: T) => T)(current)
+    : update;
 }
 
 function priorRecommendedIds(messages: MoonieChatMessage[]): string[] {
@@ -133,14 +177,21 @@ export function useMoonieChat({
   const { data: session } = useSession();
   const searchRecentScope = getSearchRecentScope(session?.user?.id);
   const deskRouteEnabled = persistDeskConversation && isLoggedIn;
-  const [messages, setMessages] = useState<MoonieChatMessage[]>([]);
+  const isGuestClientReady = useSyncExternalStore(
+    isGuestDemo ? subscribeGuestClientReady : subscribeGuestClientIdle,
+    getGuestClientReadySnapshot,
+    getGuestClientReadyServerSnapshot
+  );
+  const [guestChat, setGuestChat] = useState<GuestChatBox>(() => ({
+    guestHydrated: !isGuestDemo,
+    messages: [],
+    conversationId: initialConversationId,
+    guestConversations: [],
+  }));
   const [input, setInput] = useState("");
   const [isLoading, setIsLoading] = useState(false);
   const [loadingPhase, setLoadingPhase] =
     useState<MoonieLoadingPhase>("thinking");
-  const [conversationId, setConversationId] = useState<string | undefined>(
-    initialConversationId
-  );
   const [excludedNovelIds, setExcludedNovelIds] = useState<string[]>([]);
   const [quotaRemaining, setQuotaRemaining] = useState<number | null>(null);
   const [guestTurnsRemaining, setGuestTurnsRemaining] = useState<number | null>(
@@ -153,11 +204,52 @@ export function useMoonieChat({
   );
   const [rememberPreferenceOffer, setRememberPreferenceOffer] =
     useState<Partial<MoonieInterpretedPreferences> | null>(null);
-  const [guestConversations, setGuestConversations] = useState<
-    GuestMoonieConversationSummary[]
-  >([]);
-  const [isRestoring, setIsRestoring] = useState(
-    () => isGuestDemo || Boolean(deskRouteEnabled && initialConversationId)
+  const [isRestoring, setIsRestoring] = useState(() =>
+    Boolean(deskRouteEnabled && initialConversationId)
+  );
+
+  let nextGuestChat = guestChat;
+  if (isGuestDemo && isGuestClientReady && !guestChat.guestHydrated) {
+    const stored = resolveInitialGuestMoonieState();
+    nextGuestChat = {
+      guestHydrated: true,
+      messages: stored.messages,
+      conversationId: stored.conversationId,
+      guestConversations: listGuestMoonieConversations(),
+    };
+    setGuestChat(nextGuestChat);
+  }
+
+  const messages = nextGuestChat.messages;
+  const conversationId = nextGuestChat.conversationId;
+  const guestConversations = nextGuestChat.guestConversations;
+  const guestHydrated = nextGuestChat.guestHydrated;
+
+  const setMessages = useCallback((update: SetStateAction<MoonieChatMessage[]>) => {
+    setGuestChat((current) => ({
+      ...current,
+      messages: applyStateUpdate(current.messages, update),
+    }));
+  }, []);
+
+  const setConversationId = useCallback(
+    (update: SetStateAction<string | undefined>) => {
+      setGuestChat((current) => ({
+        ...current,
+        conversationId: applyStateUpdate(current.conversationId, update),
+      }));
+    },
+    []
+  );
+
+  const setGuestConversations = useCallback(
+    (update: SetStateAction<GuestMoonieConversationSummary[]>) => {
+      setGuestChat((current) => ({
+        ...current,
+        guestConversations: applyStateUpdate(current.guestConversations, update),
+      }));
+    },
+    []
   );
 
   const conversationIdRef = useRef(conversationId);
@@ -174,12 +266,11 @@ export function useMoonieChat({
   const userSelectedConversationRef = useRef<string | null>(null);
   const skipLatestRestoreRef = useRef(false);
   const hydratingLatestRef = useRef(false);
-  const guestStorageReadyRef = useRef(!isGuestDemo);
 
   const refreshGuestConversations = useCallback(() => {
     if (!isGuestDemo) return;
     setGuestConversations(listGuestMoonieConversations());
-  }, [isGuestDemo]);
+  }, [isGuestDemo, setGuestConversations]);
 
   const persistActiveGuestConversation = useCallback(
     (
@@ -221,18 +312,6 @@ export function useMoonieChat({
   useEffect(() => {
     if (!isGuestDemo) return;
 
-    const stored = resolveInitialGuestMoonieState();
-    if (stored.messages.length > 0) {
-      setMessages(stored.messages);
-    }
-    if (stored.conversationId) {
-      setConversationId(stored.conversationId);
-      hydratedConversationRef.current = stored.conversationId;
-    }
-    setGuestConversations(listGuestMoonieConversations());
-    guestStorageReadyRef.current = true;
-    setIsRestoring(false);
-
     void fetch("/api/moonie/guest-quota")
       .then((response) => response.json())
       .then((data: { guestTurnsRemaining?: number | null }) => {
@@ -246,10 +325,16 @@ export function useMoonieChat({
   }, [isGuestDemo]);
 
   useEffect(() => {
-    if (!isGuestDemo || !guestStorageReadyRef.current) return;
+    if (!isGuestDemo || !guestHydrated) return;
     if (!conversationId) return;
     persistActiveGuestConversation(messages, conversationId);
-  }, [conversationId, isGuestDemo, messages, persistActiveGuestConversation]);
+  }, [
+    conversationId,
+    guestHydrated,
+    isGuestDemo,
+    messages,
+    persistActiveGuestConversation,
+  ]);
 
   useEffect(() => {
     conversationIdRef.current = conversationId;
@@ -258,9 +343,14 @@ export function useMoonieChat({
     contextNovelIdRef.current = contextNovelId;
     contextNovelTitleRef.current = contextNovelTitle;
     spoilerModeRef.current = spoilerMode;
+    if (isGuestDemo && guestHydrated && conversationId) {
+      hydratedConversationRef.current = conversationId;
+    }
   }, [
     conversationId,
     excludedNovelIds,
+    guestHydrated,
+    isGuestDemo,
     messages,
     contextNovelId,
     contextNovelTitle,
@@ -274,7 +364,7 @@ export function useMoonieChat({
     setInput("");
     clearSessionPreferences();
     setRememberPreferenceOffer(null);
-  }, []);
+  }, [setConversationId, setMessages]);
 
   const resumeConversation = useCallback(
     (options: { conversationId: string; messages: MoonieChatMessage[] }) => {
@@ -285,7 +375,7 @@ export function useMoonieChat({
       setRememberPreferenceOffer(null);
       hydratedConversationRef.current = options.conversationId;
     },
-    []
+    [setConversationId, setMessages]
   );
 
   const startNewConversation = useCallback(() => {
@@ -328,6 +418,8 @@ export function useMoonieChat({
     messages,
     persistActiveGuestConversation,
     refreshGuestConversations,
+    setConversationId,
+    setMessages,
     syncMoonieDeskUrl,
   ]);
 
@@ -360,6 +452,8 @@ export function useMoonieChat({
       messages,
       persistActiveGuestConversation,
       refreshGuestConversations,
+      setConversationId,
+      setMessages,
     ]
   );
 
@@ -384,7 +478,14 @@ export function useMoonieChat({
       }
       refreshGuestConversations();
     },
-    [conversationId, isGuestDemo, refreshGuestConversations, resumeGuestConversation]
+    [
+      conversationId,
+      isGuestDemo,
+      refreshGuestConversations,
+      resumeGuestConversation,
+      setConversationId,
+      setMessages,
+    ]
   );
 
   const renameGuestConversation = useCallback(
@@ -410,7 +511,13 @@ export function useMoonieChat({
       setGuestTurnsRemaining(guestDemoCap);
     }
     refreshGuestConversations();
-  }, [guestDemoCap, isGuestDemo, refreshGuestConversations]);
+  }, [
+    guestDemoCap,
+    isGuestDemo,
+    refreshGuestConversations,
+    setConversationId,
+    setMessages,
+  ]);
 
   const resumeConversationFromSidebar = useCallback(
     (options: { conversationId: string; messages: MoonieChatMessage[] }) => {
@@ -763,7 +870,15 @@ export function useMoonieChat({
         setIsLoading(false);
       }
     },
-    [guestTurnsRemaining, isGuestDemo, isLoggedIn, persistActiveGuestConversation, searchRecentScope]
+    [
+      guestTurnsRemaining,
+      isGuestDemo,
+      isLoggedIn,
+      persistActiveGuestConversation,
+      searchRecentScope,
+      setConversationId,
+      setMessages,
+    ]
   );
 
   const hideNovel = useCallback((novelId: string) => {
@@ -788,14 +903,15 @@ export function useMoonieChat({
     resumeConversation,
     startNewConversation,
     resumeConversationFromSidebar,
-    isRestoring:
-      isRestoring &&
-      !(
-        deskRouteEnabled &&
-        Boolean(initialConversationId) &&
-        conversationId === initialConversationId &&
-        messages.length > 0
-      ),
+    isRestoring: isGuestDemo
+      ? !isGuestClientReady || !guestHydrated
+      : isRestoring &&
+        !(
+          deskRouteEnabled &&
+          Boolean(initialConversationId) &&
+          conversationId === initialConversationId &&
+          messages.length > 0
+        ),
     hideNovel,
     excludedNovelIds,
     quotaRemaining,
