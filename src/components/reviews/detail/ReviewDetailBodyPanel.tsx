@@ -4,7 +4,6 @@ import { ReviewSpoilerGate } from "@/components/reviews/detail/ReviewSpoilerGate
 import { ReviewStructuredBody } from "@/components/reviews/detail/ReviewStructuredBody";
 
 interface ReviewDetailBodyPanelProps {
-  reviewId: string;
   body: string;
   containsSpoilers: boolean;
   isLoggedIn: boolean;
