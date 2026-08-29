@@ -13,21 +13,106 @@ import {
 import { READING_LIST_SHELF_PAGE_SIZE } from "@/lib/reading-list-shelf";
 import { formatCompactCount } from "@/lib/format-utils";
 import { cn } from "@/lib/utils";
-import type { ReadingListPreview } from "@/types/discovery";
+import type {
+  ReadingListPreview,
+  ReadingListShelfNovel,
+} from "@/types/discovery";
 
 interface ProfileReadingListShelfProps {
   list: ReadingListPreview;
+}
+
+interface ShelfPaginationState {
+  listId: string;
+  baselineNovelsReference: ReadingListShelfNovel[];
+  baselineHasMore: boolean;
+  novels: ReadingListShelfNovel[];
+  hasMore: boolean;
+  generation: number;
+}
+
+const EMPTY_SHELF_NOVELS: ReadingListShelfNovel[] = [];
+
+function incomingShelfNovels(list: ReadingListPreview) {
+  return list.novels ?? EMPTY_SHELF_NOVELS;
+}
+
+function incomingShelfHasMore(list: ReadingListPreview) {
+  return list.hasMoreNovels ?? false;
+}
+
+function createShelfPaginationState(
+  list: ReadingListPreview,
+  generation: number
+): ShelfPaginationState {
+  const novels = incomingShelfNovels(list);
+  const hasMore = incomingShelfHasMore(list);
+  return {
+    listId: list.id,
+    baselineNovelsReference: novels,
+    baselineHasMore: hasMore,
+    novels,
+    hasMore,
+    generation,
+  };
+}
+
+function mergeShelfNovels(
+  incoming: ReadingListShelfNovel[],
+  local: ReadingListShelfNovel[]
+) {
+  const seen = new Set<string>();
+  const merged: ReadingListShelfNovel[] = [];
+
+  for (const novel of incoming) {
+    if (seen.has(novel.novelId)) continue;
+    seen.add(novel.novelId);
+    merged.push(novel);
+  }
+
+  for (const novel of local) {
+    if (seen.has(novel.novelId)) continue;
+    seen.add(novel.novelId);
+    merged.push(novel);
+  }
+
+  return merged;
 }
 
 export function ProfileReadingListShelf({ list }: ProfileReadingListShelfProps) {
   const scrollerRef = useRef<HTMLDivElement>(null);
   const loadMoreRef = useRef<HTMLDivElement>(null);
   const cardsPerView = useProfileCarouselCardsPerView();
-  const [novels, setNovels] = useState(list.novels ?? []);
-  const [hasMore, setHasMore] = useState(list.hasMoreNovels ?? false);
   const [loadingMore, setLoadingMore] = useState(false);
   const [canPrev, setCanPrev] = useState(false);
   const [canNext, setCanNext] = useState(false);
+  const [pagination, setPagination] = useState(() =>
+    createShelfPaginationState(list, 0)
+  );
+
+  const incomingNovels = incomingShelfNovels(list);
+  const incomingHasMore = incomingShelfHasMore(list);
+  let nextPagination = pagination;
+  if (pagination.listId !== list.id) {
+    nextPagination = createShelfPaginationState(list, pagination.generation + 1);
+    setPagination(nextPagination);
+  } else if (
+    pagination.baselineNovelsReference !== incomingNovels ||
+    pagination.baselineHasMore !== incomingHasMore
+  ) {
+    nextPagination = {
+      ...pagination,
+      baselineNovelsReference: incomingNovels,
+      baselineHasMore: incomingHasMore,
+      novels: mergeShelfNovels(incomingNovels, pagination.novels),
+      hasMore: incomingHasMore,
+      generation: pagination.generation + 1,
+    };
+    setPagination(nextPagination);
+  }
+
+  const novels = nextPagination.novels;
+  const hasMore = nextPagination.hasMore;
 
   const listHref = list.href ?? `/folders/${list.id}`;
   const storyLabel =
@@ -44,33 +129,52 @@ export function ProfileReadingListShelf({ list }: ProfileReadingListShelfProps) 
   const loadMoreNovels = useCallback(async () => {
     if (loadingMore || !hasMore) return;
 
+    const requestListId = nextPagination.listId;
+    const requestGeneration = nextPagination.generation;
+    const offset = nextPagination.novels.length;
+
     setLoadingMore(true);
     try {
       const response = await fetch(
-        `/api/folders/${list.id}/shelf-novels?offset=${novels.length}&limit=${READING_LIST_SHELF_PAGE_SIZE}`
+        `/api/folders/${requestListId}/shelf-novels?offset=${offset}&limit=${READING_LIST_SHELF_PAGE_SIZE}`
       );
       if (!response.ok) return;
 
       const data = (await response.json()) as {
-        novels: typeof novels;
+        novels: ReadingListShelfNovel[];
         hasMore: boolean;
       };
 
-      setNovels((current) => {
-        const seen = new Set(current.map((novel) => novel.novelId));
-        const next = data.novels.filter((novel) => !seen.has(novel.novelId));
-        return [...current, ...next];
+      setPagination((current) => {
+        if (
+          current.listId !== requestListId ||
+          current.generation !== requestGeneration
+        ) {
+          return current;
+        }
+        const seen = new Set(current.novels.map((novel) => novel.novelId));
+        const next: ReadingListShelfNovel[] = [];
+        for (const novel of data.novels) {
+          if (seen.has(novel.novelId)) continue;
+          seen.add(novel.novelId);
+          next.push(novel);
+        }
+        return {
+          ...current,
+          novels: [...current.novels, ...next],
+          hasMore: data.hasMore,
+        };
       });
-      setHasMore(data.hasMore);
     } finally {
       setLoadingMore(false);
     }
-  }, [hasMore, list.id, loadingMore, novels.length]);
-
-  useEffect(() => {
-    setNovels(list.novels ?? []);
-    setHasMore(list.hasMoreNovels ?? false);
-  }, [list.hasMoreNovels, list.id, list.novels]);
+  }, [
+    hasMore,
+    loadingMore,
+    nextPagination.generation,
+    nextPagination.listId,
+    nextPagination.novels.length,
+  ]);
 
   useEffect(() => {
     const node = scrollerRef.current;
