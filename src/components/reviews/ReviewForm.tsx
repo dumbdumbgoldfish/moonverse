@@ -254,8 +254,8 @@ export function ReviewForm({
   const [draftBackedUp, setDraftBackedUp] = useState(false);
   const [pendingDraft, setPendingDraft] = useState<ReviewDraftV1 | null>(null);
   const [savedDraftCount, setSavedDraftCount] = useState(0);
-  const [activeDraftId, setActiveDraftId] = useState<string | null>(() =>
-    initialDraftId ?? null
+  const [activeDraftId, setActiveDraftId] = useState(
+    () => initialDraftId || generateDraftId()
   );
   const [confirmDiscard, setConfirmDiscard] = useState(false);
   const [actionNotice, setActionNotice] = useState<string | null>(null);
@@ -527,7 +527,7 @@ export function ReviewForm({
         : undefined;
 
     return {
-      id: activeDraftId ?? generateDraftId(),
+      id: activeDraftId,
       version: 1,
       savedAt: new Date().toISOString(),
       step,
@@ -682,7 +682,6 @@ export function ReviewForm({
       if (wouldResume) resumedOnHydrate = true;
       hydrateDrafts(localDrafts);
     } else if (!initialDraftId) {
-      setActiveDraftId(generateDraftId());
       draftResumeReadyRef.current = true;
       skipNextAutosaveRef.current = false;
     }
@@ -777,10 +776,7 @@ export function ReviewForm({
       return;
     }
 
-    const draftId = activeDraftId ?? generateDraftId();
-    if (!activeDraftId) {
-      setActiveDraftId(draftId);
-    }
+    const draftId = activeDraftId;
 
     const draft: ReviewDraftV1 = {
       id: draftId,
@@ -929,7 +925,7 @@ export function ReviewForm({
 
   function handleStartNewReview() {
     const snapshot = buildDraftSnapshot();
-    const currentId = activeDraftId ?? snapshot.id;
+    const currentId = activeDraftId;
 
     if (isMeaningfulReviewDraft(snapshot)) {
       const savedDraft: ReviewDraftV1 = {
@@ -953,10 +949,7 @@ export function ReviewForm({
   }
 
   async function handleSaveDraft() {
-    const draftId = activeDraftId ?? generateDraftId();
-    if (!activeDraftId) {
-      setActiveDraftId(draftId);
-    }
+    const draftId = activeDraftId;
 
     const draft = pendingDraft
       ? { ...pendingDraft, savedAt: new Date().toISOString() }
