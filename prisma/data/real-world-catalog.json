@@ -1,0 +1,1709 @@
+{
+  "version": 1,
+  "generatedAt": "2026-07-15T18:30:44.367Z",
+  "sources": [
+    "novelupdates",
+    "wuxiaworld",
+    "webnovel",
+    "royalroad",
+    "openlibrary-covers"
+  ],
+  "novels": [
+    {
+      "title": "Reverend Insanity",
+      "author": "Gu Zhen Ren",
+      "genreSlug": "xianxia",
+      "tagSlugs": [
+        "cultivation",
+        "earned-power",
+        "character-driven",
+        "translated-cn",
+        "chinese-original"
+      ],
+      "coverUrl": null,
+      "externalLink": "https://www.novelupdates.com/series/reverend-insanity/",
+      "origin": "translated-cn",
+      "source": "novelupdates"
+    },
+    {
+      "title": "I Shall Seal the Heavens",
+      "author": "Er Gen",
+      "genreSlug": "xianxia",
+      "tagSlugs": [
+        "cultivation",
+        "earned-power",
+        "translated-cn",
+        "chinese-original"
+      ],
+      "coverUrl": null,
+      "externalLink": "https://www.novelupdates.com/series/i-shall-seal-the-heavens/",
+      "origin": "translated-cn",
+      "source": "novelupdates"
+    },
+    {
+      "title": "A Will Eternal",
+      "author": "Er Gen",
+      "genreSlug": "xianxia",
+      "secondaryGenreSlug": "comedy",
+      "tagSlugs": [
+        "cultivation",
+        "beginner-friendly",
+        "translated-cn",
+        "chinese-original"
+      ],
+      "coverUrl": null,
+      "externalLink": "https://www.novelupdates.com/series/a-will-eternal/",
+      "origin": "translated-cn",
+      "source": "novelupdates"
+    },
+    {
+      "title": "Renegade Immortal",
+      "author": "Er Gen",
+      "genreSlug": "xianxia",
+      "tagSlugs": [
+        "cultivation",
+        "earned-power",
+        "translated-cn",
+        "chinese-original"
+      ],
+      "coverUrl": null,
+      "externalLink": "https://www.novelupdates.com/series/renegade-immortal/",
+      "origin": "translated-cn",
+      "source": "novelupdates"
+    },
+    {
+      "title": "A Record of a Mortal's Journey to Immortality",
+      "author": "Wang Yu",
+      "genreSlug": "xianxia",
+      "tagSlugs": [
+        "cultivation",
+        "character-driven",
+        "translated-cn",
+        "chinese-original"
+      ],
+      "coverUrl": null,
+      "externalLink": "https://www.novelupdates.com/series/a-record-of-a-mortals-journey-to-immortality/",
+      "origin": "translated-cn",
+      "source": "novelupdates"
+    },
+    {
+      "title": "Pursuit of the Truth",
+      "author": "Er Gen",
+      "genreSlug": "xianxia",
+      "tagSlugs": [
+        "cultivation",
+        "earned-power",
+        "translated-cn",
+        "chinese-original"
+      ],
+      "coverUrl": null,
+      "externalLink": "https://www.novelupdates.com/series/pursuit-of-the-truth/",
+      "origin": "translated-cn",
+      "source": "novelupdates"
+    },
+    {
+      "title": "Coiling Dragon",
+      "author": "I Eat Tomatoes",
+      "genreSlug": "xianxia",
+      "tagSlugs": [
+        "cultivation",
+        "op-mc",
+        "translated-cn",
+        "chinese-original"
+      ],
+      "coverUrl": null,
+      "externalLink": "https://www.wuxiaworld.com/novel/coiling-dragon",
+      "origin": "translated-cn",
+      "source": "wuxiaworld"
+    },
+    {
+      "title": "Desolate Era",
+      "author": "I Eat Tomatoes",
+      "genreSlug": "xianxia",
+      "tagSlugs": [
+        "cultivation",
+        "earned-power",
+        "translated-cn",
+        "chinese-original"
+      ],
+      "coverUrl": null,
+      "externalLink": "https://www.wuxiaworld.com/novel/desolate-era",
+      "origin": "translated-cn",
+      "source": "wuxiaworld"
+    },
+    {
+      "title": "Stellar Transformations",
+      "author": "I Eat Tomatoes",
+      "genreSlug": "xianxia",
+      "tagSlugs": [
+        "cultivation",
+        "earned-power",
+        "translated-cn",
+        "chinese-original"
+      ],
+      "coverUrl": null,
+      "externalLink": "https://www.wuxiaworld.com/novel/stellar-transformations",
+      "origin": "translated-cn",
+      "source": "wuxiaworld"
+    },
+    {
+      "title": "Swallowed Star",
+      "author": "I Eat Tomatoes",
+      "genreSlug": "sci-fi",
+      "secondaryGenreSlug": "xianxia",
+      "tagSlugs": [
+        "earned-power",
+        "op-mc",
+        "translated-cn",
+        "chinese-original"
+      ],
+      "coverUrl": null,
+      "externalLink": "https://www.novelupdates.com/series/swallowed-star/",
+      "origin": "translated-cn",
+      "source": "novelupdates"
+    },
+    {
+      "title": "Martial World",
+      "author": "Cocooned Cow",
+      "genreSlug": "xianxia",
+      "tagSlugs": [
+        "cultivation",
+        "op-mc",
+        "translated-cn",
+        "chinese-original"
+      ],
+      "coverUrl": null,
+      "externalLink": "https://www.novelupdates.com/series/martial-world/",
+      "origin": "translated-cn",
+      "source": "novelupdates"
+    },
+    {
+      "title": "True Martial World",
+      "author": "Cocooned Cow",
+      "genreSlug": "xianxia",
+      "tagSlugs": [
+        "cultivation",
+        "earned-power",
+        "translated-cn",
+        "chinese-original"
+      ],
+      "coverUrl": null,
+      "externalLink": "https://www.novelupdates.com/series/true-martial-world/",
+      "origin": "translated-cn",
+      "source": "novelupdates"
+    },
+    {
+      "title": "Perfect World",
+      "author": "Chen Dong",
+      "genreSlug": "xianxia",
+      "tagSlugs": [
+        "cultivation",
+        "earned-power",
+        "translated-cn",
+        "chinese-original"
+      ],
+      "coverUrl": null,
+      "externalLink": "https://www.novelupdates.com/series/perfect-world/",
+      "origin": "translated-cn",
+      "source": "novelupdates"
+    },
+    {
+      "title": "Battle Through the Heavens",
+      "author": "Tian Can Tu Dou",
+      "genreSlug": "xianxia",
+      "tagSlugs": [
+        "cultivation",
+        "op-mc",
+        "translated-cn",
+        "chinese-original"
+      ],
+      "coverUrl": null,
+      "externalLink": "https://www.novelupdates.com/series/battle-through-the-heavens/",
+      "origin": "translated-cn",
+      "source": "novelupdates"
+    },
+    {
+      "title": "Wu Dong Qian Kun",
+      "author": "Tian Can Tu Dou",
+      "genreSlug": "xianxia",
+      "tagSlugs": [
+        "cultivation",
+        "earned-power",
+        "translated-cn",
+        "chinese-original"
+      ],
+      "coverUrl": null,
+      "externalLink": "https://www.novelupdates.com/series/wu-dong-qian-kun/",
+      "origin": "translated-cn",
+      "source": "novelupdates"
+    },
+    {
+      "title": "Against the Gods",
+      "author": "Yun Qinghan",
+      "genreSlug": "xianxia",
+      "tagSlugs": [
+        "cultivation",
+        "op-mc",
+        "translated-cn",
+        "chinese-original"
+      ],
+      "coverUrl": null,
+      "externalLink": "https://www.novelupdates.com/series/against-the-gods/",
+      "origin": "translated-cn",
+      "source": "novelupdates"
+    },
+    {
+      "title": "A Martial Odyssey",
+      "author": "Edgar",
+      "genreSlug": "xianxia",
+      "tagSlugs": [
+        "cultivation",
+        "character-driven",
+        "translated-cn",
+        "chinese-original"
+      ],
+      "coverUrl": null,
+      "externalLink": "https://www.novelupdates.com/series/a-martial-odyssey/",
+      "origin": "translated-cn",
+      "source": "novelupdates"
+    },
+    {
+      "title": "Way of the Devil",
+      "author": "Get Together",
+      "genreSlug": "xianxia",
+      "tagSlugs": [
+        "cultivation",
+        "character-driven",
+        "translated-cn",
+        "chinese-original"
+      ],
+      "coverUrl": null,
+      "externalLink": "https://www.novelupdates.com/series/way-of-the-devil/",
+      "origin": "translated-cn",
+      "source": "novelupdates"
+    },
+    {
+      "title": "Martial Peak",
+      "author": "Momo",
+      "genreSlug": "xianxia",
+      "tagSlugs": [
+        "cultivation",
+        "earned-power",
+        "translated-cn",
+        "chinese-original"
+      ],
+      "coverUrl": null,
+      "externalLink": "https://www.novelupdates.com/series/martial-peak/",
+      "origin": "translated-cn",
+      "source": "novelupdates"
+    },
+    {
+      "title": "Spirit Realm",
+      "author": "Chen Dong",
+      "genreSlug": "xianxia",
+      "tagSlugs": [
+        "cultivation",
+        "character-driven",
+        "translated-cn",
+        "chinese-original"
+      ],
+      "coverUrl": null,
+      "externalLink": "https://www.novelupdates.com/series/spirit-realm/",
+      "origin": "translated-cn",
+      "source": "novelupdates"
+    },
+    {
+      "title": "Immortal Mortal",
+      "author": "Immortal Mortal",
+      "genreSlug": "xianxia",
+      "tagSlugs": [
+        "cultivation",
+        "beginner-friendly",
+        "translated-cn",
+        "chinese-original"
+      ],
+      "coverUrl": null,
+      "externalLink": "https://www.novelupdates.com/series/immortal-mortal/",
+      "origin": "translated-cn",
+      "source": "novelupdates"
+    },
+    {
+      "title": "Skyfire Avenue",
+      "author": "Tang Jia San Shao",
+      "genreSlug": "fantasy",
+      "tagSlugs": [
+        "magic-academy",
+        "character-driven",
+        "translated-cn",
+        "chinese-original"
+      ],
+      "coverUrl": null,
+      "externalLink": "https://www.novelupdates.com/series/skyfire-avenue/",
+      "origin": "translated-cn",
+      "source": "novelupdates"
+    },
+    {
+      "title": "Soul Land",
+      "author": "Tang Jia San Shao",
+      "genreSlug": "fantasy",
+      "tagSlugs": [
+        "earned-power",
+        "beginner-friendly",
+        "translated-cn",
+        "chinese-original"
+      ],
+      "coverUrl": null,
+      "externalLink": "https://www.novelupdates.com/series/douluo-dalu/",
+      "origin": "translated-cn",
+      "source": "novelupdates"
+    },
+    {
+      "title": "Heavenly Jewel Change",
+      "author": "Tang Jia San Shao",
+      "genreSlug": "fantasy",
+      "tagSlugs": [
+        "earned-power",
+        "character-driven",
+        "translated-cn",
+        "chinese-original"
+      ],
+      "coverUrl": null,
+      "externalLink": "https://www.novelupdates.com/series/heavenly-jewel-change/",
+      "origin": "translated-cn",
+      "source": "novelupdates"
+    },
+    {
+      "title": "Tales of Demons and Gods",
+      "author": "Mad Snail",
+      "genreSlug": "fantasy",
+      "tagSlugs": [
+        "earned-power",
+        "op-mc",
+        "translated-cn",
+        "chinese-original"
+      ],
+      "coverUrl": null,
+      "externalLink": "https://www.novelupdates.com/series/tales-of-demons-and-gods/",
+      "origin": "translated-cn",
+      "source": "novelupdates"
+    },
+    {
+      "title": "Apotheosis of Heroes",
+      "author": "Fang Xiang",
+      "genreSlug": "fantasy",
+      "tagSlugs": [
+        "earned-power",
+        "character-driven",
+        "translated-cn",
+        "chinese-original"
+      ],
+      "coverUrl": null,
+      "externalLink": "https://www.novelupdates.com/series/apotheosis-of-heroes/",
+      "origin": "translated-cn",
+      "source": "novelupdates"
+    },
+    {
+      "title": "Library of Heaven's Path",
+      "author": "Heng Sao Tian Ya",
+      "genreSlug": "fantasy",
+      "tagSlugs": [
+        "op-mc",
+        "beginner-friendly",
+        "translated-cn",
+        "chinese-original"
+      ],
+      "coverUrl": null,
+      "externalLink": "https://www.novelupdates.com/series/library-of-heavens-path/",
+      "origin": "translated-cn",
+      "source": "novelupdates"
+    },
+    {
+      "title": "Nightmare of the Gu",
+      "author": "Guan Zhi",
+      "genreSlug": "xianxia",
+      "tagSlugs": [
+        "cultivation",
+        "character-driven",
+        "translated-cn",
+        "chinese-original"
+      ],
+      "coverUrl": null,
+      "externalLink": "https://www.novelupdates.com/series/nightmare-of-the-gu/",
+      "origin": "translated-cn",
+      "source": "novelupdates"
+    },
+    {
+      "title": "Lord of the Mysteries",
+      "author": "Cuttlefish That Loves Diving",
+      "genreSlug": "fantasy",
+      "secondaryGenreSlug": "horror",
+      "tagSlugs": [
+        "character-driven",
+        "earned-power",
+        "translated-cn",
+        "chinese-original"
+      ],
+      "coverUrl": null,
+      "externalLink": "https://www.novelupdates.com/series/lord-of-the-mysteries/",
+      "origin": "translated-cn",
+      "source": "novelupdates"
+    },
+    {
+      "title": "Release That Witch",
+      "author": "Er Mu",
+      "genreSlug": "fantasy",
+      "tagSlugs": [
+        "character-driven",
+        "earned-power",
+        "translated-cn",
+        "chinese-original"
+      ],
+      "coverUrl": null,
+      "externalLink": "https://www.novelupdates.com/series/release-that-witch/",
+      "origin": "translated-cn",
+      "source": "novelupdates"
+    },
+    {
+      "title": "Warlock of the Magus World",
+      "author": "Bai Zhi Zhou",
+      "genreSlug": "fantasy",
+      "tagSlugs": [
+        "earned-power",
+        "character-driven",
+        "translated-cn",
+        "chinese-original"
+      ],
+      "coverUrl": null,
+      "externalLink": "https://www.novelupdates.com/series/warlock-of-the-magus-world/",
+      "origin": "translated-cn",
+      "source": "novelupdates"
+    },
+    {
+      "title": "The Legendary Mechanic",
+      "author": "Chocolion",
+      "genreSlug": "sci-fi",
+      "tagSlugs": [
+        "earned-power",
+        "character-driven",
+        "translated-cn",
+        "chinese-original"
+      ],
+      "coverUrl": null,
+      "externalLink": "https://www.novelupdates.com/series/the-legendary-mechanic/",
+      "origin": "translated-cn",
+      "source": "novelupdates"
+    },
+    {
+      "title": "The King's Avatar",
+      "author": "Butterfly Blue",
+      "genreSlug": "action",
+      "tagSlugs": [
+        "character-driven",
+        "earned-power",
+        "translated-cn",
+        "chinese-original"
+      ],
+      "coverUrl": null,
+      "externalLink": "https://www.novelupdates.com/series/the-kings-avatar/",
+      "origin": "translated-cn",
+      "source": "novelupdates"
+    },
+    {
+      "title": "Martial God Asura",
+      "author": "Kindhearted Bee",
+      "genreSlug": "xianxia",
+      "tagSlugs": [
+        "cultivation",
+        "op-mc",
+        "translated-cn",
+        "chinese-original"
+      ],
+      "coverUrl": null,
+      "externalLink": "https://www.novelupdates.com/series/martial-god-asura/",
+      "origin": "translated-cn",
+      "source": "novelupdates"
+    },
+    {
+      "title": "Ancient Strengthening Technique",
+      "author": "I Eat Tomatoes",
+      "genreSlug": "xianxia",
+      "tagSlugs": [
+        "cultivation",
+        "op-mc",
+        "translated-cn",
+        "chinese-original"
+      ],
+      "coverUrl": null,
+      "externalLink": "https://www.novelupdates.com/series/ancient-strengthening-technique/",
+      "origin": "translated-cn",
+      "source": "novelupdates"
+    },
+    {
+      "title": "Dragon-Marked War God",
+      "author": "Chen Xuan",
+      "genreSlug": "xianxia",
+      "tagSlugs": [
+        "cultivation",
+        "op-mc",
+        "translated-cn",
+        "chinese-original"
+      ],
+      "coverUrl": null,
+      "externalLink": "https://www.novelupdates.com/series/dragon-marked-war-god/",
+      "origin": "translated-cn",
+      "source": "novelupdates"
+    },
+    {
+      "title": "Emperor's Domination",
+      "author": "Yan Bi Xiao",
+      "genreSlug": "xianxia",
+      "tagSlugs": [
+        "cultivation",
+        "op-mc",
+        "translated-cn",
+        "chinese-original"
+      ],
+      "coverUrl": null,
+      "externalLink": "https://www.novelupdates.com/series/emperors-domination/",
+      "origin": "translated-cn",
+      "source": "novelupdates"
+    },
+    {
+      "title": "Beseech The Devil",
+      "author": "Er Gen",
+      "genreSlug": "xianxia",
+      "tagSlugs": [
+        "cultivation",
+        "character-driven",
+        "translated-cn",
+        "chinese-original"
+      ],
+      "coverUrl": null,
+      "externalLink": "https://www.novelupdates.com/series/beseech-the-devil/",
+      "origin": "translated-cn",
+      "source": "novelupdates"
+    },
+    {
+      "title": "The Invisible Dragon",
+      "author": "I Eat Tomatoes",
+      "genreSlug": "comedy",
+      "secondaryGenreSlug": "fantasy",
+      "tagSlugs": [
+        "beginner-friendly",
+        "character-driven",
+        "translated-cn",
+        "chinese-original"
+      ],
+      "coverUrl": null,
+      "externalLink": "https://www.novelupdates.com/series/the-invisible-dragon/",
+      "origin": "translated-cn",
+      "source": "novelupdates"
+    },
+    {
+      "title": "Godly Model Creator",
+      "author": "Two-Faced",
+      "genreSlug": "sci-fi",
+      "tagSlugs": [
+        "earned-power",
+        "op-mc",
+        "translated-cn",
+        "chinese-original"
+      ],
+      "coverUrl": null,
+      "externalLink": "https://www.novelupdates.com/series/godly-model-creator/",
+      "origin": "translated-cn",
+      "source": "novelupdates"
+    },
+    {
+      "title": "Sovereign of the Three Realms",
+      "author": "Plow Days",
+      "genreSlug": "xianxia",
+      "tagSlugs": [
+        "cultivation",
+        "earned-power",
+        "translated-cn",
+        "chinese-original"
+      ],
+      "coverUrl": null,
+      "externalLink": "https://www.novelupdates.com/series/sovereign-of-the-three-realms/",
+      "origin": "translated-cn",
+      "source": "novelupdates"
+    },
+    {
+      "title": "The Great Ruler",
+      "author": "Tian Can Tu Dou",
+      "genreSlug": "xianxia",
+      "tagSlugs": [
+        "cultivation",
+        "earned-power",
+        "translated-cn",
+        "chinese-original"
+      ],
+      "coverUrl": null,
+      "externalLink": "https://www.novelupdates.com/series/the-great-ruler/",
+      "origin": "translated-cn",
+      "source": "novelupdates"
+    },
+    {
+      "title": "The Nine Cauldrons",
+      "author": "I Eat Tomatoes",
+      "genreSlug": "xianxia",
+      "tagSlugs": [
+        "cultivation",
+        "earned-power",
+        "translated-cn",
+        "chinese-original"
+      ],
+      "coverUrl": null,
+      "externalLink": "https://www.novelupdates.com/series/the-nine-cauldrons/",
+      "origin": "translated-cn",
+      "source": "novelupdates"
+    },
+    {
+      "title": "A Step into the Past",
+      "author": "Huang Yi",
+      "genreSlug": "action",
+      "tagSlugs": [
+        "character-driven",
+        "earned-power",
+        "translated-cn",
+        "chinese-original"
+      ],
+      "coverUrl": null,
+      "externalLink": "https://www.novelupdates.com/series/a-step-into-the-past/",
+      "origin": "translated-cn",
+      "source": "novelupdates"
+    },
+    {
+      "title": "The Ultimate Student",
+      "author": "Ye Xuan",
+      "genreSlug": "action",
+      "tagSlugs": [
+        "op-mc",
+        "character-driven",
+        "translated-cn",
+        "chinese-original"
+      ],
+      "coverUrl": null,
+      "externalLink": "https://www.novelupdates.com/series/the-ultimate-student/",
+      "origin": "translated-cn",
+      "source": "novelupdates"
+    },
+    {
+      "title": "Long Live Summons",
+      "author": "Xia Bai",
+      "genreSlug": "fantasy",
+      "tagSlugs": [
+        "op-mc",
+        "beginner-friendly",
+        "translated-cn",
+        "chinese-original"
+      ],
+      "coverUrl": null,
+      "externalLink": "https://www.novelupdates.com/series/long-live-summons/",
+      "origin": "translated-cn",
+      "source": "novelupdates"
+    },
+    {
+      "title": "Bringing the Farm to Live in Another World",
+      "author": "Ming Yu",
+      "genreSlug": "fantasy",
+      "tagSlugs": [
+        "beginner-friendly",
+        "character-driven",
+        "translated-cn",
+        "chinese-original"
+      ],
+      "coverUrl": null,
+      "externalLink": "https://www.novelupdates.com/series/bringing-the-farm-to-live-in-another-world/",
+      "origin": "translated-cn",
+      "source": "novelupdates"
+    },
+    {
+      "title": "The Strongest System",
+      "author": "Echoing Blade",
+      "genreSlug": "fantasy",
+      "tagSlugs": [
+        "op-mc",
+        "beginner-friendly",
+        "translated-cn",
+        "chinese-original"
+      ],
+      "coverUrl": null,
+      "externalLink": "https://www.novelupdates.com/series/the-strongest-system/",
+      "origin": "translated-cn",
+      "source": "novelupdates"
+    },
+    {
+      "title": "My Wife is a Beautiful CEO",
+      "author": "Mo Mo",
+      "genreSlug": "romance",
+      "tagSlugs": [
+        "character-driven",
+        "slow-burn",
+        "translated-cn",
+        "chinese-original"
+      ],
+      "coverUrl": null,
+      "externalLink": "https://www.novelupdates.com/series/my-wife-is-a-beautiful-ceo/",
+      "origin": "translated-cn",
+      "source": "novelupdates"
+    },
+    {
+      "title": "Trial Marriage Husband: Need to Work Hard",
+      "author": "Tang Jia Shan Shao",
+      "genreSlug": "romance",
+      "tagSlugs": [
+        "slow-burn",
+        "character-driven",
+        "translated-cn",
+        "chinese-original"
+      ],
+      "coverUrl": null,
+      "externalLink": "https://www.novelupdates.com/series/trial-marriage-husband-need-to-work-hard/",
+      "origin": "translated-cn",
+      "source": "novelupdates"
+    },
+    {
+      "title": "Full Marks Hidden Marriage: Pick Up a Son Get a Free Husband",
+      "author": "Jing Ye",
+      "genreSlug": "romance",
+      "tagSlugs": [
+        "slow-burn",
+        "character-driven",
+        "translated-cn",
+        "chinese-original"
+      ],
+      "coverUrl": null,
+      "externalLink": "https://www.novelupdates.com/series/full-marks-hidden-marriage-pick-up-a-son-get-a-free-husband/",
+      "origin": "translated-cn",
+      "source": "novelupdates"
+    },
+    {
+      "title": "The Enchantress of Medicine",
+      "author": "Feng Jiu",
+      "genreSlug": "romance",
+      "secondaryGenreSlug": "fantasy",
+      "tagSlugs": [
+        "slow-burn",
+        "character-driven",
+        "translated-cn",
+        "chinese-original"
+      ],
+      "coverUrl": null,
+      "externalLink": "https://www.novelupdates.com/series/the-enchantress-of-medicine/",
+      "origin": "translated-cn",
+      "source": "novelupdates"
+    },
+    {
+      "title": "Poison Genius Consort",
+      "author": "Jie Mo",
+      "genreSlug": "romance",
+      "tagSlugs": [
+        "slow-burn",
+        "character-driven",
+        "translated-cn",
+        "chinese-original"
+      ],
+      "coverUrl": null,
+      "externalLink": "https://www.novelupdates.com/series/poison-genius-consort/",
+      "origin": "translated-cn",
+      "source": "novelupdates"
+    },
+    {
+      "title": "Genius Doctor: Black Belly Miss",
+      "author": "Good Morning",
+      "genreSlug": "romance",
+      "tagSlugs": [
+        "op-mc",
+        "character-driven",
+        "translated-cn",
+        "chinese-original"
+      ],
+      "coverUrl": null,
+      "externalLink": "https://www.novelupdates.com/series/genius-doctor-black-belly-miss/",
+      "origin": "translated-cn",
+      "source": "novelupdates"
+    },
+    {
+      "title": "The Demonic King Chases His Wife",
+      "author": "Su Su",
+      "genreSlug": "romance",
+      "tagSlugs": [
+        "slow-burn",
+        "character-driven",
+        "translated-cn",
+        "chinese-original"
+      ],
+      "coverUrl": null,
+      "externalLink": "https://www.novelupdates.com/series/the-demonic-king-chases-his-wife/",
+      "origin": "translated-cn",
+      "source": "novelupdates"
+    },
+    {
+      "title": "Quick Transmigration: Cannon Fodder's Record of Counterattacks",
+      "author": "Mu Dan",
+      "genreSlug": "romance",
+      "tagSlugs": [
+        "character-driven",
+        "beginner-friendly",
+        "translated-cn",
+        "chinese-original"
+      ],
+      "coverUrl": null,
+      "externalLink": "https://www.novelupdates.com/series/quick-transmigration-cannon-fodders-record-of-counterattacks/",
+      "origin": "translated-cn",
+      "source": "novelupdates"
+    },
+    {
+      "title": "The Untamed",
+      "author": "Mo Xiang Tong Xiu",
+      "genreSlug": "fantasy",
+      "tagSlugs": [
+        "character-driven",
+        "slow-burn",
+        "translated-cn",
+        "chinese-original"
+      ],
+      "coverUrl": null,
+      "externalLink": "https://www.novelupdates.com/series/grandmaster-of-demonic-cultivation/",
+      "origin": "translated-cn",
+      "source": "novelupdates"
+    },
+    {
+      "title": "Heaven Official's Blessing",
+      "author": "Mo Xiang Tong Xiu",
+      "genreSlug": "fantasy",
+      "tagSlugs": [
+        "character-driven",
+        "slow-burn",
+        "translated-cn",
+        "chinese-original"
+      ],
+      "coverUrl": null,
+      "externalLink": "https://www.novelupdates.com/series/heaven-officials-blessing/",
+      "origin": "translated-cn",
+      "source": "novelupdates"
+    },
+    {
+      "title": "Scum Villain's Self-Saving System",
+      "author": "Mo Xiang Tong Xiu",
+      "genreSlug": "fantasy",
+      "tagSlugs": [
+        "character-driven",
+        "slow-burn",
+        "translated-cn",
+        "chinese-original"
+      ],
+      "coverUrl": null,
+      "externalLink": "https://www.novelupdates.com/series/the-scum-villains-self-saving-system/",
+      "origin": "translated-cn",
+      "source": "novelupdates"
+    },
+    {
+      "title": "The Devil's Cage",
+      "author": "Zhai Zhu",
+      "genreSlug": "horror",
+      "tagSlugs": [
+        "cosmic-horror",
+        "character-driven",
+        "translated-cn",
+        "chinese-original"
+      ],
+      "coverUrl": null,
+      "externalLink": "https://www.novelupdates.com/series/the-devils-cage/",
+      "origin": "translated-cn",
+      "source": "novelupdates"
+    },
+    {
+      "title": "The Sacred Ruins",
+      "author": "Chen Dong",
+      "genreSlug": "sci-fi",
+      "tagSlugs": [
+        "earned-power",
+        "character-driven",
+        "translated-cn",
+        "chinese-original"
+      ],
+      "coverUrl": null,
+      "externalLink": "https://www.novelupdates.com/series/the-sacred-ruins/",
+      "origin": "translated-cn",
+      "source": "novelupdates"
+    },
+    {
+      "title": "The Three-Body Problem",
+      "author": "Liu Cixin",
+      "genreSlug": "sci-fi",
+      "tagSlugs": [
+        "hard-sci-fi",
+        "character-driven",
+        "translated-cn",
+        "chinese-original"
+      ],
+      "coverUrl": null,
+      "externalLink": "https://www.novelupdates.com/series/the-three-body-problem/",
+      "origin": "translated-cn",
+      "source": "novelupdates"
+    },
+    {
+      "title": "Super Gene",
+      "author": "Chen Xi",
+      "genreSlug": "sci-fi",
+      "tagSlugs": [
+        "earned-power",
+        "op-mc",
+        "translated-cn",
+        "chinese-original"
+      ],
+      "coverUrl": null,
+      "externalLink": "https://www.novelupdates.com/series/super-gene/",
+      "origin": "translated-cn",
+      "source": "novelupdates"
+    },
+    {
+      "title": "God-level Demon",
+      "author": "Great Lord of Cloudy Mountains",
+      "genreSlug": "litrpg",
+      "tagSlugs": [
+        "dungeon-crawl",
+        "op-mc",
+        "translated-cn",
+        "chinese-original"
+      ],
+      "coverUrl": null,
+      "externalLink": "https://www.novelupdates.com/series/god-level-demon/",
+      "origin": "translated-cn",
+      "source": "novelupdates"
+    },
+    {
+      "title": "Global Evolution: I Have an Attribute Board",
+      "author": "Cang Cong",
+      "genreSlug": "sci-fi",
+      "tagSlugs": [
+        "earned-power",
+        "op-mc",
+        "translated-cn",
+        "chinese-original"
+      ],
+      "coverUrl": null,
+      "externalLink": "https://www.novelupdates.com/series/global-evolution-i-have-an-attribute-board/",
+      "origin": "translated-cn",
+      "source": "novelupdates"
+    },
+    {
+      "title": "The Legend of Sun Knight",
+      "author": "Yu Wo",
+      "genreSlug": "comedy",
+      "secondaryGenreSlug": "fantasy",
+      "tagSlugs": [
+        "character-driven",
+        "beginner-friendly",
+        "translated-cn",
+        "chinese-original"
+      ],
+      "coverUrl": null,
+      "externalLink": "https://www.novelupdates.com/series/the-legend-of-sun-knight/",
+      "origin": "translated-cn",
+      "source": "novelupdates"
+    },
+    {
+      "title": "My Disciple Died Yet Again",
+      "author": "Yiyu Lu",
+      "genreSlug": "comedy",
+      "secondaryGenreSlug": "xianxia",
+      "tagSlugs": [
+        "cultivation",
+        "character-driven",
+        "translated-cn",
+        "chinese-original"
+      ],
+      "coverUrl": null,
+      "externalLink": "https://www.novelupdates.com/series/my-disciple-died-yet-again/",
+      "origin": "translated-cn",
+      "source": "novelupdates"
+    },
+    {
+      "title": "Cultivation Chat Group",
+      "author": "Holy Infant Huang Shang",
+      "genreSlug": "comedy",
+      "secondaryGenreSlug": "xianxia",
+      "tagSlugs": [
+        "cultivation",
+        "beginner-friendly",
+        "translated-cn",
+        "chinese-original"
+      ],
+      "coverUrl": null,
+      "externalLink": "https://www.novelupdates.com/series/cultivation-chat-group/",
+      "origin": "translated-cn",
+      "source": "novelupdates"
+    },
+    {
+      "title": "The Daily Life of the Immortal King",
+      "author": "Wang Yu",
+      "genreSlug": "comedy",
+      "secondaryGenreSlug": "fantasy",
+      "tagSlugs": [
+        "op-mc",
+        "beginner-friendly",
+        "translated-cn",
+        "chinese-original"
+      ],
+      "coverUrl": null,
+      "externalLink": "https://www.novelupdates.com/series/the-daily-life-of-the-immortal-king/",
+      "origin": "translated-cn",
+      "source": "novelupdates"
+    },
+    {
+      "title": "The Charm of Soul Pets",
+      "author": "Yu Jian",
+      "genreSlug": "fantasy",
+      "tagSlugs": [
+        "earned-power",
+        "character-driven",
+        "translated-cn",
+        "chinese-original"
+      ],
+      "coverUrl": null,
+      "externalLink": "https://www.novelupdates.com/series/the-charm-of-soul-pets/",
+      "origin": "translated-cn",
+      "source": "novelupdates"
+    },
+    {
+      "title": "The Legend of Futian",
+      "author": "Ouyang Fa",
+      "genreSlug": "xianxia",
+      "tagSlugs": [
+        "cultivation",
+        "earned-power",
+        "translated-cn",
+        "chinese-original"
+      ],
+      "coverUrl": null,
+      "externalLink": "https://www.novelupdates.com/series/the-legend-of-futian/",
+      "origin": "translated-cn",
+      "source": "novelupdates"
+    },
+    {
+      "title": "The Divine Nine-Dragon Cauldron",
+      "author": "Chen Mu",
+      "genreSlug": "xianxia",
+      "tagSlugs": [
+        "cultivation",
+        "op-mc",
+        "translated-cn",
+        "chinese-original"
+      ],
+      "coverUrl": null,
+      "externalLink": "https://www.novelupdates.com/series/the-divine-nine-dragon-cauldron/",
+      "origin": "translated-cn",
+      "source": "novelupdates"
+    },
+    {
+      "title": "The Invincible Dragon Emperor",
+      "author": "Chen Mu",
+      "genreSlug": "xianxia",
+      "tagSlugs": [
+        "cultivation",
+        "op-mc",
+        "translated-cn",
+        "chinese-original"
+      ],
+      "coverUrl": null,
+      "externalLink": "https://www.novelupdates.com/series/the-invincible-dragon-emperor/",
+      "origin": "translated-cn",
+      "source": "novelupdates"
+    },
+    {
+      "title": "The Strongest Abandoned Son",
+      "author": "Chen Mu",
+      "genreSlug": "xianxia",
+      "tagSlugs": [
+        "cultivation",
+        "earned-power",
+        "translated-cn",
+        "chinese-original"
+      ],
+      "coverUrl": null,
+      "externalLink": "https://www.novelupdates.com/series/the-strongest-abandoned-son/",
+      "origin": "translated-cn",
+      "source": "novelupdates"
+    },
+    {
+      "title": "The Strongest Gene",
+      "author": "Chen Xi",
+      "genreSlug": "sci-fi",
+      "tagSlugs": [
+        "earned-power",
+        "op-mc",
+        "translated-cn",
+        "chinese-original"
+      ],
+      "coverUrl": null,
+      "externalLink": "https://www.novelupdates.com/series/the-strongest-gene/",
+      "origin": "translated-cn",
+      "source": "novelupdates"
+    },
+    {
+      "title": "Shadow Slave",
+      "author": "Guiltythree",
+      "genreSlug": "fantasy",
+      "tagSlugs": [
+        "earned-power",
+        "character-driven",
+        "translated-cn",
+        "chinese-original"
+      ],
+      "coverUrl": null,
+      "externalLink": "https://www.novelupdates.com/series/shadow-slave/",
+      "origin": "translated-cn",
+      "source": "novelupdates"
+    },
+    {
+      "title": "Lord of Mysteries 2: Circle of Inevitability",
+      "author": "Cuttlefish That Loves Diving",
+      "genreSlug": "fantasy",
+      "tagSlugs": [
+        "character-driven",
+        "earned-power",
+        "translated-cn",
+        "chinese-original"
+      ],
+      "coverUrl": null,
+      "externalLink": "https://www.novelupdates.com/series/lord-of-mysteries-2-circle-of-inevitability/",
+      "origin": "translated-cn",
+      "source": "novelupdates"
+    },
+    {
+      "title": "Nirvana in Fire",
+      "author": "Hai Yan",
+      "genreSlug": "action",
+      "tagSlugs": [
+        "character-driven",
+        "earned-power",
+        "translated-cn",
+        "chinese-original"
+      ],
+      "coverUrl": null,
+      "externalLink": "https://www.novelupdates.com/series/nirvana-in-fire/",
+      "origin": "translated-cn",
+      "source": "novelupdates"
+    },
+    {
+      "title": "The Grandmaster Strategist",
+      "author": "Hai Yan",
+      "genreSlug": "action",
+      "tagSlugs": [
+        "character-driven",
+        "earned-power",
+        "translated-cn",
+        "chinese-original"
+      ],
+      "coverUrl": null,
+      "externalLink": "https://www.novelupdates.com/series/the-grandmaster-strategist/",
+      "origin": "translated-cn",
+      "source": "novelupdates"
+    },
+    {
+      "title": "Joy of Life",
+      "author": "Mao Ni",
+      "genreSlug": "action",
+      "tagSlugs": [
+        "character-driven",
+        "earned-power",
+        "translated-cn",
+        "chinese-original"
+      ],
+      "coverUrl": null,
+      "externalLink": "https://www.novelupdates.com/series/joy-of-life/",
+      "origin": "translated-cn",
+      "source": "novelupdates"
+    },
+    {
+      "title": "Evernight",
+      "author": "Guo Jing",
+      "genreSlug": "fantasy",
+      "tagSlugs": [
+        "earned-power",
+        "character-driven",
+        "translated-cn",
+        "chinese-original"
+      ],
+      "coverUrl": null,
+      "externalLink": "https://www.novelupdates.com/series/evernight/",
+      "origin": "translated-cn",
+      "source": "novelupdates"
+    },
+    {
+      "title": "Spirit Vessel",
+      "author": "Jiao Sun",
+      "genreSlug": "xianxia",
+      "tagSlugs": [
+        "cultivation",
+        "earned-power",
+        "translated-cn",
+        "chinese-original"
+      ],
+      "coverUrl": null,
+      "externalLink": "https://www.novelupdates.com/series/spirit-vessel/",
+      "origin": "translated-cn",
+      "source": "novelupdates"
+    },
+    {
+      "title": "World of Cultivation",
+      "author": "Er Gen",
+      "genreSlug": "xianxia",
+      "tagSlugs": [
+        "cultivation",
+        "character-driven",
+        "translated-cn",
+        "chinese-original"
+      ],
+      "coverUrl": null,
+      "externalLink": "https://www.novelupdates.com/series/world-of-cultivation/",
+      "origin": "translated-cn",
+      "source": "novelupdates"
+    },
+    {
+      "title": "A Different Kind of Immortal",
+      "author": "Er Gen",
+      "genreSlug": "xianxia",
+      "tagSlugs": [
+        "cultivation",
+        "earned-power",
+        "translated-cn",
+        "chinese-original"
+      ],
+      "coverUrl": null,
+      "externalLink": "https://www.novelupdates.com/series/a-different-kind-of-immortal/",
+      "origin": "translated-cn",
+      "source": "novelupdates"
+    },
+    {
+      "title": "Mother of Learning",
+      "author": "nobody103",
+      "genreSlug": "fantasy",
+      "tagSlugs": [
+        "magic-academy",
+        "earned-power",
+        "character-driven",
+        "english-original",
+        "royal-road"
+      ],
+      "coverUrl": null,
+      "externalLink": "https://www.royalroad.com/fiction/21220/mother-of-learning",
+      "origin": "royal-road"
+    },
+    {
+      "title": "The Wandering Inn",
+      "author": "pirateaba",
+      "genreSlug": "fantasy",
+      "tagSlugs": [
+        "character-driven",
+        "earned-power",
+        "english-original",
+        "royal-road"
+      ],
+      "coverUrl": null,
+      "externalLink": "https://www.royalroad.com/fiction/8503/the-wandering-inn",
+      "origin": "royal-road"
+    },
+    {
+      "title": "Dungeon Crawler Carl",
+      "author": "Matt Dinniman",
+      "genreSlug": "litrpg",
+      "tagSlugs": [
+        "dungeon-crawl",
+        "character-driven",
+        "english-original",
+        "royal-road"
+      ],
+      "coverUrl": null,
+      "externalLink": "https://www.royalroad.com/fiction/4009/dungeon-crawler-carl",
+      "origin": "royal-road"
+    },
+    {
+      "title": "He Who Fights With Monsters",
+      "author": "Shirtaloon",
+      "genreSlug": "litrpg",
+      "tagSlugs": [
+        "earned-power",
+        "character-driven",
+        "english-original",
+        "royal-road"
+      ],
+      "coverUrl": null,
+      "externalLink": "https://www.royalroad.com/fiction/42183/he-who-fights-with-monsters",
+      "origin": "royal-road"
+    },
+    {
+      "title": "Azarinth Healer",
+      "author": "Rhaegar",
+      "genreSlug": "litrpg",
+      "tagSlugs": [
+        "dungeon-crawl",
+        "earned-power",
+        "english-original",
+        "royal-road"
+      ],
+      "coverUrl": null,
+      "externalLink": "https://www.royalroad.com/fiction/26356/azarinth-healer",
+      "origin": "royal-road"
+    },
+    {
+      "title": "Beware of Chicken",
+      "author": "Casualfarmer",
+      "genreSlug": "xianxia",
+      "secondaryGenreSlug": "comedy",
+      "tagSlugs": [
+        "cultivation",
+        "beginner-friendly",
+        "character-driven",
+        "english-original",
+        "royal-road"
+      ],
+      "coverUrl": null,
+      "externalLink": "https://www.royalroad.com/fiction/50358/beware-of-chicken",
+      "origin": "royal-road"
+    },
+    {
+      "title": "Defiance of the Fall",
+      "author": "TheFirstDefier",
+      "genreSlug": "litrpg",
+      "tagSlugs": [
+        "earned-power",
+        "op-mc",
+        "english-original",
+        "royal-road"
+      ],
+      "coverUrl": null,
+      "externalLink": "https://www.royalroad.com/fiction/39408/defiance-of-the-fall",
+      "origin": "royal-road"
+    },
+    {
+      "title": "The Primal Hunter",
+      "author": "Zogarth",
+      "genreSlug": "litrpg",
+      "tagSlugs": [
+        "dungeon-crawl",
+        "earned-power",
+        "english-original",
+        "royal-road"
+      ],
+      "coverUrl": null,
+      "externalLink": "https://www.royalroad.com/fiction/36019/the-primal-hunter",
+      "origin": "royal-road"
+    },
+    {
+      "title": "Sky Pride",
+      "author": "BrazenEagle",
+      "genreSlug": "xianxia",
+      "tagSlugs": [
+        "cultivation",
+        "earned-power",
+        "english-original",
+        "royal-road"
+      ],
+      "coverUrl": null,
+      "externalLink": "https://www.royalroad.com/fiction/55697/sky-pride",
+      "origin": "royal-road"
+    },
+    {
+      "title": "Ave Xia Rem Y",
+      "author": "Magical Girl Gunslinger",
+      "genreSlug": "xianxia",
+      "secondaryGenreSlug": "comedy",
+      "tagSlugs": [
+        "cultivation",
+        "character-driven",
+        "english-original",
+        "royal-road"
+      ],
+      "coverUrl": null,
+      "externalLink": "https://www.royalroad.com/fiction/36735/ave-xia-rem-y",
+      "origin": "royal-road"
+    },
+    {
+      "title": "Pale Lights",
+      "author": "Pale Lights",
+      "genreSlug": "fantasy",
+      "tagSlugs": [
+        "character-driven",
+        "earned-power",
+        "english-original",
+        "royal-road"
+      ],
+      "coverUrl": null,
+      "externalLink": "https://www.royalroad.com/fiction/55775/pale-lights",
+      "origin": "royal-road"
+    },
+    {
+      "title": "The Perfect Run",
+      "author": "Vitaly S Alexius",
+      "genreSlug": "sci-fi",
+      "tagSlugs": [
+        "character-driven",
+        "earned-power",
+        "english-original",
+        "royal-road"
+      ],
+      "coverUrl": null,
+      "externalLink": "https://www.royalroad.com/fiction/40482/the-perfect-run",
+      "origin": "royal-road"
+    },
+    {
+      "title": "Delve",
+      "author": "Senne",
+      "genreSlug": "litrpg",
+      "tagSlugs": [
+        "dungeon-crawl",
+        "earned-power",
+        "english-original",
+        "royal-road"
+      ],
+      "coverUrl": null,
+      "externalLink": "https://www.royalroad.com/fiction/20381/delve",
+      "origin": "royal-road"
+    },
+    {
+      "title": "The Legend of Randidly Ghosthound",
+      "author": "Puddles4263",
+      "genreSlug": "litrpg",
+      "tagSlugs": [
+        "earned-power",
+        "character-driven",
+        "english-original",
+        "royal-road"
+      ],
+      "coverUrl": null,
+      "externalLink": "https://www.royalroad.com/fiction/5905/the-legend-of-randidly-ghosthound",
+      "origin": "royal-road"
+    },
+    {
+      "title": "Worth the Candle",
+      "author": "Alexander Wales",
+      "genreSlug": "fantasy",
+      "tagSlugs": [
+        "character-driven",
+        "earned-power",
+        "english-original",
+        "royal-road"
+      ],
+      "coverUrl": null,
+      "externalLink": "https://www.royalroad.com/fiction/11483/worth-the-candle",
+      "origin": "royal-road"
+    },
+    {
+      "title": "All Night Laundry",
+      "author": "Alexander Wales",
+      "genreSlug": "sci-fi",
+      "tagSlugs": [
+        "character-driven",
+        "hard-sci-fi",
+        "english-original",
+        "royal-road"
+      ],
+      "coverUrl": null,
+      "externalLink": "https://www.royalroad.com/fiction/1804/all-night-laundry",
+      "origin": "royal-road"
+    },
+    {
+      "title": "The Daily Grind",
+      "author": "TheVespersBrain",
+      "genreSlug": "litrpg",
+      "tagSlugs": [
+        "dungeon-crawl",
+        "character-driven",
+        "english-original",
+        "royal-road"
+      ],
+      "coverUrl": null,
+      "externalLink": "https://www.royalroad.com/fiction/50628/the-daily-grind",
+      "origin": "royal-road"
+    },
+    {
+      "title": "Necropolis",
+      "author": "Skyclad-Observer",
+      "genreSlug": "horror",
+      "tagSlugs": [
+        "dungeon-crawl",
+        "cosmic-horror",
+        "english-original",
+        "royal-road"
+      ],
+      "coverUrl": null,
+      "externalLink": "https://www.royalroad.com/fiction/40597/necropolis",
+      "origin": "royal-road"
+    },
+    {
+      "title": "The Games We Play",
+      "author": "Ryuugi",
+      "genreSlug": "litrpg",
+      "tagSlugs": [
+        "magic-academy",
+        "op-mc",
+        "english-original",
+        "royal-road"
+      ],
+      "coverUrl": null,
+      "externalLink": "https://www.royalroad.com/fiction/2918/the-games-we-play",
+      "origin": "royal-road"
+    },
+    {
+      "title": "Super Minion",
+      "author": "Lost Demontier",
+      "genreSlug": "sci-fi",
+      "tagSlugs": [
+        "character-driven",
+        "earned-power",
+        "english-original",
+        "royal-road"
+      ],
+      "coverUrl": null,
+      "externalLink": "https://www.royalroad.com/fiction/21410/super-minion",
+      "origin": "royal-road"
+    },
+    {
+      "title": "Mark of the Fool",
+      "author": "J.M. Clarke",
+      "genreSlug": "fantasy",
+      "tagSlugs": [
+        "magic-academy",
+        "earned-power",
+        "english-original",
+        "royal-road"
+      ],
+      "coverUrl": null,
+      "externalLink": "https://www.royalroad.com/fiction/48401/mark-of-the-fool",
+      "origin": "royal-road"
+    },
+    {
+      "title": "Beneath the Dragoneye Moons",
+      "author": "Selkie",
+      "genreSlug": "fantasy",
+      "tagSlugs": [
+        "character-driven",
+        "beginner-friendly",
+        "english-original",
+        "royal-road"
+      ],
+      "coverUrl": null,
+      "externalLink": "https://www.royalroad.com/fiction/36299/beneath-the-dragoneye-moons",
+      "origin": "royal-road"
+    },
+    {
+      "title": "The Butcher of Gadobhra",
+      "author": "Zachariah Dracoulis",
+      "genreSlug": "fantasy",
+      "secondaryGenreSlug": "comedy",
+      "tagSlugs": [
+        "character-driven",
+        "beginner-friendly",
+        "english-original",
+        "royal-road"
+      ],
+      "coverUrl": null,
+      "externalLink": "https://www.royalroad.com/fiction/23357/the-butcher-of-gadobhra",
+      "origin": "royal-road"
+    },
+    {
+      "title": "The Wandering Tower",
+      "author": "Jason",
+      "genreSlug": "fantasy",
+      "tagSlugs": [
+        "dungeon-crawl",
+        "earned-power",
+        "english-original",
+        "royal-road"
+      ],
+      "coverUrl": null,
+      "externalLink": "https://www.royalroad.com/fiction/52758/the-wandering-tower",
+      "origin": "royal-road"
+    },
+    {
+      "title": "Threads of Fate",
+      "author": "Wandering Turtle",
+      "genreSlug": "fantasy",
+      "tagSlugs": [
+        "character-driven",
+        "earned-power",
+        "english-original",
+        "royal-road"
+      ],
+      "coverUrl": null,
+      "externalLink": "https://www.royalroad.com/fiction/67720/threads-of-fate",
+      "origin": "royal-road"
+    },
+    {
+      "title": "Cinnamon Bun",
+      "author": "RavensDagger",
+      "genreSlug": "fantasy",
+      "secondaryGenreSlug": "comedy",
+      "tagSlugs": [
+        "character-driven",
+        "beginner-friendly",
+        "english-original",
+        "royal-road"
+      ],
+      "coverUrl": null,
+      "externalLink": "https://www.royalroad.com/fiction/41126/cinnamon-bun",
+      "origin": "royal-road"
+    },
+    {
+      "title": "Starter Zone",
+      "author": "Gazza",
+      "genreSlug": "litrpg",
+      "tagSlugs": [
+        "dungeon-crawl",
+        "beginner-friendly",
+        "english-original",
+        "royal-road"
+      ],
+      "coverUrl": null,
+      "externalLink": "https://www.royalroad.com/fiction/69412/starter-zone",
+      "origin": "royal-road"
+    },
+    {
+      "title": "Industrial Strength Magic",
+      "author": "Brian McClellan",
+      "genreSlug": "fantasy",
+      "tagSlugs": [
+        "character-driven",
+        "earned-power",
+        "english-original",
+        "royal-road"
+      ],
+      "coverUrl": null,
+      "externalLink": "https://www.royalroad.com/fiction/65629/industrial-strength-magic",
+      "origin": "royal-road"
+    },
+    {
+      "title": "Kardinally Bound",
+      "author": "RavensDagger",
+      "genreSlug": "fantasy",
+      "tagSlugs": [
+        "character-driven",
+        "earned-power",
+        "english-original",
+        "royal-road"
+      ],
+      "coverUrl": null,
+      "externalLink": "https://www.royalroad.com/fiction/64950/kardinally-bound",
+      "origin": "royal-road"
+    },
+    {
+      "title": "The Magical Girl Maniac",
+      "author": "RavensDagger",
+      "genreSlug": "action",
+      "tagSlugs": [
+        "character-driven",
+        "op-mc",
+        "english-original",
+        "royal-road"
+      ],
+      "coverUrl": null,
+      "externalLink": "https://www.royalroad.com/fiction/61867/the-magical-girl-maniac",
+      "origin": "royal-road"
+    }
+  ]
+}

@@ -55,3 +55,6 @@ prisma/data/demo/manifest.json
 /*.zip
 __MACOSX/
 ._*
+
+# generated Admin QA manifests and previews
+/prisma/data/admin-qa/*.json

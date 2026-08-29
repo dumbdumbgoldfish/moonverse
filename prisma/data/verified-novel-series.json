@@ -1,0 +1,23 @@
+{
+  "version": 1,
+  "description": "Verified MoonVerse novel series. Only include relationships explicitly supported by curated catalogue metadata — never inferred from title similarity.",
+  "series": [
+    {
+      "name": "Lord of the Mysteries",
+      "description": "Cuttlefish That Loves Diving duology. Book 2 is explicitly titled in the MoonVerse catalogue.",
+      "readingOrderVerified": true,
+      "entries": [
+        {
+          "title": "Lord of the Mysteries",
+          "order": 1,
+          "relationType": "MAIN"
+        },
+        {
+          "title": "Lord of the Mysteries 2: Circle of Inevitability",
+          "order": 2,
+          "relationType": "SEQUEL"
+        }
+      ]
+    }
+  ]
+}
