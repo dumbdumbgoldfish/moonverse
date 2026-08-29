@@ -21,11 +21,13 @@ interface WritingStudioCommandPaletteProps {
 
 const GROUP_ORDER = ["Insert", "Writing", "Studio", "Publish"] as const;
 
-export function WritingStudioCommandPalette({
-  open,
-  onOpenChange,
+function WritingStudioCommandPaletteSession({
   commands,
-}: WritingStudioCommandPaletteProps) {
+  onOpenChange,
+}: {
+  commands: WritingStudioCommand[];
+  onOpenChange: (open: boolean) => void;
+}) {
   const [query, setQuery] = useState("");
   const [activeIndex, setActiveIndex] = useState(0);
   const inputRef = useRef<HTMLInputElement>(null);
@@ -69,18 +71,9 @@ export function WritingStudioCommandPalette({
   );
 
   useEffect(() => {
-    if (!open) {
-      setQuery("");
-      setActiveIndex(0);
-      return;
-    }
     const frame = window.requestAnimationFrame(() => inputRef.current?.focus());
     return () => window.cancelAnimationFrame(frame);
-  }, [open]);
-
-  useEffect(() => {
-    setActiveIndex(0);
-  }, [query]);
+  }, []);
 
   function run(command: WritingStudioCommand) {
     if (command.disabled) return;
@@ -106,98 +99,116 @@ export function WritingStudioCommandPalette({
   }
 
   return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent
-        showCloseButton
-        className="gap-0 overflow-hidden border-[var(--mv-border)] bg-white p-0 sm:max-w-lg"
-      >
-        <DialogHeader className="border-b border-[var(--mv-border)] px-4 py-3 text-left">
-          <DialogTitle className="font-serif text-lg text-[var(--mv-ink)]">
-            Writing studio
-          </DialogTitle>
-          <DialogDescription className="text-[var(--mv-text-muted)]">
-            Insert sections, change modes, or preview your review.
-          </DialogDescription>
-        </DialogHeader>
+    <DialogContent
+      showCloseButton
+      className="gap-0 overflow-hidden border-[var(--mv-border)] bg-white p-0 sm:max-w-lg"
+    >
+      <DialogHeader className="border-b border-[var(--mv-border)] px-4 py-3 text-left">
+        <DialogTitle className="font-serif text-lg text-[var(--mv-ink)]">
+          Writing studio
+        </DialogTitle>
+        <DialogDescription className="text-[var(--mv-text-muted)]">
+          Insert sections, change modes, or preview your review.
+        </DialogDescription>
+      </DialogHeader>
 
-        <div className="border-b border-[var(--mv-border)] px-3 py-2">
-          <div className="relative">
-            <Search
-              className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-[var(--mv-text-muted)]"
-              aria-hidden
-            />
-            <Input
-              ref={inputRef}
-              value={query}
-              onChange={(event) => setQuery(event.target.value)}
-              onKeyDown={onKeyDown}
-              placeholder="Search commands…"
-              className="h-10 border-[var(--mv-border)] bg-[var(--mv-paper)]/50 pl-9"
-            />
-          </div>
+      <div className="border-b border-[var(--mv-border)] px-3 py-2">
+        <div className="relative">
+          <Search
+            className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-[var(--mv-text-muted)]"
+            aria-hidden
+          />
+          <Input
+            ref={inputRef}
+            value={query}
+            onChange={(event) => {
+              setQuery(event.target.value);
+              setActiveIndex(0);
+            }}
+            onKeyDown={onKeyDown}
+            placeholder="Search commands…"
+            className="h-10 border-[var(--mv-border)] bg-[var(--mv-paper)]/50 pl-9"
+          />
         </div>
+      </div>
 
-        <div className="max-h-[min(50vh,360px)] overflow-y-auto px-2 py-2">
-          {flatItems.length === 0 ? (
-            <p className="px-3 py-6 text-center text-sm text-[var(--mv-text-muted)]">
-              No commands match that search.
-            </p>
-          ) : (
-            grouped.map((entry) => (
-              <div key={entry.group} className="mb-2 last:mb-0">
-                <p className="px-2 py-1 text-[10px] font-bold uppercase tracking-[0.14em] text-[var(--mv-text-muted)]">
-                  {entry.group}
-                </p>
-                <ul>
-                  {entry.items.map((command) => {
-                    const index = flatItems.indexOf(command);
-                    const active = index === activeIndex;
-                    return (
-                      <li key={command.id}>
-                        <button
-                          type="button"
-                          disabled={command.disabled}
-                          onMouseEnter={() => setActiveIndex(index)}
-                          onClick={() => run(command)}
-                          className={cn(
-                            "flex w-full items-center justify-between gap-3 rounded-lg px-3 py-2.5 text-left transition",
-                            active
-                              ? "bg-[var(--mv-plum)]/[0.08] text-[var(--mv-ink)]"
-                              : "text-[var(--mv-ink)] hover:bg-[var(--mv-paper)]",
-                            command.disabled && "cursor-not-allowed opacity-50"
-                          )}
-                        >
-                          <span>
-                            <span className="block text-sm font-semibold">
-                              {command.label}
-                            </span>
-                            {command.hint ? (
-                              <span className="mt-0.5 block text-xs text-[var(--mv-text-muted)]">
-                                {command.hint}
-                              </span>
-                            ) : null}
+      <div className="max-h-[min(50vh,360px)] overflow-y-auto px-2 py-2">
+        {flatItems.length === 0 ? (
+          <p className="px-3 py-6 text-center text-sm text-[var(--mv-text-muted)]">
+            No commands match that search.
+          </p>
+        ) : (
+          grouped.map((entry) => (
+            <div key={entry.group} className="mb-2 last:mb-0">
+              <p className="px-2 py-1 text-[10px] font-bold uppercase tracking-[0.14em] text-[var(--mv-text-muted)]">
+                {entry.group}
+              </p>
+              <ul>
+                {entry.items.map((command) => {
+                  const index = flatItems.indexOf(command);
+                  const active = index === activeIndex;
+                  return (
+                    <li key={command.id}>
+                      <button
+                        type="button"
+                        disabled={command.disabled}
+                        onMouseEnter={() => setActiveIndex(index)}
+                        onClick={() => run(command)}
+                        className={cn(
+                          "flex w-full items-center justify-between gap-3 rounded-lg px-3 py-2.5 text-left transition",
+                          active
+                            ? "bg-[var(--mv-plum)]/[0.08] text-[var(--mv-ink)]"
+                            : "text-[var(--mv-ink)] hover:bg-[var(--mv-paper)]",
+                          command.disabled && "cursor-not-allowed opacity-50"
+                        )}
+                      >
+                        <span>
+                          <span className="block text-sm font-semibold">
+                            {command.label}
                           </span>
-                          {command.hint?.includes("⌘") ? (
-                            <span className="shrink-0 text-[10px] font-semibold uppercase tracking-wide text-[var(--mv-text-muted)]">
-                              {command.hint.match(/⌘[^\s]+/)?.[0]}
+                          {command.hint ? (
+                            <span className="mt-0.5 block text-xs text-[var(--mv-text-muted)]">
+                              {command.hint}
                             </span>
                           ) : null}
-                        </button>
-                      </li>
-                    );
-                  })}
-                </ul>
-              </div>
-            ))
-          )}
-        </div>
+                        </span>
+                        {command.hint?.includes("⌘") ? (
+                          <span className="shrink-0 text-[10px] font-semibold uppercase tracking-wide text-[var(--mv-text-muted)]">
+                            {command.hint.match(/⌘[^\s]+/)?.[0]}
+                          </span>
+                        ) : null}
+                      </button>
+                    </li>
+                  );
+                })}
+              </ul>
+            </div>
+          ))
+        )}
+      </div>
 
-        <div className="border-t border-[var(--mv-border)] bg-[var(--mv-paper)]/60 px-4 py-2 text-[11px] text-[var(--mv-text-muted)]">
-          <span className="font-semibold text-[var(--mv-ink)]">↑↓</span> navigate ·{" "}
-          <span className="font-semibold text-[var(--mv-ink)]">Enter</span> run ·{" "}
-          <span className="font-semibold text-[var(--mv-ink)]">Esc</span> close
-        </div>
-      </DialogContent>
+      <div className="border-t border-[var(--mv-border)] bg-[var(--mv-paper)]/60 px-4 py-2 text-[11px] text-[var(--mv-text-muted)]">
+        <span className="font-semibold text-[var(--mv-ink)]">↑↓</span> navigate ·{" "}
+        <span className="font-semibold text-[var(--mv-ink)]">Enter</span> run ·{" "}
+        <span className="font-semibold text-[var(--mv-ink)]">Esc</span> close
+      </div>
+    </DialogContent>
+  );
+}
+
+export function WritingStudioCommandPalette({
+  open,
+  onOpenChange,
+  commands,
+}: WritingStudioCommandPaletteProps) {
+  return (
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      {open ? (
+        <WritingStudioCommandPaletteSession
+          commands={commands}
+          onOpenChange={onOpenChange}
+        />
+      ) : null}
     </Dialog>
   );
 }
