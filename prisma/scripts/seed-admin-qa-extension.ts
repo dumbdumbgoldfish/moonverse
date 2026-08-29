@@ -334,7 +334,7 @@ async function main() {
       const translated = novel.tagSlugs.some((t) =>
         ["translated-cn", "chinese-original", "translated-jp", "translated-kr"].includes(t)
       );
-      let composed = composeOriginalReview(
+      const composed = composeOriginalReview(
         {
           title: novel.title,
           author: novel.author,

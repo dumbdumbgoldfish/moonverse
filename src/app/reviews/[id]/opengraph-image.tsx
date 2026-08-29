@@ -76,7 +76,6 @@ export default async function OpenGraphImage({
             }}
           >
             {review.coverUrl ? (
-              // eslint-disable-next-line @next/next/no-img-element
               <img
                 src={review.coverUrl}
                 alt=""
