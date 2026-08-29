@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState, useSyncExternalStore } from "react";
 import { ReportTargetType } from "@prisma/client";
 import { CommunityReviewModalLoader } from "@/components/community/CommunityReviewModalLoader";
 import { ReviewActionBar } from "@/components/feed/ReviewActionBar";
@@ -8,6 +8,19 @@ import { ReportButton } from "@/components/moderation/ReportButton";
 import { subscribeCommunityReviewSync } from "@/lib/community-feed-sync";
 import type { FolderListItem } from "@/types/folder";
 import type { CommentItem, ReviewDetail } from "@/types/review";
+
+function subscribeDiscussionHash() {
+  return () => {};
+}
+
+function getDiscussionHashSnapshot() {
+  const hash = window.location.hash.toLowerCase();
+  return hash === "#comments" || hash === "#discussion";
+}
+
+function getServerDiscussionHashSnapshot() {
+  return false;
+}
 
 interface ReviewDiscussionHostProps {
   review: ReviewDetail;
@@ -32,6 +45,15 @@ export function ReviewDiscussionHost({
 }: ReviewDiscussionHostProps) {
   const [discussionOpen, setDiscussionOpen] = useState(false);
   const [focusComments, setFocusComments] = useState(false);
+  const [hashDismissed, setHashDismissed] = useState(false);
+  const hashRequested = useSyncExternalStore(
+    subscribeDiscussionHash,
+    getDiscussionHashSnapshot,
+    getServerDiscussionHashSnapshot
+  );
+  const hashWantsOpen = hashRequested && !hashDismissed;
+  const effectiveOpen = discussionOpen || hashWantsOpen;
+  const effectiveFocus = discussionOpen ? focusComments : hashWantsOpen;
   const [commentCount, setCommentCount] = useState(review.commentCount);
   const [likeCount, setLikeCount] = useState(review.likeCount);
   const [saveCount, setSaveCount] = useState(review.saveCount);
@@ -62,16 +84,16 @@ export function ReviewDiscussionHost({
   }, [review.id]);
 
   function openDiscussion(shouldFocusComments: boolean) {
+    setHashDismissed(false);
     setFocusComments(shouldFocusComments);
     setDiscussionOpen(true);
   }
 
-  useEffect(() => {
-    const hash = window.location.hash;
-    if (hash === "#comments" || hash === "#discussion") {
-      openDiscussion(true);
-    }
-  }, []);
+  function closeDiscussion() {
+    setDiscussionOpen(false);
+    setFocusComments(false);
+    setHashDismissed(true);
+  }
 
   return (
     <>
@@ -104,12 +126,12 @@ export function ReviewDiscussionHost({
         ) : null}
       </div>
 
-      {discussionOpen ? (
+      {effectiveOpen ? (
         <CommunityReviewModalLoader
-          key={`${review.id}:${focusComments ? "comments" : "top"}`}
+          key={`${review.id}:${effectiveFocus ? "comments" : "top"}`}
           reviewId={review.id}
-          focusComments={focusComments}
-          onClose={() => setDiscussionOpen(false)}
+          focusComments={effectiveFocus}
+          onClose={closeDiscussion}
         />
       ) : null}
     </>
