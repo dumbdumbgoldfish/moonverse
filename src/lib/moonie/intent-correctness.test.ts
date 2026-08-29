@@ -135,9 +135,15 @@ describe("bare catalogue titles and follow-up chips", () => {
   });
 
   it("treats recommendation asks as discovery, not title lookup", () => {
-    const intents = classifyMoonieIntents("any recommendation?", {});
-    assert.equal(primaryRetrievalIntent(intents), "RECOMMEND");
-    assert.equal(intents.includes("FIND_NOVEL"), false);
+    for (const message of [
+      "any recommendation?",
+      "any recommendations?",
+      "what should I read?",
+    ]) {
+      const intents = classifyMoonieIntents(message, {});
+      assert.equal(primaryRetrievalIntent(intents), "RECOMMEND", message);
+      assert.equal(intents.includes("FIND_NOVEL"), false, message);
+    }
   });
 
   it("routes desk vibe chips to recommendations, not catalogue lookup", () => {

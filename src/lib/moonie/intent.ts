@@ -182,9 +182,6 @@ const COMPARE_RE =
 const REFINE_RE =
   /\b(less|more|no |without|darker|lighter|completed only|hidden gem|underrated|similar but|not too|strong fl|low romance|no romance|no harem|no angst|faster|shorter|wider|broaden)\b/i;
 
-const RECOMMEND_RE =
-  /\b(recommend|suggest|something|mood for|want to read|in the mood|discover|surprise me|hidden gem|safe pick|trending|more like)\b/i;
-
 const ORDINAL_RE =
   /\b(the )?(first|second|third|1st|2nd|3rd|last|that|this) (one|pick|novel|book|title)\b/i;
 
@@ -814,7 +811,7 @@ export interface DirectTitleTask {
 }
 
 const RECOMMENDATION_DISCOVERY_RE =
-  /\b(recommend|suggest|something like|similar to|discover|surprise me|hidden gem|safe pick|trending|mood for|want to read|in the mood|what should i read|pick(?:s)? for me)\b/i;
+  /\b(recommend(?:ation)?s?|suggest|something like|similar to|discover|surprise me|hidden gem|safe pick|trending|mood for|want to read|in the mood|what should i read|pick(?:s)? for me)\b/i;
 
 /** Named-title task + catalogue title for explicit lookup routing. */
 export function resolveDirectTitleTask(message: string): DirectTitleTask | null {
@@ -868,6 +865,7 @@ export function isRecommendationDiscoveryMessage(message: string): boolean {
   if (isBareCatalogueTitleQuery(message)) return false;
   if (isMoonieGeneratedFollowUpQuestion(message)) return false;
 
+  if (isUseSavedPreferencesRequest(message)) return true;
   if (isMoonieDeskChipPrompt(message)) return true;
   const text = normalizeLookupQueryText(message).toLowerCase();
   if (/\bmore like this\b/i.test(text)) return true;
@@ -1036,7 +1034,6 @@ export function classifyMoonieIntents(
     !hasExplicitLookupIntent &&
     !directTask &&
     !isBareCatalogueTitleQuery(text) &&
-    (RECOMMEND_RE.test(lower) || WEB_NOVEL_SIGNAL.test(lower)) &&
     isRecommendationDiscoveryMessage(text)
   ) {
     intents.push("RECOMMEND");
