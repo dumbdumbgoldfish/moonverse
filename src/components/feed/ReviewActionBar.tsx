@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState, useTransition } from "react";
+import { useState, useTransition } from "react";
 import { Heart, MessageCircle, Share2 } from "lucide-react";
 import {
   shareReviewAction,
@@ -30,6 +30,33 @@ interface ReviewActionBarProps {
   onLikeChange?: (liked: boolean, likeCount: number) => void;
 }
 
+interface ActionBarState {
+  reviewId: string;
+  baselineLiked: boolean;
+  baselineLikeCount: number;
+  baselineShareCount: number;
+  liked: boolean;
+  likes: number;
+  shares: number;
+}
+
+function createActionBarState(
+  reviewId: string,
+  initialLiked: boolean,
+  likeCount: number,
+  shareCount: number
+): ActionBarState {
+  return {
+    reviewId,
+    baselineLiked: initialLiked,
+    baselineLikeCount: likeCount,
+    baselineShareCount: shareCount,
+    liked: initialLiked,
+    likes: likeCount,
+    shares: shareCount,
+  };
+}
+
 export function ReviewActionBar({
   reviewId,
   reviewTitle,
@@ -47,19 +74,54 @@ export function ReviewActionBar({
 }: ReviewActionBarProps) {
   const { promptSignIn } = useSignInPrompt();
   const [isPending, startTransition] = useTransition();
-  const [liked, setLiked] = useState(initialLiked);
-  const [likes, setLikes] = useState(likeCount);
-  const [shares, setShares] = useState(initialShareCount);
-  const incomingLikeKey = `${initialLiked}:${likeCount}:${initialShareCount}`;
-
-  useEffect(() => {
-    setLiked(initialLiked);
-    setLikes(likeCount);
-    setShares(initialShareCount);
-  }, [incomingLikeKey, initialLiked, likeCount, initialShareCount]);
-  const [error, setError] = useState<string | null>(null);
+  const [actionState, setActionState] = useState(() =>
+    createActionBarState(reviewId, initialLiked, likeCount, initialShareCount)
+  );
+  const [errorRecord, setErrorRecord] = useState<{
+    reviewId: string;
+    message: string;
+  } | null>(null);
   const [shareFeedback, setShareFeedback] = useState<string | null>(null);
   const literary = variant === "literary";
+
+  let nextState = actionState;
+  if (actionState.reviewId !== reviewId) {
+    nextState = createActionBarState(
+      reviewId,
+      initialLiked,
+      likeCount,
+      initialShareCount
+    );
+    setActionState(nextState);
+  } else if (!isPending) {
+    const likedChanged = actionState.baselineLiked !== initialLiked;
+    const likesChanged = actionState.baselineLikeCount !== likeCount;
+    const sharesChanged = actionState.baselineShareCount !== initialShareCount;
+    if (likedChanged || likesChanged || sharesChanged) {
+      nextState = {
+        ...actionState,
+        baselineLiked: likedChanged ? initialLiked : actionState.baselineLiked,
+        liked: likedChanged ? initialLiked : actionState.liked,
+        baselineLikeCount: likesChanged
+          ? likeCount
+          : actionState.baselineLikeCount,
+        likes: likesChanged ? likeCount : actionState.likes,
+        baselineShareCount: sharesChanged
+          ? initialShareCount
+          : actionState.baselineShareCount,
+        shares: sharesChanged ? initialShareCount : actionState.shares,
+      };
+      setActionState(nextState);
+    }
+  }
+
+  const liked = nextState.liked;
+  const likes = nextState.likes;
+  const shares = nextState.shares;
+  const error =
+    errorRecord && errorRecord.reviewId === reviewId
+      ? errorRecord.message
+      : null;
 
   const actionBtnClass = literary
     ? "inline-flex h-10 min-w-0 flex-1 items-center justify-center gap-1.5 rounded-full border-0 bg-transparent px-2 text-[13px] font-semibold text-[#5a4d72] shadow-none hover:bg-[#6E46C7]/[0.06] hover:text-[#1a1033] sm:px-3"
@@ -70,46 +132,59 @@ export function ReviewActionBar({
       promptSignIn(`/reviews/${reviewId}`);
       return;
     }
-    setError(null);
+    setErrorRecord(null);
     const previousLiked = liked;
     const previousLikes = likes;
     const nextLiked = !liked;
     const nextLikes = liked ? Math.max(0, likes - 1) : likes + 1;
-    setLiked(nextLiked);
-    setLikes(nextLikes);
+    const requestReviewId = reviewId;
+    setActionState((current) => {
+      if (current.reviewId !== requestReviewId) return current;
+      return { ...current, liked: nextLiked, likes: nextLikes };
+    });
     onLikeChange?.(nextLiked, nextLikes);
     publishCommunityReviewSync({
-      reviewId,
+      reviewId: requestReviewId,
       liked: nextLiked,
       likeCount: nextLikes,
     });
 
     startTransition(async () => {
-      const result = await toggleLikeAction(reviewId);
+      const result = await toggleLikeAction(requestReviewId);
       if (!result.success) {
-        setLiked(previousLiked);
-        setLikes(previousLikes);
+        setActionState((current) => {
+          if (current.reviewId !== requestReviewId) return current;
+          return { ...current, liked: previousLiked, likes: previousLikes };
+        });
         onLikeChange?.(previousLiked, previousLikes);
-        setError(result.error ?? "Unable to update like.");
+        setErrorRecord({
+          reviewId: requestReviewId,
+          message: result.error ?? "Unable to update like.",
+        });
         return;
       }
       if (result.liked !== undefined && result.likeCount !== undefined) {
-        setLiked(result.liked);
-        setLikes(result.likeCount);
-        onLikeChange?.(result.liked, result.likeCount);
-        publishCommunityReviewSync({
-          reviewId,
-          liked: result.liked,
-          likeCount: result.likeCount,
+        const confirmedLiked = result.liked;
+        const confirmedLikes = result.likeCount;
+        setActionState((current) => {
+          if (current.reviewId !== requestReviewId) return current;
+          return { ...current, liked: confirmedLiked, likes: confirmedLikes };
         });
-        if (result.liked) triggerMoonieReaction("likeReview");
+        onLikeChange?.(confirmedLiked, confirmedLikes);
+        publishCommunityReviewSync({
+          reviewId: requestReviewId,
+          liked: confirmedLiked,
+          likeCount: confirmedLikes,
+        });
+        if (confirmedLiked) triggerMoonieReaction("likeReview");
       }
     });
   };
 
   const handleShare = async () => {
     setShareFeedback(null);
-    const url = `${window.location.origin}/reviews/${reviewId}`;
+    const requestReviewId = reviewId;
+    const url = `${window.location.origin}/reviews/${requestReviewId}`;
 
     try {
       if (navigator.share) {
@@ -134,9 +209,13 @@ export function ReviewActionBar({
     }
 
     startTransition(async () => {
-      const result = await shareReviewAction(reviewId);
+      const result = await shareReviewAction(requestReviewId);
       if (result.success && result.shareCount !== undefined) {
-        setShares(result.shareCount);
+        const confirmedShares = result.shareCount;
+        setActionState((current) => {
+          if (current.reviewId !== requestReviewId) return current;
+          return { ...current, shares: confirmedShares };
+        });
       }
     });
 
