@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1200 400" role="img" aria-label="Demo banner 018">
+  <defs>
+    <linearGradient id="sky-17" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0%" stop-color="#240046"/>
+      <stop offset="100%" stop-color="#7b2cbf"/>
+    </linearGradient>
+  </defs>
+  <rect width="1200" height="400" fill="url(#sky-17)"/>
+  <rect x="520" y="180" width="160" height="120" fill="#e0aaff" opacity="0.2"/><polygon points="520,180 600,120 680,180" fill="#e0aaff" opacity="0.3"/>
+  <rect y="300" width="1200" height="100" fill="#10002b" opacity="0.55"/>
+</svg>

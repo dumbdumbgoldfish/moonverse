@@ -1,0 +1,19 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 200 200" role="img" aria-label="Demo avatar 004">
+  <defs>
+    <linearGradient id="bg-3" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0%" stop-color="#7b2cbf" stop-opacity="0.35"/>
+      <stop offset="100%" stop-color="#240046" stop-opacity="0.55"/>
+    </linearGradient>
+  </defs>
+  <rect width="200" height="200" rx="24" fill="url(#bg-3)"/>
+  <circle cx="100" cy="108" r="52" fill="#f0e6dc"/>
+  <path d="M35 90 Q100 10 165 90 L155 135 Q100 75 45 135 Z" fill="#e8e8e8"/><circle cx="65" cy="55" r="18" fill="#e8e8e8"/><circle cx="135" cy="55" r="18" fill="#e8e8e8"/>
+  <ellipse cx="82" cy="108" rx="8" ry="10" fill="#c77dff"/>
+  <ellipse cx="118" cy="108" rx="8" ry="10" fill="#c77dff"/>
+  <circle cx="84" cy="106" r="3" fill="#111"/>
+  <circle cx="120" cy="106" r="3" fill="#111"/>
+  <path d="M88 128 Q100 136 112 128" stroke="#b56576" stroke-width="2.5" fill="none" stroke-linecap="round"/>
+  <path d="M55 165 Q100 145 145 165 L145 200 L55 200 Z" fill="#240046"/>
+  <circle cx="100" cy="158" r="6" fill="#7b2cbf" opacity="0.9"/>
+</svg>
