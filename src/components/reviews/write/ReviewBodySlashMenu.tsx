@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useMemo, useState } from "react";
 import { filterSlashMenuItems } from "@/components/reviews/write/writing-studio-commands";
 import { cn } from "@/lib/utils";
 
@@ -43,11 +43,17 @@ export function ReviewBodySlashMenu({
     () => (slash ? filterSlashMenuItems(slash.query) : []),
     [slash]
   );
-  const [activeIndex, setActiveIndex] = useState(0);
+  const queryKey = slash?.query ?? "";
+  const [highlight, setHighlight] = useState<{ key: string; index: number }>({
+    key: queryKey,
+    index: 0,
+  });
+  const rawIndex = highlight.key === queryKey ? highlight.index : 0;
+  const activeIndex = Math.min(rawIndex, Math.max(0, items.length - 1));
 
-  useEffect(() => {
-    setActiveIndex(0);
-  }, [slash?.query]);
+  function setActiveIndex(index: number) {
+    setHighlight({ key: queryKey, index });
+  }
 
   if (!slash || items.length === 0) return null;
 
