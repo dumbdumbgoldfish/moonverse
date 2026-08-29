@@ -197,7 +197,6 @@ export function TasteOnboardingWizard({
             value={tagQuery}
             onChange={setTagQuery}
             label="Filter tropes"
-            variant={isSettings ? "settings" : "onboarding"}
           />
         }
         variant={isSettings ? "settings" : "onboarding"}
@@ -225,7 +224,6 @@ export function TasteOnboardingWizard({
           value={tagQuery}
           onChange={setTagQuery}
           label="Filter exclusions"
-          variant={isSettings ? "settings" : "onboarding"}
         />
       }
       variant={isSettings ? "settings" : "onboarding"}
@@ -240,21 +238,18 @@ export function TasteOnboardingWizard({
         options={STATUSES}
         value={preferredStatus}
         onChange={setPreferredStatus}
-        variant={isSettings ? "settings" : "onboarding"}
       />
       <OptionRow
         title="Original language"
         options={LANGUAGES}
         value={preferredLanguage}
         onChange={setPreferredLanguage}
-        variant={isSettings ? "settings" : "onboarding"}
       />
       <OptionRow
         title="Length"
         options={LENGTHS}
         value={preferredLength}
         onChange={setPreferredLength}
-        variant={isSettings ? "settings" : "onboarding"}
       />
       <ChipGroup
         title="Preferred platforms"
@@ -555,7 +550,6 @@ function GenreSection({
           value={genreQuery}
           onChange={setGenreQuery}
           label="Filter genres"
-          variant={variant}
         />
       </div>
       {embedded ? (
@@ -571,12 +565,10 @@ function TagSearch({
   value,
   onChange,
   label,
-  variant,
 }: {
   value: string;
   onChange: (value: string) => void;
   label: string;
-  variant: "settings" | "onboarding";
 }) {
   return (
     <div className="relative w-full max-w-xs">
@@ -614,7 +606,6 @@ function ChipGroup({
   variant: "settings" | "onboarding";
   embedded?: boolean;
 }) {
-  const isSettings = variant === "settings";
   const unique = [...new Set(values)];
 
   const chipBody =
@@ -681,15 +672,12 @@ function OptionRow({
   options,
   value,
   onChange,
-  variant,
 }: {
   title: string;
   options: readonly { value: string; label: string }[];
   value: string | null;
   onChange: (value: string | null) => void;
-  variant: "settings" | "onboarding";
 }) {
-  const isSettings = variant === "settings";
   const chipClass = (active: boolean) =>
     cn(
       "rounded-full border px-3 py-1.5 text-[12px] font-semibold transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#6E46C7]",

@@ -104,7 +104,7 @@ export function LiteraryCommunityPage({
   const [followingIds, setFollowingIds] = useState(
     () => new Set(followingReviewerIds)
   );
-  const [comments, setComments] = useState(commentsByReview);
+  const [, setComments] = useState(commentsByReview);
   const [savedMap, setSavedMap] = useState(savedFolderIdsByReview);
   const [offset, setOffset] = useState(initialReviews.length);
   const [hasMore, setHasMore] = useState(initialHasMore);

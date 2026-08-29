@@ -7,8 +7,6 @@ import {
   useMemo,
   useState,
   useTransition,
-  type ComponentType,
-  type SVGProps,
 } from "react";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
@@ -16,7 +14,6 @@ import {
   Compass,
   ChevronLeft,
   ChevronRight,
-  LayoutGrid,
   Loader2,
 } from "lucide-react";
 import { useSignInPrompt } from "@/components/auth/SignInPromptProvider";
@@ -41,7 +38,7 @@ import {
   type DiscoverLayout,
   type DiscoverTab,
 } from "@/lib/discover";
-import { genreLabel, WEB_NOVEL_GENRES } from "@/lib/genres";
+import { genreLabel } from "@/lib/genres";
 import { cn } from "@/lib/utils";
 import type { DiscoverTagPreview, TopReviewerPreview } from "@/types/discovery";
 import type { FolderListItem } from "@/types/folder";
@@ -59,15 +56,6 @@ const LOGIN_GATED_SORT_SET = new Set<ReviewSort>(LOGIN_GATED_SORTS);
 const SIDEBAR_STICKY = "sticky top-[calc(var(--mv-nav-h)+0.75rem)] space-y-6";
 const GENRE_PREVIEW_COUNT = 12;
 
-type IconType = ComponentType<SVGProps<SVGSVGElement> & { className?: string }>;
-
-function genreIcon(slug: string): IconType {
-  return (
-    (WEB_NOVEL_GENRES.find((g) => g.slug === slug)?.icon as IconType) ??
-    LayoutGrid
-  );
-}
-
 interface DiscoverFilters {
   q: string;
   genre: string | null;
@@ -82,7 +70,6 @@ interface DiscoverPageProps {
   reviews: ReviewListItem[];
   totalReviews: number;
   reviewPageSize: number;
-  profilePageSize: number;
   profiles: UserSearchResult[];
   genres: GenreOption[];
   catalogTags: CatalogTag[];
@@ -95,7 +82,6 @@ interface DiscoverPageProps {
   initialGenre?: string;
   initialTags?: string[];
   initialSort?: ReviewSort;
-  initialTab?: DiscoverTab;
   initialLayout?: DiscoverLayout;
   initialSpoilerFree?: boolean;
   initialHasOfficialLink?: boolean;
@@ -195,7 +181,6 @@ export function DiscoverPage({
   reviews: initialReviews,
   totalReviews: initialTotal,
   reviewPageSize,
-  profilePageSize,
   profiles: initialProfiles,
   genres,
   catalogTags,
@@ -208,7 +193,6 @@ export function DiscoverPage({
   initialGenre,
   initialTags = [],
   initialSort = "trending",
-  initialTab = "reviews",
   initialLayout = "comfortable",
   initialSpoilerFree = false,
   initialHasOfficialLink = false,
@@ -231,7 +215,7 @@ export function DiscoverPage({
   }));
   const [layout, setLayout] = useState<DiscoverLayout>(initialLayout);
   const [reviews, setReviews] = useState(initialReviews);
-  const [profiles, setProfiles] = useState(initialProfiles);
+  const [, setProfiles] = useState(initialProfiles);
   const [total, setTotal] = useState(initialTotal);
   const [page, setPage] = useState(1);
   const [loading, setLoading] = useState(false);

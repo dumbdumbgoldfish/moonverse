@@ -56,9 +56,8 @@ function ReaderHubMainColumn({ children }: { children: ReactNode }) {
 
 function ReaderHubDashboardChrome({
   shared,
-  feed,
   children,
-}: ReaderHubDashboardLayoutProps & { feed: ReturnType<typeof parseHomeFeedTab> }) {
+}: ReaderHubDashboardLayoutProps) {
   const { displaySection } = useReaderHub();
 
   const leftRail = (
@@ -152,7 +151,7 @@ function ReaderHubDashboardInner({
 
   return (
     <ReaderHubProvider section={section} feed={feed}>
-      <ReaderHubDashboardChrome shared={shared} feed={feed}>
+      <ReaderHubDashboardChrome shared={shared}>
         {children}
       </ReaderHubDashboardChrome>
     </ReaderHubProvider>

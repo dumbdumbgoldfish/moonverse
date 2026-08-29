@@ -124,7 +124,6 @@ async function DiscoverContent({ searchParams }: DiscoverPageProps) {
         reviews={reviews}
         totalReviews={totalReviews}
         reviewPageSize={REVIEWS_PAGE_SIZE}
-        profilePageSize={REVIEWS_PAGE_SIZE}
         profiles={[]}
         genres={[]}
         catalogTags={WEB_NOVEL_TAGS.map((t) => ({

@@ -10,7 +10,6 @@ import {
 } from "@/actions/notification.actions";
 import {
   NotificationCard,
-  notificationRowIds,
 } from "@/components/notifications/NotificationCard";
 import { MoonieEmptyState } from "@/components/moonie/MoonieEmptyState";
 import { Button } from "@/components/ui/button";

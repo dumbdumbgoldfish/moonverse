@@ -753,7 +753,7 @@ export function useMoonieChat({
         setIsLoading(false);
       }
     },
-    [guestDemoCap, guestTurnsRemaining, isGuestDemo, isLoggedIn, persistActiveGuestConversation, searchRecentScope]
+    [guestTurnsRemaining, isGuestDemo, isLoggedIn, persistActiveGuestConversation, searchRecentScope]
   );
 
   const hideNovel = useCallback((novelId: string) => {

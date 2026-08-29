@@ -64,7 +64,7 @@ export function CommunityPanel({
   const [reviews, setReviews] = useState(data.reviews);
   const [likedIds, setLikedIds] = useState(initial.likedIds);
   const [followingIds, setFollowingIds] = useState(initial.followingIds);
-  const [comments, setComments] = useState(initial.comments);
+  const [, setComments] = useState(initial.comments);
   const [savedMap, setSavedMap] = useState(initial.savedMap);
   const [hasMore, setHasMore] = useState(data.hasMore);
   const [learningTaste, setLearningTaste] = useState(data.learningTaste);
@@ -78,7 +78,6 @@ export function CommunityPanel({
   const hasMoreRef = useRef(hasMore);
   const followingIdsRef = useRef(followingIds);
 
-  const handle = shared.username || "reader";
   const diversify = feed === "for-you" || feed === "following";
 
   useEffect(() => {
