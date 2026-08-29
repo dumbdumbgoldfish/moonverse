@@ -27,11 +27,7 @@ function ResetPasswordFormContent() {
   const [loading, setLoading] = useState(false);
 
   useEffect(() => {
-    if (!token) {
-      setTokenStatus("invalid");
-      setTokenMessage(null);
-      return;
-    }
+    if (!token) return;
 
     let cancelled = false;
 

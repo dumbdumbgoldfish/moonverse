@@ -17,16 +17,11 @@ function VerifyEmailContent() {
   const emailFromQuery = searchParams.get("email")?.trim().toLowerCase() ?? "";
   const [status, setStatus] = useState<"loading" | "ok" | "error">("loading");
   const [message, setMessage] = useState("Verifying your email…");
-  const [resendEmail, setResendEmail] = useState(emailFromQuery);
+  const [resendOverride, setResendOverride] = useState<string | null>(null);
+  const resendEmail = resendOverride ?? emailFromQuery;
   const [resendMessage, setResendMessage] = useState<string | null>(null);
   const [resendError, setResendError] = useState<string | null>(null);
   const [resendLoading, setResendLoading] = useState(false);
-
-  useEffect(() => {
-    if (emailFromQuery) {
-      setResendEmail(emailFromQuery);
-    }
-  }, [emailFromQuery]);
 
   useEffect(() => {
     if (!token) return;
@@ -111,7 +106,7 @@ function VerifyEmailContent() {
               type="email"
               required
               value={resendEmail}
-              onChange={(event) => setResendEmail(event.target.value)}
+              onChange={(event) => setResendOverride(event.target.value)}
               autoComplete="email"
               className={AUTH_INPUT_CLASS}
               placeholder="you@example.com"
