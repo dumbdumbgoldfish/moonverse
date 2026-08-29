@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { usePathname } from "next/navigation";
+import { usePathname, useRouter } from "next/navigation";
 import { useSession } from "next-auth/react";
 import { ShieldAlert } from "lucide-react";
 import { useSignInPromptOptional } from "@/components/auth/SignInPromptProvider";
@@ -27,6 +27,7 @@ export function ReviewExcerpt({
   const [spoilersRevealed, setSpoilersRevealed] = useState(false);
   const { status } = useSession();
   const pathname = usePathname();
+  const router = useRouter();
   const prompt = useSignInPromptOptional();
   const text = body.trim();
   const long = text.length > 420 || text.split("\n").length > 6;
@@ -36,7 +37,7 @@ export function ReviewExcerpt({
     const callbackUrl = pathname || "/";
     prompt?.promptSignIn(callbackUrl);
     if (!prompt) {
-      window.location.href = `/login?callbackUrl=${encodeURIComponent(callbackUrl)}`;
+      router.push(`/login?callbackUrl=${encodeURIComponent(callbackUrl)}`);
     }
   };
 

@@ -2,6 +2,7 @@
 
 import { useEffect, useRef, useState, useTransition } from "react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import {
   Flag,
   Link2,
@@ -44,6 +45,7 @@ export function ReviewPostCard({
   currentUserId,
   currentUserInitials,
 }: ReviewPostCardProps) {
+  const router = useRouter();
   const composerRef = useRef<HTMLTextAreaElement>(null);
   const menuRef = useRef<HTMLDivElement>(null);
   const [menuOpen, setMenuOpen] = useState(false);
@@ -126,7 +128,7 @@ export function ReviewPostCard({
       setComments(data.comments);
       setExpandedAll(true);
     } catch {
-      window.location.assign(`/reviews/${review.id}#comments`);
+      router.push(`/reviews/${review.id}#comments`);
     } finally {
       setLoadingAll(false);
     }

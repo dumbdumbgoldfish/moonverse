@@ -2,6 +2,7 @@
 
 import { useState, useTransition } from "react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { followUserAction, unfollowUserAction } from "@/actions/follow.actions";
 import { useSignInPromptOptional } from "@/components/auth/SignInPromptProvider";
 import { Button } from "@/components/ui/button";
@@ -34,6 +35,7 @@ export function FollowButton({
   notFollowingLabel = "Follow",
   followingLabel = "Following",
 }: FollowButtonProps) {
+  const router = useRouter();
   const prompt = useSignInPromptOptional();
   const [isPending, startTransition] = useTransition();
   const [followState, setFollowState] = useState<FollowState>(() => ({
@@ -74,7 +76,7 @@ export function FollowButton({
     if (!isLoggedIn) {
       prompt?.promptSignIn();
       if (!prompt) {
-        window.location.href = `/login?callbackUrl=${encodeURIComponent(`/users/${username}`)}`;
+        router.push(`/login?callbackUrl=${encodeURIComponent(`/users/${username}`)}`);
       }
       return;
     }

@@ -2,6 +2,7 @@
 
 import { useEffect, useId, useRef, useState } from "react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { signOut } from "next-auth/react";
 import {
   BookMarked,
@@ -91,6 +92,7 @@ export function NavbarUserMenu({
   session,
   unreadCount,
 }: NavbarUserMenuProps) {
+  const router = useRouter();
   const menuId = useId();
   const rootRef = useRef<HTMLDivElement>(null);
   const [open, setOpen] = useState(false);
@@ -196,7 +198,7 @@ export function NavbarUserMenu({
               // sessionStorage can throw in private browsing
             }
             await signOut({ redirect: false, redirectTo: "/" });
-            window.location.assign("/");
+            router.push("/");
           })();
         },
         icon: LogOut,
