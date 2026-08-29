@@ -22,6 +22,7 @@
     "demo:seed:admin-qa": "tsx --env-file=.env prisma/scripts/seed-admin-qa-extension.ts",
     "demo:seed:admin-qa-content": "tsx --env-file=.env prisma/scripts/seed-admin-qa-content.ts",
     "demo:generate:profile-assets": "tsx prisma/scripts/generate-demo-profile-assets.ts",
+    "demo:images:optimize": "node scripts/optimize-demo-images.mjs",
     "demo:refresh:user-profiles": "tsx --env-file=.env prisma/scripts/refresh-demo-user-profiles.ts",
     "verify:admin-qa": "tsx --env-file=.env scripts/verify-admin-qa-dataset.ts",
     "catalog:export": "tsx prisma/scripts/export-real-world-catalog.ts",
