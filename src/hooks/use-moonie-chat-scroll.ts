@@ -109,9 +109,7 @@ export function useMoonieChatScroll(
     const handleScroll = () => {
       const near = isNearBottom();
       stickToBottomRef.current = near;
-      if (near) {
-        setShowJumpToBottom(false);
-      }
+      setShowJumpToBottom(!near);
 
       if (!conversationId) return;
       if (scrollSaveTimerRef.current) {
@@ -205,6 +203,62 @@ export function useMoonieChatScroll(
       stickToBottom("auto");
     }
   }, [isLoading, stickToBottom]);
+
+  const scheduleResizeFollow = useCallback(() => {
+    if (scrollRafRef.current != null) {
+      cancelAnimationFrame(scrollRafRef.current);
+    }
+
+    scrollRafRef.current = requestAnimationFrame(() => {
+      scrollRafRef.current = null;
+      const container = scrollRef.current;
+      if (!container) return;
+
+      if (
+        restoreScroll &&
+        conversationId &&
+        restoredConversationRef.current !== conversationId
+      ) {
+        return;
+      }
+
+      if (stickToBottomRef.current) {
+        container.scrollTo({
+          top: container.scrollHeight,
+          behavior: "auto",
+        });
+        setShowJumpToBottom(false);
+        return;
+      }
+
+      const distance =
+        container.scrollHeight - container.scrollTop - container.clientHeight;
+      setShowJumpToBottom(distance > NEAR_BOTTOM_THRESHOLD_PX);
+    });
+  }, [conversationId, restoreScroll]);
+
+  useEffect(() => {
+    const container = scrollRef.current;
+    if (!container || typeof ResizeObserver === "undefined") return;
+
+    const observer = new ResizeObserver(() => {
+      const content = container.firstElementChild;
+      if (content) {
+        observer.observe(content);
+      }
+      scheduleResizeFollow();
+    });
+
+    observer.observe(container);
+    const content = container.firstElementChild;
+    if (content) {
+      observer.observe(content);
+    }
+
+    return () => {
+      observer.disconnect();
+    };
+  }, [scheduleResizeFollow]);
 
   useEffect(() => {
     return () => {
