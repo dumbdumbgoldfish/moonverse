@@ -560,7 +560,9 @@ export function ReviewForm({
     };
   }
 
-  formSnapshotRef.current = buildDraftSnapshot();
+  useLayoutEffect(() => {
+    formSnapshotRef.current = buildDraftSnapshot();
+  });
 
   function scrollToFormPanel() {
     window.requestAnimationFrame(() => {
