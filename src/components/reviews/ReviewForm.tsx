@@ -110,7 +110,6 @@ function createInitialState(
     novels.some((novel) => novel.id === initialNovelId);
 
   return {
-    step: (hasInitialNovel ? 2 : 1) as WriteStep,
     novelMode: (novels.length > 0 ? "existing" : "new") as "existing" | "new",
     selectedNovelId: hasInitialNovel ? (initialNovelId ?? "") : "",
     changingNovel: !hasInitialNovel,
@@ -153,7 +152,6 @@ function deriveResumeUiState(draft: ReviewDraftV1): {
 function applyDraftToForm(
   draft: ReviewDraftV1,
   setters: {
-    setStep: (v: WriteStep) => void;
     setNovelMode: (v: "existing" | "new") => void;
     setSelectedNovelId: (v: string) => void;
     setChangingNovel: (v: boolean) => void;
@@ -177,7 +175,6 @@ function applyDraftToForm(
 ) {
   const resumeUi = deriveResumeUiState(draft);
 
-  setters.setStep(draft.step);
   setters.setNovelMode(draft.novelMode);
   setters.setSelectedNovelId(draft.selectedNovelId);
   setters.setChangingNovel(resumeUi.changingNovel);
@@ -223,7 +220,6 @@ export function ReviewForm({
   const [initial] = useState(() =>
     createInitialState(novels, initialNovelId, autoResumeDraft)
   );
-  const [step, setStep] = useState<WriteStep>(initial.step);
   const [novelMode, setNovelMode] = useState<"existing" | "new">(
     initial.novelMode
   );
@@ -274,7 +270,6 @@ export function ReviewForm({
   const formPanelRef = useRef<HTMLDivElement>(null);
 
   const draftSetters = {
-    setStep,
     setNovelMode,
     setSelectedNovelId,
     setChangingNovel,
@@ -358,6 +353,7 @@ export function ReviewForm({
 
   const showAttachPanel = !novelStepComplete || changingNovel;
   const showCompose = novelStepComplete && !changingNovel;
+  const step: WriteStep = showAttachPanel ? 1 : publishDrawerOpen ? 3 : 2;
   const prevShowComposeRef = useRef(showCompose);
 
   const checklist: ChecklistItem[] = useMemo(() => {
@@ -903,7 +899,6 @@ export function ReviewForm({
     setDraftRestored(false);
     setDraftJustSaved(false);
     setDraftBackedUp(false);
-    setStep(1);
     setNovelMode(novels.length > 0 ? "existing" : "new");
     setSelectedNovelId(initialNovelId ?? "");
     setChangingNovel(!initialNovelId);
@@ -1298,15 +1293,6 @@ export function ReviewForm({
     canPublish: publishReady,
     isPending,
   });
-
-  useEffect(() => {
-    const nextStep: WriteStep = showAttachPanel
-      ? 1
-      : publishDrawerOpen
-        ? 3
-        : 2;
-    setStep((prev) => (prev === nextStep ? prev : nextStep));
-  }, [showAttachPanel, publishDrawerOpen]);
 
   useEffect(() => {
     if (
