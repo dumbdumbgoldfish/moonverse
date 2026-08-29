@@ -301,6 +301,7 @@ async function loadCandidateById(
   novelId: string,
   _userId?: string
 ): Promise<NovelCandidate | null> {
+  void _userId;
   const rows = await fetchNovelCandidatesByIds([novelId]);
   return rows[0] ?? null;
 }

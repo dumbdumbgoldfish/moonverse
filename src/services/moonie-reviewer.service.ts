@@ -153,7 +153,6 @@ function buildReviewerReviewSession(
 }
 
 const GROUP_WIDGET_LIMIT = 3;
-const GROUP_DESK_LIMIT = 5;
 
 async function buildMoonieReviewerGroupItem(options: {
   reviewer: MoonieReviewerResult;

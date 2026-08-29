@@ -16,12 +16,6 @@ import { buildNovelBundle, formatNovelBundleReply } from "@/services/moonie-nove
 
 const db = new PrismaClient();
 
-const QA_SERIES_NAMES = [
-  "Moonie QA — Will Eternal Path",
-  "Moonie QA Series Placeholder 2",
-  "Moonie QA Series Placeholder 3",
-];
-
 async function inspectSeries() {
   const series = await db.novelSeries.findMany({
     include: {

@@ -62,6 +62,7 @@ export function isTrustedCoverUrl(
   coverUrl: string,
   _opts?: { title?: string; royalRoadUrl?: string | null }
 ): boolean {
+  void _opts;
   try {
     const host = new URL(coverUrl).hostname.toLowerCase();
     return (

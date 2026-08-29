@@ -185,13 +185,12 @@ export async function getEnrichedNotificationsByUser(
 ): Promise<EnrichedNotificationItem[]> {
   const notifications = await fetchNotificationsForUser(userId, limit);
   const items = notifications.map(mapNotification);
-  return enrichNotifications(userId, items, notifications);
+  return enrichNotifications(userId, items);
 }
 
 async function enrichNotifications(
   viewerId: string,
-  items: NotificationItem[],
-  rows: NotificationRow[]
+  items: NotificationItem[]
 ): Promise<EnrichedNotificationItem[]> {
   const reviewIds = new Set<string>();
   const usernames = new Set<string>();

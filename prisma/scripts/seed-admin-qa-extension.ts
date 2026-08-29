@@ -390,11 +390,6 @@ async function main() {
   }
   console.log(`\n  ✓ ${createdReviewIds.length} reviews`);
 
-  const reviewIdSample = await db.review.findMany({
-    where: { userId: { in: qaUserIds } },
-    select: { id: true, userId: true },
-    take: QA_EXTENSION_TARGETS.reviews + 500,
-  });
   const allReviewIds = (
     await db.review.findMany({ select: { id: true, userId: true } })
   ).map((r) => ({ id: r.id, userId: r.userId }));
@@ -428,7 +423,10 @@ async function main() {
   for (let i = 0; i < commentRows.length; i += 80) {
     const chunk = commentRows.slice(i, i + 80);
     await db.comment.createMany({
-      data: chunk.map(({ parentCommentId: _p, ...row }) => row),
+      data: chunk.map(({ parentCommentId: _p, ...row }) => {
+        void _p;
+        return row;
+      }),
     });
     process.stdout.write(
       `\r  ↳ comments: ${Math.min(i + chunk.length, commentRows.length)}/${commentRows.length}`
@@ -436,14 +434,12 @@ async function main() {
   }
   console.log(`\n  ✓ ${commentRows.length} comments`);
 
-  const createdCommentIds = (
-    await db.comment.findMany({
-      where: { userId: { in: qaUserIds } },
-      select: { id: true },
-      take: commentRows.length + 100,
-      orderBy: { createdAt: "desc" },
-    })
-  ).map((c) => c.id);
+  await db.comment.findMany({
+    where: { userId: { in: qaUserIds } },
+    select: { id: true },
+    take: commentRows.length + 100,
+    orderBy: { createdAt: "desc" },
+  });
 
   const parentComments = await db.comment.findMany({
     where: { parentCommentId: null },

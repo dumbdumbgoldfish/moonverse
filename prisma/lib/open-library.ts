@@ -90,6 +90,7 @@ export async function fetchPublicCatalog(
 }
 
 export function fallbackCoverUrl(_title: string): string | null {
+  void _title;
   // Never seed fake picsum covers: UI uses a designed MoonVerse fallback when null.
   return null;
 }
