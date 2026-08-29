@@ -1,9 +1,22 @@
 "use client";
 
 import Link from "next/link";
-import { deleteCommentAction } from "@/actions/admin.actions";
+import { useRouter } from "next/navigation";
+import { useTransition } from "react";
+import {
+  deleteCommentAction,
+  setCommentModerationStatusAction,
+} from "@/actions/admin.actions";
 import { AdminConfirmDialog } from "@/components/admin/AdminConfirmDialog";
+import {
+  AdminTableCell,
+  AdminTableHead,
+  AdminTableRow,
+  AdminTableShell,
+  AdminTableTh,
+} from "@/components/admin/AdminUi";
 import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
 import { formatDate } from "@/lib/date-utils";
 import type { AdminCommentSummary } from "@/types/admin";
 
@@ -11,61 +24,109 @@ interface AdminCommentsTableProps {
   comments: AdminCommentSummary[];
 }
 
+function ModerationButton({
+  commentId,
+  label,
+  status,
+}: {
+  commentId: string;
+  label: string;
+  status: "OK" | "HIDDEN";
+}) {
+  const router = useRouter();
+  const [pending, startTransition] = useTransition();
+
+  return (
+    <Button
+      size="xs"
+      variant="outline"
+      disabled={pending}
+      className="rounded-lg"
+      onClick={() =>
+        startTransition(async () => {
+          await setCommentModerationStatusAction(commentId, status);
+          router.refresh();
+        })
+      }
+    >
+      {pending ? "…" : label}
+    </Button>
+  );
+}
+
 export function AdminCommentsTable({ comments }: AdminCommentsTableProps) {
   return (
-    <div className="overflow-x-auto rounded-xl border border-border/60">
-      <table className="w-full min-w-[800px] text-left text-sm">
-        <thead className="border-b border-border/60 bg-muted/30">
-          <tr>
-            <th className="px-4 py-3 font-medium" scope="col">Comment</th>
-            <th className="px-4 py-3 font-medium" scope="col">Review</th>
-            <th className="px-4 py-3 font-medium" scope="col">Author</th>
-            <th className="px-4 py-3 font-medium" scope="col">Type</th>
-            <th className="px-4 py-3 font-medium" scope="col">Actions</th>
-          </tr>
-        </thead>
-        <tbody>
-          {comments.map((comment) => (
-            <tr key={comment.id} className="border-b border-border/40 last:border-0">
-              <td className="max-w-xs px-4 py-3">
-                <p className="line-clamp-3">{comment.body}</p>
-                <p className="mt-1 text-xs text-muted-foreground">
-                  {formatDate(comment.createdAt)}
-                </p>
-              </td>
-              <td className="px-4 py-3">
-                <Link
-                  href={`/reviews/${comment.reviewId}`}
-                  className="text-primary hover:underline"
-                >
-                  {comment.reviewTitle}
-                </Link>
-              </td>
-              <td className="px-4 py-3">
-                <Link
-                  href={`/users/${comment.authorUsername}`}
-                  className="hover:text-primary"
-                >
-                  {comment.authorDisplayName}
-                </Link>
-              </td>
-              <td className="px-4 py-3">
-                <Badge variant="outline">
-                  {comment.parentCommentId ? "Reply" : "Comment"}
+    <AdminTableShell minWidth="800px">
+      <AdminTableHead>
+        <tr>
+          <AdminTableTh>Comment</AdminTableTh>
+          <AdminTableTh>Review</AdminTableTh>
+          <AdminTableTh>Author</AdminTableTh>
+          <AdminTableTh>Type</AdminTableTh>
+          <AdminTableTh>Actions</AdminTableTh>
+        </tr>
+      </AdminTableHead>
+      <tbody>
+        {comments.map((comment) => (
+          <AdminTableRow key={comment.id}>
+            <AdminTableCell className="max-w-xs">
+              <p className="line-clamp-3 text-white">{comment.body}</p>
+              <p className="mt-1 text-xs text-white">
+                {formatDate(comment.createdAt)}
+              </p>
+            </AdminTableCell>
+            <AdminTableCell>
+              <Link
+                href={`/reviews/${comment.reviewId}`}
+                className="font-medium text-[#fcd34d] hover:underline"
+              >
+                {comment.reviewTitle}
+              </Link>
+            </AdminTableCell>
+            <AdminTableCell>
+              <Link
+                href={`/users/${comment.authorUsername}`}
+                className="font-medium text-white"
+              >
+                {comment.authorDisplayName}
+              </Link>
+            </AdminTableCell>
+            <AdminTableCell>
+              <Badge variant="outline">
+                {comment.parentCommentId ? "Reply" : "Comment"}
+              </Badge>
+              {comment.moderationStatus !== "OK" && (
+                <Badge variant="destructive" className="ml-1.5">
+                  {comment.moderationStatus.replace(/_/g, " ")}
                 </Badge>
-              </td>
-              <td className="px-4 py-3">
+              )}
+            </AdminTableCell>
+            <AdminTableCell>
+              <div className="flex flex-wrap gap-2">
+                {comment.moderationStatus === "HIDDEN" ? (
+                  <ModerationButton
+                    commentId={comment.id}
+                    label="Restore"
+                    status="OK"
+                  />
+                ) : (
+                  <ModerationButton
+                    commentId={comment.id}
+                    label="Hide"
+                    status="HIDDEN"
+                  />
+                )}
                 <AdminConfirmDialog
                   title="Delete comment"
                   description="Permanently delete this comment?"
                   confirmLabel="Delete"
                   onConfirm={() => deleteCommentAction(comment.id)}
                 />
-              </td>
-            </tr>
-          ))}
-        </tbody>
-      </table>
-    </div>
+              </div>
+            </AdminTableCell>
+          </AdminTableRow>
+        ))}
+      </tbody>
+    </AdminTableShell>
   );
 }

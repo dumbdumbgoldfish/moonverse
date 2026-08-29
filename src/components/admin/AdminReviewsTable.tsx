@@ -1,9 +1,22 @@
 "use client";
 
 import Link from "next/link";
-import { deleteReviewAction } from "@/actions/admin.actions";
+import { useRouter } from "next/navigation";
+import { useTransition } from "react";
+import {
+  deleteReviewAction,
+  setReviewModerationStatusAction,
+} from "@/actions/admin.actions";
 import { AdminConfirmDialog } from "@/components/admin/AdminConfirmDialog";
+import {
+  AdminTableCell,
+  AdminTableHead,
+  AdminTableRow,
+  AdminTableShell,
+  AdminTableTh,
+} from "@/components/admin/AdminUi";
 import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
 import { formatDate } from "@/lib/date-utils";
 import type { AdminReviewSummary } from "@/types/admin";
 
@@ -11,62 +24,112 @@ interface AdminReviewsTableProps {
   reviews: AdminReviewSummary[];
 }
 
+function ModerationButton({
+  reviewId,
+  label,
+  status,
+}: {
+  reviewId: string;
+  label: string;
+  status: "OK" | "HIDDEN";
+}) {
+  const router = useRouter();
+  const [pending, startTransition] = useTransition();
+
+  return (
+    <Button
+      size="xs"
+      variant="outline"
+      disabled={pending}
+      className="rounded-lg"
+      onClick={() =>
+        startTransition(async () => {
+          await setReviewModerationStatusAction(reviewId, status);
+          router.refresh();
+        })
+      }
+    >
+      {pending ? "…" : label}
+    </Button>
+  );
+}
+
 export function AdminReviewsTable({ reviews }: AdminReviewsTableProps) {
   return (
-    <div className="overflow-x-auto rounded-xl border border-border/60">
-      <table className="w-full min-w-[800px] text-left text-sm">
-        <thead className="border-b border-border/60 bg-muted/30">
-          <tr>
-            <th className="px-4 py-3 font-medium" scope="col">Review</th>
-            <th className="px-4 py-3 font-medium" scope="col">Novel</th>
-            <th className="px-4 py-3 font-medium" scope="col">Author</th>
-            <th className="px-4 py-3 font-medium" scope="col">Rating</th>
-            <th className="px-4 py-3 font-medium" scope="col">Engagement</th>
-            <th className="px-4 py-3 font-medium" scope="col">Actions</th>
-          </tr>
-        </thead>
-        <tbody>
-          {reviews.map((review) => (
-            <tr key={review.id} className="border-b border-border/40 last:border-0">
-              <td className="px-4 py-3">
-                <Link
-                  href={`/reviews/${review.id}`}
-                  className="font-medium hover:text-primary"
-                >
-                  {review.title}
-                </Link>
-                <p className="text-xs text-muted-foreground">
-                  {formatDate(review.createdAt)}
-                </p>
-              </td>
-              <td className="px-4 py-3 text-muted-foreground">{review.novelTitle}</td>
-              <td className="px-4 py-3">
-                <Link
-                  href={`/users/${review.reviewerUsername}`}
-                  className="text-primary hover:underline"
-                >
-                  @{review.reviewerUsername}
-                </Link>
-              </td>
-              <td className="px-4 py-3">
-                <Badge variant="secondary">{review.rating}/5</Badge>
-              </td>
-              <td className="px-4 py-3 text-xs text-muted-foreground">
-                {review.likeCount} likes · {review.commentCount} comments ·{" "}
-                {review.saveCount} saves · {review.shareCount} shares
-              </td>
-              <td className="px-4 py-3">
+    <AdminTableShell minWidth="880px">
+      <AdminTableHead>
+        <tr>
+          <AdminTableTh>Review</AdminTableTh>
+          <AdminTableTh>Novel</AdminTableTh>
+          <AdminTableTh>Author</AdminTableTh>
+          <AdminTableTh>Rating</AdminTableTh>
+          <AdminTableTh>Engagement</AdminTableTh>
+          <AdminTableTh>Actions</AdminTableTh>
+        </tr>
+      </AdminTableHead>
+      <tbody>
+        {reviews.map((review) => (
+          <AdminTableRow key={review.id}>
+            <AdminTableCell>
+              <Link
+                href={`/reviews/${review.id}`}
+                className="font-semibold text-[#fcd34d] hover:underline"
+              >
+                {review.title}
+              </Link>
+              <p className="mt-0.5 text-xs text-white">
+                {formatDate(review.createdAt)}
+              </p>
+            </AdminTableCell>
+            <AdminTableCell className="text-white">
+              {review.novelTitle}
+            </AdminTableCell>
+            <AdminTableCell>
+              <Link
+                href={`/users/${review.reviewerUsername}`}
+                className="font-medium text-[#fcd34d] hover:underline"
+              >
+                @{review.reviewerUsername}
+              </Link>
+            </AdminTableCell>
+            <AdminTableCell>
+              <Badge variant="secondary">{review.rating}/5</Badge>
+              {review.moderationStatus !== "OK" && (
+                <Badge variant="destructive" className="ml-1.5">
+                  {review.moderationStatus.replace(/_/g, " ")}
+                </Badge>
+              )}
+            </AdminTableCell>
+            <AdminTableCell className="text-xs text-white">
+              {review.likeCount} likes · {review.commentCount} comments ·{" "}
+              {review.saveCount} saves · {review.shareCount} shares
+            </AdminTableCell>
+            <AdminTableCell>
+              <div className="flex flex-wrap gap-2">
+                {review.moderationStatus === "HIDDEN" ? (
+                  <ModerationButton
+                    reviewId={review.id}
+                    label="Restore"
+                    status="OK"
+                  />
+                ) : (
+                  <ModerationButton
+                    reviewId={review.id}
+                    label="Hide"
+                    status="HIDDEN"
+                  />
+                )}
                 <AdminConfirmDialog
                   title="Delete review"
                   description={`Permanently delete "${review.title}"?`}
                   confirmLabel="Delete"
                   onConfirm={() => deleteReviewAction(review.id)}
                 />
-              </td>
-            </tr>
-          ))}
-        </tbody>
-      </table>
-    </div>
+              </div>
+            </AdminTableCell>
+          </AdminTableRow>
+        ))}
+      </tbody>
+    </AdminTableShell>
   );
 }

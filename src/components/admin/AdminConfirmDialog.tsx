@@ -2,6 +2,8 @@
 
 import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
+import { Trash2 } from "lucide-react";
+import { ADMIN_BTN_DELETE } from "@/components/admin/admin-styles";
 import {
   Dialog,
   DialogContent,
@@ -11,6 +13,7 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
+import { cn } from "@/lib/utils";
 
 interface AdminConfirmDialogProps {
   title: string;
@@ -31,6 +34,16 @@ export function AdminConfirmDialog({
   const [open, setOpen] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [isPending, startTransition] = useTransition();
+  const showDeleteIcon = /^delete/i.test(confirmLabel);
+
+  const confirmContent = isPending ? (
+    "Working…"
+  ) : (
+    <>
+      {showDeleteIcon ? <Trash2 className="admin-icon-destructive size-3.5" aria-hidden /> : null}
+      {confirmLabel}
+    </>
+  );
 
   const handleConfirm = () => {
     setError(null);
@@ -49,12 +62,14 @@ export function AdminConfirmDialog({
     <>
       <Button
         size="xs"
-        variant={variant === "destructive" ? "destructive" : "outline"}
+        variant="outline"
+        className={cn(variant === "destructive" && ADMIN_BTN_DELETE)}
         onClick={() => {
           setError(null);
           setOpen(true);
         }}
       >
+        {showDeleteIcon ? <Trash2 className="admin-icon-destructive size-3.5" aria-hidden /> : null}
         {confirmLabel}
       </Button>
 
@@ -74,11 +89,12 @@ export function AdminConfirmDialog({
               Cancel
             </Button>
             <Button
-              variant={variant === "destructive" ? "destructive" : "default"}
+              variant={variant === "destructive" ? "outline" : "default"}
+              className={cn(variant === "destructive" && ADMIN_BTN_DELETE)}
               onClick={handleConfirm}
               disabled={isPending}
             >
-              {isPending ? "Working…" : confirmLabel}
+              {confirmContent}
             </Button>
           </DialogFooter>
         </DialogContent>

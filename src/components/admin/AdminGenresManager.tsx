@@ -8,6 +8,14 @@ import {
   updateGenreAction,
 } from "@/actions/admin.actions";
 import { AdminConfirmDialog } from "@/components/admin/AdminConfirmDialog";
+import {
+  AdminFormCard,
+  AdminTableCell,
+  AdminTableHead,
+  AdminTableRow,
+  AdminTableShell,
+  AdminTableTh,
+} from "@/components/admin/AdminUi";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -44,13 +52,12 @@ export function AdminGenresManager({ genres }: { genres: AdminGenreSummary[] }) 
 
   return (
     <div className="space-y-8">
-      <form
-        onSubmit={handleSubmit}
-        className="grid gap-4 rounded-xl border border-border/60 bg-bg-elevated p-6 sm:grid-cols-2"
+      <AdminFormCard
+        title={editingId ? "Edit genre" : "Create genre"}
+        description="Genres power browse navigation and novel taxonomy."
+        className="grid gap-4 sm:grid-cols-2"
       >
-        <h2 className="sm:col-span-2 text-lg font-semibold">
-          {editingId ? "Edit genre" : "Create genre"}
-        </h2>
+        <form onSubmit={handleSubmit} className="contents">
         {error && (
           <p className="sm:col-span-2 text-sm text-destructive" role="alert">
             {error}
@@ -94,50 +101,49 @@ export function AdminGenresManager({ genres }: { genres: AdminGenreSummary[] }) 
             </Button>
           )}
         </div>
-      </form>
+        </form>
+      </AdminFormCard>
 
-      <div className="overflow-x-auto rounded-xl border border-border/60">
-        <table className="w-full text-left text-sm">
-          <thead className="border-b border-border/60 bg-muted/30">
-            <tr>
-              <th className="px-4 py-3 font-medium" scope="col">Name</th>
-              <th className="px-4 py-3 font-medium" scope="col">Slug</th>
-              <th className="px-4 py-3 font-medium" scope="col">Novels</th>
-              <th className="px-4 py-3 font-medium" scope="col">Actions</th>
-            </tr>
-          </thead>
-          <tbody>
-            {genres.map((genre) => (
-              <tr key={genre.id} className="border-b border-border/40 last:border-0">
-                <td className="px-4 py-3 font-medium">{genre.name}</td>
-                <td className="px-4 py-3 text-muted-foreground">{genre.slug}</td>
-                <td className="px-4 py-3">{genre.novelCount}</td>
-                <td className="px-4 py-3">
-                  <div className="flex gap-2">
-                    <Button
-                      size="xs"
-                      variant="outline"
-                      onClick={() => {
-                        setEditingId(genre.id);
-                        setName(genre.name);
-                        setSlug(genre.slug);
-                      }}
-                    >
-                      Edit
-                    </Button>
-                    <AdminConfirmDialog
-                      title="Delete genre"
-                      description={`Delete "${genre.name}"? Only if unused.`}
-                      confirmLabel="Delete"
-                      onConfirm={() => deleteGenreAction(genre.id)}
-                    />
-                  </div>
-                </td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
-      </div>
+      <AdminTableShell minWidth="640px">
+        <AdminTableHead>
+          <tr>
+            <AdminTableTh>Name</AdminTableTh>
+            <AdminTableTh>Slug</AdminTableTh>
+            <AdminTableTh>Novels</AdminTableTh>
+            <AdminTableTh>Actions</AdminTableTh>
+          </tr>
+        </AdminTableHead>
+        <tbody>
+          {genres.map((genre) => (
+            <AdminTableRow key={genre.id}>
+              <AdminTableCell className="font-medium">{genre.name}</AdminTableCell>
+              <AdminTableCell className="text-white">{genre.slug}</AdminTableCell>
+              <AdminTableCell>{genre.novelCount}</AdminTableCell>
+              <AdminTableCell>
+                <div className="flex gap-2">
+                  <Button
+                    size="xs"
+                    variant="outline"
+                    onClick={() => {
+                      setEditingId(genre.id);
+                      setName(genre.name);
+                      setSlug(genre.slug);
+                    }}
+                  >
+                    Edit
+                  </Button>
+                  <AdminConfirmDialog
+                    title="Delete genre"
+                    description={`Delete "${genre.name}"? Only if unused.`}
+                    confirmLabel="Delete"
+                    onConfirm={() => deleteGenreAction(genre.id)}
+                  />
+                </div>
+              </AdminTableCell>
+            </AdminTableRow>
+          ))}
+        </tbody>
+      </AdminTableShell>
     </div>
   );
 }

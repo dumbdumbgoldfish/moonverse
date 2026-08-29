@@ -1,90 +1,264 @@
 "use client";
 
 import Link from "next/link";
-import { usePathname } from "next/navigation";
+import { usePathname, useRouter } from "next/navigation";
+import { signOut } from "next-auth/react";
+import type { Session } from "next-auth";
+import type { LucideIcon } from "lucide-react";
 import {
-  BookOpen,
-  FolderOpen,
-  Hash,
-  LayoutDashboard,
-  MessageSquare,
+  BarChart3,
   Bell,
+  BookOpen,
+  ExternalLink,
+  FileText,
+  Flag,
+  Hash,
+  Inbox,
+  LayoutDashboard,
+  Link2,
+  LogOut,
+  MessageSquare,
+  ScrollText,
   Settings,
+  Sparkles,
   Tags,
   Users,
-  FileText,
 } from "lucide-react";
+import { BrandLogo } from "@/components/brand/BrandLogo";
+import { AdminIconGradients } from "@/components/admin/AdminIconGradients";
+import {
+  ADMIN_MAIN_CLASS,
+  ADMIN_NAV_LINK_ACTIVE,
+  ADMIN_NAV_LINK_IDLE,
+  ADMIN_CHROME_HEADER_CLASS,
+  ADMIN_PAGE_BODY_CLASS,
+  ADMIN_PAGE_CLASS,
+  ADMIN_ROOT_CLASS,
+  ADMIN_SCROLL_CLASS,
+  ADMIN_SIDEBAR_CLASS,
+  ADMIN_TOPBAR_CLASS,
+} from "@/components/admin/admin-styles";
 import { cn } from "@/lib/utils";
 
-const navItems = [
-  { href: "/admin", label: "Dashboard", icon: LayoutDashboard, exact: true },
-  { href: "/admin/users", label: "Users", icon: Users },
-  { href: "/admin/reviews", label: "Reviews", icon: FileText },
-  { href: "/admin/comments", label: "Comments", icon: MessageSquare },
-  { href: "/admin/novels", label: "Novels", icon: BookOpen },
-  { href: "/admin/genres", label: "Genres", icon: Tags },
-  { href: "/admin/tags", label: "Tags", icon: Hash },
-  { href: "/admin/notifications", label: "Notifications", icon: Bell },
-  { href: "/admin/settings", label: "System", icon: Settings },
+type NavItem = {
+  href: string;
+  label: string;
+  icon: LucideIcon;
+  exact?: boolean;
+};
+
+type NavGroup = {
+  label: string;
+  items: NavItem[];
+};
+
+const NAV_GROUPS: NavGroup[] = [
+  {
+    label: "Overview",
+    items: [
+      { href: "/admin", label: "Dashboard", icon: LayoutDashboard, exact: true },
+      { href: "/admin/analytics", label: "Analytics", icon: BarChart3 },
+      { href: "/admin/inbox", label: "Moderation queue", icon: Inbox },
+    ],
+  },
+  {
+    label: "Moderation",
+    items: [
+      { href: "/admin/reports", label: "Reports", icon: Flag },
+      { href: "/admin/reviews", label: "Reviews", icon: FileText },
+      { href: "/admin/comments", label: "Comments", icon: MessageSquare },
+    ],
+  },
+  {
+    label: "Catalogue",
+    items: [
+      { href: "/admin/novels", label: "Novels", icon: BookOpen },
+      { href: "/admin/genres", label: "Genres", icon: Tags },
+      { href: "/admin/tags", label: "Tags", icon: Hash },
+      { href: "/admin/reading-links", label: "Reading links", icon: Link2 },
+      { href: "/admin/featured", label: "Featured", icon: Sparkles },
+    ],
+  },
+  {
+    label: "Platform",
+    items: [
+      { href: "/admin/users", label: "Users", icon: Users },
+      { href: "/admin/notifications", label: "Announcements", icon: Bell },
+      { href: "/admin/audit", label: "Audit log", icon: ScrollText },
+      { href: "/admin/settings", label: "System", icon: Settings },
+    ],
+  },
 ];
 
-export function AdminSidebar() {
-  const pathname = usePathname();
+const ALL_NAV_ITEMS = NAV_GROUPS.flatMap((group) => group.items);
+
+function isActive(pathname: string, item: NavItem) {
+  return item.exact
+    ? pathname === item.href
+    : pathname === item.href || pathname.startsWith(`${item.href}/`);
+}
+
+function currentNavItem(pathname: string): NavItem {
+  return (
+    ALL_NAV_ITEMS.find((item) => isActive(pathname, item)) ?? ALL_NAV_ITEMS[0]
+  );
+}
+
+function AdminNavLink({ item, pathname }: { item: NavItem; pathname: string }) {
+  const active = isActive(pathname, item);
+  const Icon = item.icon;
 
   return (
-    <aside className="w-full shrink-0 border-b border-border/60 bg-white lg:w-56 lg:border-b-0 lg:border-r">
-      <div className="px-4 py-5">
-        <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
-          Admin
-        </p>
-        <p className="mt-1 text-sm font-medium">MoonVerse</p>
-      </div>
-      <nav aria-label="Admin navigation" className="px-2 pb-4 lg:pb-6">
-        <ul className="flex gap-1 overflow-x-auto lg:flex-col lg:overflow-visible">
-          {navItems.map((item) => {
-            const active = item.exact
-              ? pathname === item.href
-              : pathname.startsWith(item.href);
-            const Icon = item.icon;
+    <Link
+      href={item.href}
+      aria-current={active ? "page" : undefined}
+      className={cn(
+        "flex items-center gap-2.5 rounded-lg px-2.5 py-2 text-[13px] font-medium transition duration-150",
+        active ? ADMIN_NAV_LINK_ACTIVE : ADMIN_NAV_LINK_IDLE
+      )}
+    >
+      <Icon size={15} aria-hidden className="shrink-0" />
+      <span className="truncate">{item.label}</span>
+    </Link>
+  );
+}
 
-            return (
-              <li key={item.href} className="shrink-0 lg:shrink">
-                <Link
-                  href={item.href}
-                  className={cn(
-                    "flex items-center gap-2 rounded-lg px-3 py-2 text-sm transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent",
-                    active
-                      ? "bg-primary/15 font-medium text-primary"
-                      : "text-muted-foreground hover:bg-muted hover:text-foreground"
-                  )}
-                  aria-current={active ? "page" : undefined}
-                >
-                  <Icon size={16} aria-hidden="true" />
-                  {item.label}
-                </Link>
-              </li>
-            );
-          })}
-        </ul>
+function AdminSidebar({ pathname }: { pathname: string }) {
+  return (
+    <aside className={cn(ADMIN_SIDEBAR_CLASS, "hidden lg:flex")}>
+      <div className={cn(ADMIN_CHROME_HEADER_CLASS, "justify-center px-3")}>
+        <BrandLogo
+          href="/admin"
+          size="sm"
+          showWordmark
+          showTagline={false}
+          mark="none"
+          variant="inverse"
+          className="min-w-0 max-w-none justify-center"
+        />
+      </div>
+      <nav className="flex-1 space-y-5 overflow-y-auto px-3 py-4">
+        {NAV_GROUPS.map((group) => (
+          <div key={group.label}>
+            <p className="mb-1.5 px-2 text-[10px] font-bold uppercase tracking-[0.16em] text-[#fcd34d]">
+              {group.label}
+            </p>
+            <div className="space-y-0.5">
+              {group.items.map((item) => (
+                <AdminNavLink key={item.href} item={item} pathname={pathname} />
+              ))}
+            </div>
+          </div>
+        ))}
       </nav>
-      <div className="hidden border-t border-border/60 px-4 py-4 lg:block">
+      <div className="border-t border-white/[0.06] p-3">
         <Link
           href="/"
-          className="inline-flex items-center gap-2 text-sm text-muted-foreground hover:text-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent rounded-sm"
+          className="flex items-center gap-2 rounded-lg px-2.5 py-2 text-[12px] font-medium text-white/90 transition hover:bg-white/[0.05]"
         >
-          <FolderOpen size={14} aria-hidden="true" />
-          Back to site
+          <ExternalLink size={14} aria-hidden />
+          View public site
         </Link>
       </div>
     </aside>
   );
 }
 
-export function AdminShell({ children }: { children: React.ReactNode }) {
+function AdminTopBar({
+  pathname,
+  session,
+}: {
+  pathname: string;
+  session: Session;
+}) {
+  const router = useRouter();
+  const current = currentNavItem(pathname);
+  const displayName = session.user.name ?? session.user.username ?? "Admin";
+
   return (
-    <div className="mx-auto flex min-h-[calc(100vh-4rem)] max-w-7xl flex-col lg:flex-row">
-      <AdminSidebar />
-      <div className="min-w-0 flex-1 px-4 py-8 sm:px-6 lg:px-8">{children}</div>
+    <header className={ADMIN_TOPBAR_CLASS}>
+      <div className="flex min-w-0 flex-1 items-center gap-3">
+        <div className="lg:hidden">
+          <div className="flex min-w-0 flex-col">
+            <BrandLogo
+              href="/admin"
+              size="sm"
+              showWordmark
+              showTagline={false}
+              mark="none"
+              variant="inverse"
+              className="min-w-0 max-w-[9.5rem]"
+            />
+            <p className="mt-0.5 text-[9px] font-bold uppercase tracking-[0.2em] text-[#fcd34d]">
+              Admin
+            </p>
+          </div>
+        </div>
+        <div className="lg:hidden">
+          <label htmlFor="admin-mobile-nav" className="sr-only">
+            Jump to admin section
+          </label>
+          <select
+            id="admin-mobile-nav"
+            value={current.href}
+            onChange={(event) => router.push(event.target.value)}
+            className="max-w-[9.5rem] rounded-lg border border-white/10 bg-white/[0.06] px-2 py-1.5 text-xs font-medium text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#c89b4a]/45 sm:max-w-[11rem]"
+          >
+            {NAV_GROUPS.map((group) => (
+              <optgroup key={group.label} label={group.label}>
+                {group.items.map((item) => (
+                  <option key={item.href} value={item.href}>
+                    {item.label}
+                  </option>
+                ))}
+              </optgroup>
+            ))}
+          </select>
+        </div>
+      </div>
+      <div className="flex items-center gap-2 sm:gap-3">
+        <div className="hidden text-right sm:block">
+          <p className="truncate text-sm font-bold tracking-tight text-white">
+            {displayName}
+          </p>
+          <p className="text-xs font-bold uppercase tracking-[0.1em] text-[#fcd34d]">
+            Administrator
+          </p>
+        </div>
+        <button
+          type="button"
+          onClick={() => void signOut({ callbackUrl: "/login" })}
+          className="inline-flex items-center gap-1.5 rounded-lg border border-white/10 bg-white/[0.06] px-2.5 py-1.5 text-xs font-medium text-white transition hover:border-[#c89b4a]/35 hover:bg-white/[0.1]"
+        >
+          <LogOut size={14} aria-hidden />
+          <span className="hidden sm:inline">Sign out</span>
+        </button>
+      </div>
+    </header>
+  );
+}
+
+export function AdminShell({
+  children,
+  session,
+}: {
+  children: React.ReactNode;
+  session: Session;
+}) {
+  const pathname = usePathname();
+
+  return (
+    <div className={ADMIN_ROOT_CLASS}>
+      <AdminIconGradients />
+      <AdminSidebar pathname={pathname} />
+      <div className={ADMIN_MAIN_CLASS}>
+        <AdminTopBar pathname={pathname} session={session} />
+        <div className={ADMIN_SCROLL_CLASS}>
+          <div className={ADMIN_PAGE_CLASS}>
+            <div className={ADMIN_PAGE_BODY_CLASS}>{children}</div>
+          </div>
+        </div>
+      </div>
     </div>
   );
 }

@@ -1,53 +1,83 @@
 import { Suspense } from "react";
-import Link from "next/link";
+import { ContentModerationStatus } from "@prisma/client";
 import { AdminReviewsTable } from "@/components/admin/AdminReviewsTable";
 import { AdminSearchBar } from "@/components/admin/AdminSearchBar";
-import { AdminEmptyState, AdminPageHeader } from "@/components/admin/AdminUi";
+import {
+  AdminEmptyState,
+  AdminFilterChips,
+  AdminPageHeader,
+  AdminSection,
+  AdminToolbar,
+} from "@/components/admin/AdminUi";
 import { getAdminReviews } from "@/services/admin/reviews.service";
 
-export const metadata = { title: "Admin Reviews — MoonVerse" };
+export const metadata = { title: "Admin Reviews · MoonVerse" };
+
+const moderationStatuses = Object.values(ContentModerationStatus);
 
 interface AdminReviewsPageProps {
-  searchParams: Promise<{ q?: string; rating?: string }>;
+  searchParams: Promise<{ q?: string; rating?: string; status?: string }>;
+}
+
+function buildHref(
+  q?: string,
+  rating?: number,
+  status?: string
+): string {
+  const params = new URLSearchParams();
+  if (q) params.set("q", q);
+  if (rating) params.set("rating", String(rating));
+  if (status) params.set("status", status);
+  const qs = params.toString();
+  return qs ? `?${qs}` : "/admin/reviews";
 }
 
 export default async function AdminReviewsPage({
   searchParams,
 }: AdminReviewsPageProps) {
-  const { q, rating } = await searchParams;
+  const { q, rating, status } = await searchParams;
   const ratingNum = rating ? Number(rating) : undefined;
+  const moderationStatus = moderationStatuses.includes(
+    status as ContentModerationStatus
+  )
+    ? (status as ContentModerationStatus)
+    : undefined;
 
   const reviews = await getAdminReviews({
     query: q,
     rating: ratingNum && ratingNum >= 1 && ratingNum <= 5 ? ratingNum : undefined,
+    moderationStatus,
   });
 
   return (
     <>
       <AdminPageHeader
         title="Reviews"
-        description="Search and remove inappropriate reviews."
+        description="Search and moderate reviews. Hide removes them from public feeds; delete is permanent."
       />
-      <Suspense fallback={null}>
-        <div className="mb-4">
-          <AdminSearchBar placeholder="Search title, novel, or username" />
-        </div>
-      </Suspense>
-      <div className="mb-6 flex flex-wrap gap-2">
-        {[undefined, 1, 2, 3, 4, 5].map((value) => (
-          <Link
-            key={value ?? "all"}
-            href={value ? `?rating=${value}${q ? `&q=${encodeURIComponent(q)}` : ""}` : q ? `?q=${encodeURIComponent(q)}` : "/admin/reviews"}
-            className={`rounded-full border px-3 py-1 text-xs ${
-              (value ?? "all") === (ratingNum ?? "all")
-                ? "border-primary bg-primary/10 text-primary"
-                : "border-border text-muted-foreground hover:bg-muted"
-            }`}
-          >
-            {value ? `${value} stars` : "All ratings"}
-          </Link>
-        ))}
-      </div>
+      <AdminToolbar>
+        <Suspense fallback={null}>
+          <AdminSearchBar placeholder="Search title, novel or username" />
+        </Suspense>
+      </AdminToolbar>
+      <AdminSection title="Rating" className="mb-4">
+        <AdminFilterChips
+          items={[undefined, 1, 2, 3, 4, 5].map((value) => ({
+            href: buildHref(q, value, moderationStatus),
+            label: value ? `${value} stars` : "All ratings",
+            active: (value ?? "all") === (ratingNum ?? "all"),
+          }))}
+        />
+      </AdminSection>
+      <AdminSection title="Moderation status" className="mb-6">
+        <AdminFilterChips
+          items={[undefined, ...moderationStatuses].map((value) => ({
+            href: buildHref(q, ratingNum, value),
+            label: value ? value.replace(/_/g, " ") : "All statuses",
+            active: (value ?? "all") === (moderationStatus ?? "all"),
+          }))}
+        />
+      </AdminSection>
       {reviews.length === 0 ? (
         <AdminEmptyState title="No reviews found" description="Try another search or filter." />
       ) : (

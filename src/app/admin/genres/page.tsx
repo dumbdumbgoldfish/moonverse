@@ -2,7 +2,7 @@ import { AdminGenresManager } from "@/components/admin/AdminGenresManager";
 import { AdminEmptyState, AdminPageHeader } from "@/components/admin/AdminUi";
 import { getAdminGenres } from "@/services/admin/catalog.service";
 
-export const metadata = { title: "Admin Genres — MoonVerse" };
+export const metadata = { title: "Admin Genres · MoonVerse" };
 
 export default async function AdminGenresPage() {
   const genres = await getAdminGenres();

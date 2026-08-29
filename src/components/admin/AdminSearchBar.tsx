@@ -1,34 +1,44 @@
 "use client";
 
-import { useRouter, useSearchParams } from "next/navigation";
+import { useEffect, useState } from "react";
+import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { Search } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { cn } from "@/lib/utils";
 
 interface AdminSearchBarProps {
   placeholder?: string;
   paramName?: string;
+  className?: string;
 }
 
 export function AdminSearchBar({
   placeholder = "Search…",
   paramName = "q",
+  className,
 }: AdminSearchBarProps) {
   const router = useRouter();
+  const pathname = usePathname();
   const searchParams = useSearchParams();
-  const defaultValue = searchParams.get(paramName) ?? "";
+  const queryFromUrl = searchParams.get(paramName) ?? "";
+  const [value, setValue] = useState(queryFromUrl);
+
+  useEffect(() => {
+    setValue(queryFromUrl);
+  }, [queryFromUrl]);
 
   return (
     <form
-      className="flex gap-2"
+      className={cn("flex w-full max-w-md gap-2", className)}
       onSubmit={(event) => {
         event.preventDefault();
-        const formData = new FormData(event.currentTarget);
-        const q = String(formData.get(paramName) ?? "").trim();
+        const q = value.trim();
         const params = new URLSearchParams(searchParams.toString());
         if (q) params.set(paramName, q);
         else params.delete(paramName);
-        router.push(`?${params.toString()}`);
+        const qs = params.toString();
+        router.push(qs ? `${pathname}?${qs}` : pathname);
       }}
     >
       <label htmlFor={`admin-search-${paramName}`} className="sr-only">
@@ -37,11 +47,18 @@ export function AdminSearchBar({
       <Input
         id={`admin-search-${paramName}`}
         name={paramName}
-        defaultValue={defaultValue}
+        value={value}
+        onChange={(event) => setValue(event.target.value)}
         placeholder={placeholder}
-        className="max-w-md"
+        className="h-10 rounded-xl border-white/10 bg-white/[0.06] text-white placeholder:text-white/75 shadow-[0_10px_24px_-18px_rgba(0,0,0,0.25)]"
       />
-      <Button type="submit" variant="outline" size="sm" aria-label="Search">
+      <Button
+        type="submit"
+        variant="outline"
+        size="sm"
+        aria-label="Search"
+        className="h-10 rounded-xl border-white/10 bg-white/[0.06] text-white hover:bg-white/[0.1]"
+      >
         <Search size={16} aria-hidden="true" />
       </Button>
     </form>

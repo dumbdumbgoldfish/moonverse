@@ -1,6 +1,11 @@
 import { Star } from "lucide-react";
 import { cn } from "@/lib/utils";
 
+export const STAR_GOLD_CLASS =
+  "fill-[var(--mv-star-gold)] text-[var(--mv-star-gold)]";
+export const STAR_EMPTY_CLASS =
+  "fill-transparent text-[var(--mv-text-muted)]/35";
+
 interface StarRatingProps {
   rating: number;
   max?: number;
@@ -27,11 +32,7 @@ export function StarRating({
         <Star
           key={i}
           size={iconSize}
-          className={cn(
-            i < rating
-              ? "fill-primary text-primary"
-              : "fill-transparent text-muted-foreground/40"
-          )}
+          className={cn(i < rating ? STAR_GOLD_CLASS : STAR_EMPTY_CLASS)}
           aria-hidden="true"
         />
       ))}

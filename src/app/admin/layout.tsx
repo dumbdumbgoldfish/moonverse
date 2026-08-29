@@ -28,5 +28,5 @@ export default async function AdminLayout({
     );
   }
 
-  return <AdminShell>{children}</AdminShell>;
+  return <AdminShell session={session!}>{children}</AdminShell>;
 }

@@ -1,30 +1,41 @@
-import { AdminPageHeader } from "@/components/admin/AdminUi";
+import { AdminPageHeader, AdminPanel } from "@/components/admin/AdminUi";
+import { AdminSystemSettingsForm } from "@/components/admin/AdminSystemSettingsForm";
 import { Badge } from "@/components/ui/badge";
 import { getSystemInfo } from "@/services/admin/dashboard.service";
+import { getSystemSettings } from "@/lib/system-settings";
 
-export const metadata = { title: "Admin System — MoonVerse" };
+export const metadata = { title: "Admin System · MoonVerse" };
+export const dynamic = "force-dynamic";
 
 export default async function AdminSettingsPage() {
-  const info = await getSystemInfo();
+  const [info, settings] = await Promise.all([getSystemInfo(), getSystemSettings()]);
 
   return (
     <>
       <AdminPageHeader
         title="System"
-        description="Basic environment and service information."
+        description="Environment health and platform-wide toggles."
       />
-      <div className="rounded-xl border border-border/60 bg-bg-elevated p-6">
-        <dl className="grid gap-4 sm:grid-cols-2">
+      <AdminPanel className="mb-6">
+        <dl className="grid gap-5 sm:grid-cols-2">
           <div>
-            <dt className="text-sm text-muted-foreground">Application</dt>
-            <dd className="mt-1 font-medium">{info.appName}</dd>
+            <dt className="text-[11px] font-bold uppercase tracking-[0.08em] text-[#fcd34d]">
+              Application
+            </dt>
+            <dd className="mt-1 font-medium text-white">{info.appName}</dd>
           </div>
           <div>
-            <dt className="text-sm text-muted-foreground">Environment</dt>
-            <dd className="mt-1 font-medium capitalize">{info.environment}</dd>
+            <dt className="text-[11px] font-bold uppercase tracking-[0.08em] text-[#fcd34d]">
+              Environment
+            </dt>
+            <dd className="mt-1 font-medium capitalize text-white">
+              {info.environment}
+            </dd>
           </div>
           <div>
-            <dt className="text-sm text-muted-foreground">Database</dt>
+            <dt className="text-[11px] font-bold uppercase tracking-[0.08em] text-[#fcd34d]">
+              Database
+            </dt>
             <dd className="mt-1">
               <Badge
                 variant={info.databaseStatus === "connected" ? "default" : "destructive"}
@@ -34,11 +45,15 @@ export default async function AdminSettingsPage() {
             </dd>
           </div>
           <div>
-            <dt className="text-sm text-muted-foreground">Moonie mode</dt>
-            <dd className="mt-1 font-medium">{info.moonieMode}</dd>
+            <dt className="text-[11px] font-bold uppercase tracking-[0.08em] text-[#fcd34d]">
+              Moonie mode
+            </dt>
+            <dd className="mt-1 font-medium text-white">{info.moonieMode}</dd>
           </div>
         </dl>
-      </div>
+      </AdminPanel>
+
+      <AdminSystemSettingsForm settings={settings} />
     </>
   );
 }

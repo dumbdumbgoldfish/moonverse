@@ -10,6 +10,13 @@ import {
   suspendUserAction,
 } from "@/actions/admin.actions";
 import { AdminConfirmDialog } from "@/components/admin/AdminConfirmDialog";
+import {
+  AdminTableCell,
+  AdminTableHead,
+  AdminTableRow,
+  AdminTableShell,
+  AdminTableTh,
+} from "@/components/admin/AdminUi";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { formatDate } from "@/lib/date-utils";
@@ -32,47 +39,54 @@ export function AdminUsersTable({ users, currentAdminId }: AdminUsersTableProps)
   };
 
   return (
-    <div className="overflow-x-auto rounded-xl border border-border/60">
-      <table className="w-full min-w-[720px] text-left text-sm">
-        <thead className="border-b border-border/60 bg-muted/30">
-          <tr>
-            <th className="px-4 py-3 font-medium" scope="col">User</th>
-            <th className="px-4 py-3 font-medium" scope="col">Role</th>
-            <th className="px-4 py-3 font-medium" scope="col">Stats</th>
-            <th className="px-4 py-3 font-medium" scope="col">Joined</th>
-            <th className="px-4 py-3 font-medium" scope="col">Actions</th>
-          </tr>
-        </thead>
-        <tbody>
-          {users.map((user) => (
-            <tr key={user.id} className="border-b border-border/40 last:border-0">
-              <td className="px-4 py-3">
+    <AdminTableShell minWidth="720px">
+      <AdminTableHead>
+        <tr>
+          <AdminTableTh>User</AdminTableTh>
+          <AdminTableTh>Role</AdminTableTh>
+          <AdminTableTh>Stats</AdminTableTh>
+          <AdminTableTh>Joined</AdminTableTh>
+          <AdminTableTh>Actions</AdminTableTh>
+        </tr>
+      </AdminTableHead>
+      <tbody>
+        {users.map((user) => (
+          <AdminTableRow key={user.id}>
+            <AdminTableCell>
+              <Link
+                href={`/admin/users/${user.id}`}
+                className="font-semibold text-[#fcd34d] hover:underline"
+              >
+                {user.displayName}
+              </Link>
+              <p className="text-xs text-white">
+                @{user.username} ·{" "}
                 <Link
                   href={`/users/${user.username}`}
-                  className="font-medium hover:text-primary"
+                  className="hover:underline"
                 >
-                  {user.displayName}
+                  public profile
                 </Link>
-                <p className="text-xs text-muted-foreground">@{user.username}</p>
-                <p className="text-xs text-muted-foreground">{user.email}</p>
+              </p>
+                <p className="text-xs text-white">{user.email}</p>
                 {user.isSuspended && (
                   <Badge variant="destructive" className="mt-1">
                     Suspended
                   </Badge>
                 )}
-              </td>
-              <td className="px-4 py-3">
+              </AdminTableCell>
+              <AdminTableCell>
                 <Badge variant={user.role === "ADMIN" ? "default" : "secondary"}>
                   {user.role}
                 </Badge>
-              </td>
-              <td className="px-4 py-3 text-muted-foreground">
+              </AdminTableCell>
+              <AdminTableCell className="text-white">
                 {user.reviewCount} reviews · {user.followerCount} followers
-              </td>
-              <td className="px-4 py-3 text-muted-foreground">
+              </AdminTableCell>
+              <AdminTableCell className="text-white">
                 {formatDate(user.createdAt)}
-              </td>
-              <td className="px-4 py-3">
+              </AdminTableCell>
+              <AdminTableCell>
                 <div className="flex flex-wrap gap-2">
                   {user.role === "USER" ? (
                     <Button
@@ -112,11 +126,10 @@ export function AdminUsersTable({ users, currentAdminId }: AdminUsersTableProps)
                     />
                   )}
                 </div>
-              </td>
-            </tr>
+              </AdminTableCell>
+            </AdminTableRow>
           ))}
         </tbody>
-      </table>
-    </div>
+    </AdminTableShell>
   );
 }
