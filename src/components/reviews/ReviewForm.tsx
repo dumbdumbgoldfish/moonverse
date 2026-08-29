@@ -1206,98 +1206,86 @@ export function ReviewForm({
     return null;
   }, [isSavingDraft, draftJustSaved, draftBackedUp, draftSavedAt]);
 
-  const studioCommands = useMemo((): WritingStudioCommand[] => {
-    const novelLabel = selectedSummary?.title?.trim();
-    const mooniePrompt = novelLabel
-      ? `Help me polish a review for ${novelLabel}`
-      : "Help me write a web novel review";
+  const novelLabel = selectedSummary?.title?.trim();
+  const mooniePrompt = novelLabel
+    ? `Help me polish a review for ${novelLabel}`
+    : "Help me write a web novel review";
 
-    return [
-      ...REVIEW_SECTION_TEMPLATES.map((section) => ({
-        id: `insert-${section.id}`,
-        label: `Insert ${section.label.toLowerCase()}`,
-        hint: "Adds a section block in the body",
-        keywords: [section.label, section.id, "insert", "section"],
-        group: "Insert" as const,
-        disabled: !showCompose || isPending,
-        onSelect: () => insertSection(section.insert),
-      })),
-      {
-        id: "insert-quote",
-        label: "Insert quote",
-        hint: "Blockquote from selected text",
-        keywords: ["quote", "blockquote"],
-        group: "Insert",
-        disabled: !showCompose || isPending,
-        onSelect: insertQuote,
-      },
-      {
-        id: "toggle-spoilers",
-        label: containsSpoilers ? "Remove spoiler flag" : "Mark as spoilers",
-        group: "Writing",
-        disabled: !showCompose || isPending,
-        onSelect: () => setContainsSpoilers((value) => !value),
-      },
-      {
-        id: "focus-mode",
-        label: "Enter focus mode",
-        hint: "Distraction-free writing",
-        group: "Studio",
-        disabled: !showCompose || focusMode || isPending,
-        onSelect: () => setFocusMode(true),
-      },
-      {
-        id: "save-draft",
-        label: "Save draft",
-        hint: "⌘S",
-        group: "Studio",
-        disabled: isPending || isSavingDraft,
-        onSelect: () => void handleSaveDraft(),
-      },
-      {
-        id: "ask-moonie",
-        label: "Ask Moonie for help",
-        hint: novelLabel ? `About ${novelLabel}` : "Open Moonie assistant",
-        keywords: ["moonie", "ai", "help"],
-        group: "Studio",
-        onSelect: () =>
-          router.push(`/moonie?prompt=${encodeURIComponent(mooniePrompt)}`),
-      },
-      {
-        id: "preview-review",
-        label: "Preview review",
-        hint: "⌘⇧P",
-        group: "Publish",
-        disabled: isPending,
-        onSelect: openPublishDrawer,
-      },
-      {
-        id: "publish-review",
-        label: "Publish review",
-        hint: canPreview ? "Ready when you are" : "Complete checklist first",
-        group: "Publish",
-        disabled: isPending || !publishReady,
-        onSelect: publish,
-      },
-      {
-        id: "change-novel",
-        label: "Change attached novel",
-        group: "Studio",
-        disabled: isPending,
-        onSelect: openAttachPanel,
-      },
-    ];
-  }, [
-    selectedSummary?.title,
-    showCompose,
-    isPending,
-    containsSpoilers,
-    focusMode,
-    isSavingDraft,
-    canPreview,
-    publishReady,
-    router,
-  ]);
+  const studioCommands: WritingStudioCommand[] = [
+    ...REVIEW_SECTION_TEMPLATES.map((section) => ({
+      id: `insert-${section.id}`,
+      label: `Insert ${section.label.toLowerCase()}`,
+      hint: "Adds a section block in the body",
+      keywords: [section.label, section.id, "insert", "section"],
+      group: "Insert" as const,
+      disabled: !showCompose || isPending,
+      onSelect: () => insertSection(section.insert),
+    })),
+    {
+      id: "insert-quote",
+      label: "Insert quote",
+      hint: "Blockquote from selected text",
+      keywords: ["quote", "blockquote"],
+      group: "Insert",
+      disabled: !showCompose || isPending,
+      onSelect: insertQuote,
+    },
+    {
+      id: "toggle-spoilers",
+      label: containsSpoilers ? "Remove spoiler flag" : "Mark as spoilers",
+      group: "Writing",
+      disabled: !showCompose || isPending,
+      onSelect: () => setContainsSpoilers((value) => !value),
+    },
+    {
+      id: "focus-mode",
+      label: "Enter focus mode",
+      hint: "Distraction-free writing",
+      group: "Studio",
+      disabled: !showCompose || focusMode || isPending,
+      onSelect: () => setFocusMode(true),
+    },
+    {
+      id: "save-draft",
+      label: "Save draft",
+      hint: "⌘S",
+      group: "Studio",
+      disabled: isPending || isSavingDraft,
+      onSelect: () => void handleSaveDraft(),
+    },
+    {
+      id: "ask-moonie",
+      label: "Ask Moonie for help",
+      hint: novelLabel ? `About ${novelLabel}` : "Open Moonie assistant",
+      keywords: ["moonie", "ai", "help"],
+      group: "Studio",
+      onSelect: () =>
+        router.push(`/moonie?prompt=${encodeURIComponent(mooniePrompt)}`),
+    },
+    {
+      id: "preview-review",
+      label: "Preview review",
+      hint: "⌘⇧P",
+      group: "Publish",
+      disabled: isPending,
+      onSelect: openPublishDrawer,
+    },
+    {
+      id: "publish-review",
+      label: "Publish review",
+      hint: canPreview ? "Ready when you are" : "Complete checklist first",
+      group: "Publish",
+      disabled: isPending || !publishReady,
+      onSelect: publish,
+    },
+    {
+      id: "change-novel",
+      label: "Change attached novel",
+      group: "Studio",
+      disabled: isPending,
+      onSelect: openAttachPanel,
+    },
+  ];
 
   useWritingStudioShortcuts({
     enabled: !pendingDraft && !focusMode,

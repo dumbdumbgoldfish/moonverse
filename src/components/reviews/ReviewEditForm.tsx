@@ -202,53 +202,51 @@ export function ReviewEditForm({ review }: ReviewEditFormProps) {
     }
   }
 
-  const studioCommands = useMemo((): WritingStudioCommand[] => {
-    return [
-      ...REVIEW_SECTION_TEMPLATES.map((section) => ({
-        id: `insert-${section.id}`,
-        label: `Insert ${section.label.toLowerCase()}`,
-        group: "Insert" as const,
-        disabled: isPending,
-        onSelect: () => insertSection(section.insert),
-      })),
-      {
-        id: "insert-quote",
-        label: "Insert quote",
-        group: "Insert",
-        disabled: isPending,
-        onSelect: insertQuote,
-      },
-      {
-        id: "toggle-spoilers",
-        label: containsSpoilers ? "Remove spoiler flag" : "Mark as spoilers",
-        group: "Writing",
-        disabled: isPending,
-        onSelect: () => setContainsSpoilers((value) => !value),
-      },
-      {
-        id: "focus-mode",
-        label: "Enter focus mode",
-        group: "Studio",
-        disabled: focusMode || isPending,
-        onSelect: () => setFocusMode(true),
-      },
-      {
-        id: "preview-changes",
-        label: "Preview changes",
-        hint: "⌘⇧P",
-        group: "Publish",
-        disabled: isPending,
-        onSelect: () => setPublishDrawerOpen(true),
-      },
-      {
-        id: "save-changes",
-        label: "Save changes",
-        group: "Publish",
-        disabled: isPending || !canSave,
-        onSelect: handleUpdate,
-      },
-    ];
-  }, [isPending, containsSpoilers, focusMode, canSave]);
+  const studioCommands: WritingStudioCommand[] = [
+    ...REVIEW_SECTION_TEMPLATES.map((section) => ({
+      id: `insert-${section.id}`,
+      label: `Insert ${section.label.toLowerCase()}`,
+      group: "Insert" as const,
+      disabled: isPending,
+      onSelect: () => insertSection(section.insert),
+    })),
+    {
+      id: "insert-quote",
+      label: "Insert quote",
+      group: "Insert",
+      disabled: isPending,
+      onSelect: insertQuote,
+    },
+    {
+      id: "toggle-spoilers",
+      label: containsSpoilers ? "Remove spoiler flag" : "Mark as spoilers",
+      group: "Writing",
+      disabled: isPending,
+      onSelect: () => setContainsSpoilers((value) => !value),
+    },
+    {
+      id: "focus-mode",
+      label: "Enter focus mode",
+      group: "Studio",
+      disabled: focusMode || isPending,
+      onSelect: () => setFocusMode(true),
+    },
+    {
+      id: "preview-changes",
+      label: "Preview changes",
+      hint: "⌘⇧P",
+      group: "Publish",
+      disabled: isPending,
+      onSelect: () => setPublishDrawerOpen(true),
+    },
+    {
+      id: "save-changes",
+      label: "Save changes",
+      group: "Publish",
+      disabled: isPending || !canSave,
+      onSelect: handleUpdate,
+    },
+  ];
 
   return (
     <div className="safe-bottom-pad relative min-h-[70vh] bg-[var(--mv-paper)] pb-24 lg:pb-8">
