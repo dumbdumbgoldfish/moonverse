@@ -90,13 +90,10 @@ export function AddToFolderMenu({
     setMenuCoords({ top, left });
   }, []);
 
-  useLayoutEffect(() => {
-    if (!open) {
-      setMenuCoords(null);
-      return;
-    }
-    updateMenuPosition();
-  }, [open, updateMenuPosition]);
+  const closeMenu = useCallback(() => {
+    setOpen(false);
+    setMenuCoords(null);
+  }, []);
 
   useLayoutEffect(() => {
     if (!open || !menuRef.current) return;
@@ -126,10 +123,10 @@ export function AddToFolderMenu({
       ) {
         return;
       }
-      setOpen(false);
+      closeMenu();
     };
     const handleEscape = (event: KeyboardEvent) => {
-      if (event.key === "Escape") setOpen(false);
+      if (event.key === "Escape") closeMenu();
     };
 
     document.addEventListener("mousedown", handleClickOutside);
@@ -138,7 +135,7 @@ export function AddToFolderMenu({
       document.removeEventListener("mousedown", handleClickOutside);
       document.removeEventListener("keydown", handleEscape);
     };
-  }, [open]);
+  }, [closeMenu, open]);
 
   const handleToggle = () => {
     if (!isLoggedIn) {
@@ -146,7 +143,12 @@ export function AddToFolderMenu({
       return;
     }
     setError(null);
-    setOpen((current) => !current);
+    if (open) {
+      closeMenu();
+      return;
+    }
+    updateMenuPosition();
+    setOpen(true);
   };
 
   const handleFolderToggle = (folderId: string, checked: boolean) => {
@@ -291,7 +293,7 @@ export function AddToFolderMenu({
           size="sm"
           className="w-full justify-start"
           onClick={() => {
-            setOpen(false);
+            closeMenu();
             setCreateOpen(true);
           }}
           disabled={isPending}
