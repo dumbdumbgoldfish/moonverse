@@ -332,13 +332,22 @@ function writeRecentSearchEntries(
   }
 }
 
+export function parseRecentSearchStorageValue(
+  raw: string | null
+): RecentSearch[] {
+  if (raw == null) return [];
+  try {
+    return parseRecentSearches(JSON.parse(raw) as unknown);
+  } catch {
+    return [];
+  }
+}
+
 export function readRecentSearchEntries(scope?: string | null): RecentSearch[] {
   if (typeof window === "undefined") return [];
   try {
     const storageKey = prepareSearchRecentStorage(scope);
-    const raw = localStorage.getItem(storageKey);
-    if (!raw) return [];
-    return parseRecentSearches(JSON.parse(raw) as unknown);
+    return parseRecentSearchStorageValue(localStorage.getItem(storageKey));
   } catch {
     return [];
   }

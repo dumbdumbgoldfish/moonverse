@@ -1,17 +1,50 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useMemo, useState, useSyncExternalStore } from "react";
 import { useSession } from "next-auth/react";
 import {
   clearRecentSearches,
   forgetSearch,
   getSearchRecentScope,
+  parseRecentSearchStorageValue,
   readRecentSearchEntries,
   rememberSearch,
   SEARCH_RECENT_CHANGE_EVENT,
   searchRecentStorageKey,
-  type RecentSearch,
 } from "@/lib/search";
+
+function getServerRecentSearchSnapshot(): string | null {
+  return null;
+}
+
+function getClientRecentSearchSnapshot(storageKey: string): string | null {
+  if (typeof window === "undefined") return null;
+  try {
+    return window.localStorage.getItem(storageKey);
+  } catch {
+    return null;
+  }
+}
+
+function subscribeRecentSearches(
+  scope: string,
+  storageKey: string,
+  onStoreChange: () => void
+): () => void {
+  void readRecentSearchEntries(scope);
+  onStoreChange();
+
+  const onCustom = () => onStoreChange();
+  const onStorage = (event: StorageEvent) => {
+    if (event.key === storageKey || event.key === null) onStoreChange();
+  };
+  window.addEventListener(SEARCH_RECENT_CHANGE_EVENT, onCustom);
+  window.addEventListener("storage", onStorage);
+  return () => {
+    window.removeEventListener(SEARCH_RECENT_CHANGE_EVENT, onCustom);
+    window.removeEventListener("storage", onStorage);
+  };
+}
 
 export function useRecentSearches() {
   const { data: session } = useSession();
@@ -20,38 +53,29 @@ export function useRecentSearches() {
     [session?.user?.id]
   );
   const storageKey = useMemo(() => searchRecentStorageKey(scope), [scope]);
-  const [recents, setRecents] = useState<RecentSearch[]>([]);
   const [error, setError] = useState<string | null>(null);
 
-  const sync = useCallback(() => {
-    setRecents(readRecentSearchEntries(scope));
-  }, [scope]);
+  const subscribe = useCallback(
+    (onStoreChange: () => void) =>
+      subscribeRecentSearches(scope, storageKey, onStoreChange),
+    [scope, storageKey]
+  );
+  const getSnapshot = useCallback(
+    () => getClientRecentSearchSnapshot(storageKey),
+    [storageKey]
+  );
 
-  useEffect(() => {
-    sync();
-    const onChange = () => sync();
-    window.addEventListener(SEARCH_RECENT_CHANGE_EVENT, onChange);
-    const onStorage = (event: StorageEvent) => {
-      if (event.key === storageKey) onChange();
-    };
-    window.addEventListener("storage", onStorage);
-    return () => {
-      window.removeEventListener(SEARCH_RECENT_CHANGE_EVENT, onChange);
-      window.removeEventListener("storage", onStorage);
-    };
-  }, [sync, storageKey]);
+  const raw = useSyncExternalStore(
+    subscribe,
+    getSnapshot,
+    getServerRecentSearchSnapshot
+  );
+  const recents = useMemo(() => parseRecentSearchStorageValue(raw), [raw]);
 
   const forget = useCallback(
     (query: string) => {
-      const previous = readRecentSearchEntries(scope);
-      const cleaned = query.trim().toLowerCase();
-      const optimistic = previous.filter(
-        (item) => item.query.toLowerCase() !== cleaned
-      );
-      setRecents(optimistic);
       setError(null);
       if (forgetSearch(query, scope)) return true;
-      setRecents(previous);
       setError("Could not remove that search. Try again.");
       return false;
     },
@@ -59,11 +83,8 @@ export function useRecentSearches() {
   );
 
   const clear = useCallback(() => {
-    const previous = readRecentSearchEntries(scope);
-    setRecents([]);
     setError(null);
     if (clearRecentSearches(scope)) return true;
-    setRecents(previous);
     setError("Could not clear recent searches. Try again.");
     return false;
   }, [scope]);
@@ -77,7 +98,6 @@ export function useRecentSearches() {
         setError("Could not save that search. Try again.");
         return false;
       }
-      setRecents(readRecentSearchEntries(scope));
       return true;
     },
     [scope]
