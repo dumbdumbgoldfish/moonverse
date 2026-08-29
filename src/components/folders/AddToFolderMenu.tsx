@@ -34,6 +34,46 @@ interface AddToFolderMenuProps {
   saveCount?: number;
 }
 
+interface FolderMenuState {
+  reviewId: string;
+  baselineSavedFolderKey: string;
+  baselineSaveCount: number;
+  localSavedIds: string[];
+  publicSaveCount: number;
+  mutationPending: boolean;
+}
+
+function savedFolderIdsKey(folderIds: string[]) {
+  return [...folderIds].sort().join("\0");
+}
+
+function createFolderMenuState(
+  reviewId: string,
+  savedFolderIds: string[],
+  saveCount: number
+): FolderMenuState {
+  return {
+    reviewId,
+    baselineSavedFolderKey: savedFolderIdsKey(savedFolderIds),
+    baselineSaveCount: saveCount,
+    localSavedIds: savedFolderIds,
+    publicSaveCount: saveCount,
+    mutationPending: false,
+  };
+}
+
+function nextPublicSaveCount(
+  previousIds: string[],
+  nextIds: string[],
+  previousSaveCount: number
+) {
+  const wasSaved = previousIds.length > 0;
+  const isSaved = nextIds.length > 0;
+  if (!wasSaved && isSaved) return previousSaveCount + 1;
+  if (wasSaved && !isSaved) return Math.max(0, previousSaveCount - 1);
+  return previousSaveCount;
+}
+
 export function AddToFolderMenu({
   reviewId,
   folders,
@@ -47,24 +87,47 @@ export function AddToFolderMenu({
   const { promptSignIn } = useSignInPrompt();
   const buttonRef = useRef<HTMLDivElement>(null);
   const menuRef = useRef<HTMLDivElement>(null);
+  const mutationGenerationRef = useRef(0);
   const [isPending, startTransition] = useTransition();
   const [open, setOpen] = useState(false);
   const [menuCoords, setMenuCoords] = useState<{ top: number; left: number } | null>(
     null
   );
   const [createOpen, setCreateOpen] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-  const [localSavedIds, setLocalSavedIds] = useState(savedFolderIds);
-  const [publicSaveCount, setPublicSaveCount] = useState(saveCount);
-  const savedFolderKey = savedFolderIds.join("\0");
+  const [errorRecord, setErrorRecord] = useState<{
+    reviewId: string;
+    message: string;
+  } | null>(null);
+  const [folderMenu, setFolderMenu] = useState(() =>
+    createFolderMenuState(reviewId, savedFolderIds, saveCount)
+  );
 
-  useEffect(() => {
-    setLocalSavedIds(savedFolderIds);
-  }, [savedFolderKey, savedFolderIds]);
+  let nextFolderMenu = folderMenu;
+  if (folderMenu.reviewId !== reviewId) {
+    nextFolderMenu = createFolderMenuState(reviewId, savedFolderIds, saveCount);
+    setFolderMenu(nextFolderMenu);
+  } else if (!folderMenu.mutationPending && !isPending) {
+    const incomingKey = savedFolderIdsKey(savedFolderIds);
+    const idsChanged = incomingKey !== folderMenu.baselineSavedFolderKey;
+    const countChanged = saveCount !== folderMenu.baselineSaveCount;
+    if (idsChanged || countChanged) {
+      nextFolderMenu = {
+        ...folderMenu,
+        baselineSavedFolderKey: idsChanged
+          ? incomingKey
+          : folderMenu.baselineSavedFolderKey,
+        localSavedIds: idsChanged ? savedFolderIds : folderMenu.localSavedIds,
+        baselineSaveCount: countChanged ? saveCount : folderMenu.baselineSaveCount,
+        publicSaveCount: countChanged ? saveCount : folderMenu.publicSaveCount,
+      };
+      setFolderMenu(nextFolderMenu);
+    }
+  }
 
-  useEffect(() => {
-    setPublicSaveCount(saveCount);
-  }, [saveCount]);
+  const localSavedIds = nextFolderMenu.localSavedIds;
+  const publicSaveCount = nextFolderMenu.publicSaveCount;
+  const error =
+    errorRecord && errorRecord.reviewId === reviewId ? errorRecord.message : null;
 
   const updateMenuPosition = useCallback(() => {
     const anchor = buttonRef.current;
@@ -142,7 +205,7 @@ export function AddToFolderMenu({
       promptSignIn(`/reviews/${reviewId}`);
       return;
     }
-    setError(null);
+    setErrorRecord(null);
     if (open) {
       closeMenu();
       return;
@@ -152,53 +215,90 @@ export function AddToFolderMenu({
   };
 
   const handleFolderToggle = (folderId: string, checked: boolean) => {
-    setError(null);
+    setErrorRecord(null);
 
-    const previous = localSavedIds;
-    const previousSaveCount = publicSaveCount;
+    const previous = nextFolderMenu.localSavedIds;
+    const previousSaveCount = nextFolderMenu.publicSaveCount;
     const nextIds = checked
       ? previous.includes(folderId)
         ? previous
         : [...previous, folderId]
       : previous.filter((id) => id !== folderId);
-    const wasSaved = previous.length > 0;
-    const isSaved = nextIds.length > 0;
-    const nextSaveCount =
-      !wasSaved && isSaved
-        ? publicSaveCount + 1
-        : wasSaved && !isSaved
-          ? Math.max(0, publicSaveCount - 1)
-          : publicSaveCount;
-    setLocalSavedIds(nextIds);
-    setPublicSaveCount(nextSaveCount);
+    const nextSaveCount = nextPublicSaveCount(
+      previous,
+      nextIds,
+      previousSaveCount
+    );
+    const requestReviewId = reviewId;
+    const requestId = mutationGenerationRef.current + 1;
+    mutationGenerationRef.current = requestId;
+
+    setFolderMenu((current) => {
+      if (current.reviewId !== requestReviewId) return current;
+      return {
+        ...current,
+        localSavedIds: nextIds,
+        publicSaveCount: nextSaveCount,
+        mutationPending: true,
+      };
+    });
     publishCommunityReviewSync({
-      reviewId,
+      reviewId: requestReviewId,
       savedFolderIds: nextIds,
       saveCount: nextSaveCount,
     });
 
     startTransition(async () => {
-      const result = checked
-        ? await addReviewToFolderAction(folderId, reviewId)
-        : await removeReviewFromFolderAction(folderId, reviewId);
+      try {
+        const result = checked
+          ? await addReviewToFolderAction(folderId, requestReviewId)
+          : await removeReviewFromFolderAction(folderId, requestReviewId);
 
-      if (!result.success) {
-        setLocalSavedIds(previous);
-        setPublicSaveCount(previousSaveCount);
-        publishCommunityReviewSync({
-          reviewId,
-          savedFolderIds: previous,
-          saveCount: previousSaveCount,
-        });
-        setError(result.error);
-        return;
-      }
-      if (result.saveCount !== undefined) {
-        setPublicSaveCount(result.saveCount);
-        publishCommunityReviewSync({
-          reviewId,
-          savedFolderIds: nextIds,
-          saveCount: result.saveCount,
+        if (mutationGenerationRef.current !== requestId) return;
+
+        if (!result.success) {
+          setFolderMenu((current) => {
+            if (current.reviewId !== requestReviewId) return current;
+            return {
+              ...current,
+              localSavedIds: previous,
+              publicSaveCount: previousSaveCount,
+              mutationPending: false,
+            };
+          });
+          publishCommunityReviewSync({
+            reviewId: requestReviewId,
+            savedFolderIds: previous,
+            saveCount: previousSaveCount,
+          });
+          setErrorRecord({
+            reviewId: requestReviewId,
+            message: result.error,
+          });
+          return;
+        }
+        if (result.saveCount !== undefined) {
+          const serverSaveCount = result.saveCount;
+          setFolderMenu((current) => {
+            if (current.reviewId !== requestReviewId) return current;
+            return {
+              ...current,
+              publicSaveCount: serverSaveCount,
+              mutationPending: false,
+            };
+          });
+          publishCommunityReviewSync({
+            reviewId: requestReviewId,
+            savedFolderIds: nextIds,
+            saveCount: serverSaveCount,
+          });
+        }
+      } finally {
+        if (mutationGenerationRef.current !== requestId) return;
+        setFolderMenu((current) => {
+          if (current.reviewId !== requestReviewId) return current;
+          if (!current.mutationPending) return current;
+          return { ...current, mutationPending: false };
         });
       }
     });
@@ -209,34 +309,79 @@ export function AddToFolderMenu({
     description: string;
     isPublic: boolean;
   }) => {
-    const result = await createFolderAction({
-      name: values.name,
-      description: values.description || undefined,
-      isPublic: values.isPublic,
+    const requestReviewId = reviewId;
+    const snapshotIds = nextFolderMenu.localSavedIds;
+    const snapshotSaveCount = nextFolderMenu.publicSaveCount;
+    const requestId = mutationGenerationRef.current + 1;
+    mutationGenerationRef.current = requestId;
+
+    setFolderMenu((current) => {
+      if (current.reviewId !== requestReviewId) return current;
+      return { ...current, mutationPending: true };
     });
 
-    if (!result.success) {
-      return { success: false, error: result.error };
-    }
+    try {
+      const result = await createFolderAction({
+        name: values.name,
+        description: values.description || undefined,
+        isPublic: values.isPublic,
+      });
 
-    if (result.folderId) {
-      const addResult = await addReviewToFolderAction(result.folderId, reviewId);
-      if (!addResult.success) {
-        return { success: false, error: addResult.error };
+      if (!result.success) {
+        return { success: false, error: result.error };
       }
-      if (addResult.saveCount !== undefined) {
-        setPublicSaveCount(addResult.saveCount);
-      }
-      const nextIds = localSavedIds.includes(result.folderId!)
-        ? localSavedIds
-        : [...localSavedIds, result.folderId!];
-      setLocalSavedIds(nextIds);
-      publishCommunityReviewSync({ reviewId, savedFolderIds: nextIds });
-    }
 
-    router.refresh();
-    setCreateOpen(false);
-    return { success: true };
+      if (result.folderId) {
+        const addResult = await addReviewToFolderAction(
+          result.folderId,
+          requestReviewId
+        );
+        if (!addResult.success) {
+          return { success: false, error: addResult.error };
+        }
+
+        if (mutationGenerationRef.current === requestId) {
+          const nextIds = snapshotIds.includes(result.folderId)
+            ? snapshotIds
+            : [...snapshotIds, result.folderId];
+          const optimisticCount = nextPublicSaveCount(
+            snapshotIds,
+            nextIds,
+            snapshotSaveCount
+          );
+          const nextSaveCount =
+            addResult.saveCount !== undefined
+              ? addResult.saveCount
+              : optimisticCount;
+
+          setFolderMenu((current) => {
+            if (current.reviewId !== requestReviewId) return current;
+            return {
+              ...current,
+              localSavedIds: nextIds,
+              publicSaveCount: nextSaveCount,
+              mutationPending: false,
+            };
+          });
+          publishCommunityReviewSync({
+            reviewId: requestReviewId,
+            savedFolderIds: nextIds,
+          });
+        }
+      }
+
+      router.refresh();
+      setCreateOpen(false);
+      return { success: true };
+    } finally {
+      if (mutationGenerationRef.current === requestId) {
+        setFolderMenu((current) => {
+          if (current.reviewId !== requestReviewId) return current;
+          if (!current.mutationPending) return current;
+          return { ...current, mutationPending: false };
+        });
+      }
+    }
   };
 
   const savedCount = localSavedIds.length;
