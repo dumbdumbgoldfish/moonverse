@@ -204,6 +204,7 @@ export function MoonieMessageList({
           {showAttachments ? (
           <div
             className={cn(
+              "flex min-w-0 flex-col gap-3",
               message.role === "assistant" && MOONIE_CHAT_ATTACHMENT_INDENT
             )}
           >
@@ -336,6 +337,7 @@ export function MoonieMessageList({
               <CatalogLink
                 onClick={() => onSelectPrompt(message.followUpQuestion!)}
                 size="compact"
+                className="!h-auto min-h-9 w-full min-w-0 max-w-full !whitespace-normal break-words !leading-snug"
               >
                 {message.followUpQuestion}
               </CatalogLink>
