@@ -1,7 +1,10 @@
 "use client";
 
 import { AskMoonieButton } from "@/components/moonie/AskMoonieButton";
-import { useSignInPrompt } from "@/components/auth/SignInPromptProvider";
+import {
+  moonieGuestEntryHref,
+  moonieLoggedInEntryHref,
+} from "@/lib/moonie/open-moonie";
 import { cn } from "@/lib/utils";
 
 interface ReviewMoonieAskButtonProps {
@@ -15,37 +18,30 @@ interface ReviewMoonieAskButtonProps {
 }
 
 export function ReviewMoonieAskButton({
-  novelTitle,
-  tags = [],
+  novelTitle: _novelTitle,
+  tags: _tags = [],
   variant = "hero",
   className,
   isLoggedIn = true,
   tone = "light",
   label,
 }: ReviewMoonieAskButtonProps) {
-  const { promptSignIn } = useSignInPrompt();
-  const tagHint = tags[0]?.replace(/-/g, " ");
-  const prompt = tagHint
-    ? `Find novels like ${novelTitle} with ${tagHint} vibes, but easier on the angst.`
-    : `Find novels like ${novelTitle} that match this reviewer's taste.`;
+  const buttonLabel = label ?? "Ask Moonie";
+  const size = variant === "hero" ? "md" : "sm";
+  const sharedClassName = cn(
+    variant === "compact" && "text-xs",
+    className
+  );
+  const href = isLoggedIn ? moonieLoggedInEntryHref() : moonieGuestEntryHref();
 
   return (
     <AskMoonieButton
-      prompt={prompt}
-      size={variant === "hero" ? "md" : "sm"}
+      href={href}
+      size={size}
       tone={tone}
-      className={cn(
-        variant === "compact" && "text-xs",
-        className
-      )}
-      onClick={(event) => {
-        if (!isLoggedIn) {
-          event.preventDefault();
-          promptSignIn();
-        }
-      }}
+      className={sharedClassName}
     >
-      {label ?? "Ask Moonie"}
+      {buttonLabel}
     </AskMoonieButton>
   );
 }

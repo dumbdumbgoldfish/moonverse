@@ -11,7 +11,6 @@ import {
   DETAIL_MODULE_LABEL,
   DETAIL_STAGE,
 } from "@/lib/reviews/detail-surface";
-import { moonieEntryHref } from "@/lib/moonie/open-moonie";
 import { cn } from "@/lib/utils";
 import type { ReadingLinkItem } from "@/types/reading-link";
 
@@ -64,9 +63,6 @@ export function ReviewReadingAvailability({
             </div>
           </div>
           <AskMoonieLink
-            href={moonieEntryHref(
-              `Recommend novels like ${novelTitle} with verified reading links`,
-            )}
             size="sm"
             className="w-full text-xs font-bold"
           />
