@@ -85,6 +85,7 @@ import {
 import {
   buildConstraintRelaxationClarification,
   buildCurrentTurnHardConstraints,
+  completeHardInclusionConstraints,
   constraintRelaxationPending,
   hasHardInclusionConstraints,
   parseRequestedRecommendationCount,
@@ -1001,7 +1002,7 @@ export async function handleMoonieRequest(
           recommendations: [],
           quickPrompts: resolution.quickPrompts,
           pendingClarification: constraintRelaxationPending(
-            pendingClarification.hard,
+            completeHardInclusionConstraints(pendingClarification.hard),
             pendingClarification.phase,
             pendingClarification.offeredGenre
           ),

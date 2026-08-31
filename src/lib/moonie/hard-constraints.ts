@@ -67,6 +67,23 @@ export const EMPTY_HARD_CONSTRAINTS: MoonieHardInclusionConstraints = {
   minAverageRating: null,
 };
 
+/** Fill omitted hard-constraint fields from EMPTY_HARD_CONSTRAINTS (e.g. persisted pending state). */
+export function completeHardInclusionConstraints(
+  hard: Pick<
+    MoonieHardInclusionConstraints,
+    | "genres"
+    | "tags"
+    | "inclusionMatch"
+    | "genreMatch"
+    | "status"
+    | "language"
+    | "length"
+  > &
+    Partial<MoonieHardInclusionConstraints>
+): MoonieHardInclusionConstraints {
+  return { ...EMPTY_HARD_CONSTRAINTS, ...hard };
+}
+
 function uniqueLabels(values: string[]): string[] {
   const seen = new Set<string>();
   const result: string[] = [];
@@ -727,7 +744,7 @@ export function resolveConstraintRelaxationAnswer(
 ): ConstraintRelaxationResolution {
   const text = normalizeLookupQueryText(message).trim();
   const lower = text.toLowerCase();
-  const hard = pending.hard;
+  const hard = completeHardInclusionConstraints(pending.hard);
   const keys = currentConstraintKeys(hard);
 
   if (pending.phase === "genre_or_status" && pending.offeredGenre) {
