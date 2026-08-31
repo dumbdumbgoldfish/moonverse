@@ -22,6 +22,7 @@ import {
   notificationInboxVersion,
   parseNotificationInboxFilter,
 } from "@/lib/notifications/inbox";
+import { moonieLoggedInEntryHref } from "@/lib/moonie/open-moonie";
 import { SITE_PAGE_SHELL_CLASS } from "@/lib/site-shell";
 import { cn } from "@/lib/utils";
 import type {
@@ -267,7 +268,7 @@ function NotificationInboxInner({
                   Write a review
                 </Button>
               ) : filter === "moonie" ? (
-                <Button size="sm" render={<Link href="/moonie" />}>
+                <Button size="sm" render={<Link href={moonieLoggedInEntryHref()} />}>
                   Ask Moonie
                 </Button>
               ) : undefined
