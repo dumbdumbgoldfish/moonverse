@@ -88,61 +88,6 @@ export async function createReport(input: CreateReportInput): Promise<void> {
   });
 }
 
-async function resolveTargetPreview(
-  targetType: ReportTargetType,
-  targetId: string
-): Promise<{ preview: string | null; link: string | null }> {
-  try {
-    if (targetType === ReportTargetType.REVIEW) {
-      const review = await db.review.findUnique({
-        where: { id: targetId },
-        select: { title: true },
-      });
-      return {
-        preview: review?.title ?? "(deleted review)",
-        link: review ? `/reviews/${targetId}` : null,
-      };
-    }
-    if (targetType === ReportTargetType.COMMENT) {
-      const comment = await db.comment.findUnique({
-        where: { id: targetId },
-        select: { body: true, reviewId: true },
-      });
-      return {
-        preview: comment?.body.slice(0, 120) ?? "(deleted comment)",
-        link: comment ? `/reviews/${comment.reviewId}#comments` : null,
-      };
-    }
-    if (targetType === ReportTargetType.USER) {
-      const user = await db.user.findUnique({
-        where: { id: targetId },
-        select: { username: true },
-      });
-      return {
-        preview: user ? `@${user.username}` : "(deleted user)",
-        link: user ? `/users/${user.username}` : null,
-      };
-    }
-    if (targetType === ReportTargetType.NOVEL) {
-      const novel = await db.novel.findUnique({
-        where: { id: targetId },
-        select: { title: true, author: true },
-      });
-      return {
-        preview: novel
-          ? novel.author
-            ? `${novel.title} by ${novel.author}`
-            : novel.title
-          : "(deleted novel)",
-        link: novel ? `/novels/${targetId}` : null,
-      };
-    }
-  } catch {
-    // fallthrough
-  }
-  return { preview: null, link: null };
-}
-
 export interface ListReportsOptions {
   status?: ReportStatus | "ALL";
   targetType?: ReportTargetType | "ALL";
@@ -167,13 +112,69 @@ export async function listReports(
     },
   });
 
-  return Promise.all(
-    reports.map(async (report) => {
-      const { preview, link } = await resolveTargetPreview(
-        report.targetType,
-        report.targetId
-      );
-      return {
+  const idsByType = {
+    review: reports
+      .filter((report) => report.targetType === ReportTargetType.REVIEW)
+      .map((report) => report.targetId),
+    comment: reports
+      .filter((report) => report.targetType === ReportTargetType.COMMENT)
+      .map((report) => report.targetId),
+    user: reports
+      .filter((report) => report.targetType === ReportTargetType.USER)
+      .map((report) => report.targetId),
+    novel: reports
+      .filter((report) => report.targetType === ReportTargetType.NOVEL)
+      .map((report) => report.targetId),
+  };
+  const [reviews, comments, users, novels] = await Promise.all([
+    db.review.findMany({
+      where: { id: { in: idsByType.review } },
+      select: { id: true, title: true },
+    }),
+    db.comment.findMany({
+      where: { id: { in: idsByType.comment } },
+      select: { id: true, body: true, reviewId: true },
+    }),
+    db.user.findMany({
+      where: { id: { in: idsByType.user } },
+      select: { id: true, username: true },
+    }),
+    db.novel.findMany({
+      where: { id: { in: idsByType.novel } },
+      select: { id: true, title: true, author: true },
+    }),
+  ]);
+  const reviewMap = new Map(reviews.map((review) => [review.id, review]));
+  const commentMap = new Map(comments.map((comment) => [comment.id, comment]));
+  const userMap = new Map(users.map((user) => [user.id, user]));
+  const novelMap = new Map(novels.map((novel) => [novel.id, novel]));
+
+  return reports.map((report) => {
+    let targetPreview: string;
+    let targetLink: string | null = null;
+    if (report.targetType === ReportTargetType.REVIEW) {
+      const review = reviewMap.get(report.targetId);
+      targetPreview = review?.title ?? "(deleted review)";
+      targetLink = review ? `/reviews/${report.targetId}` : null;
+    } else if (report.targetType === ReportTargetType.COMMENT) {
+      const comment = commentMap.get(report.targetId);
+      targetPreview = comment?.body.slice(0, 120) ?? "(deleted comment)";
+      targetLink = comment ? `/reviews/${comment.reviewId}#comments` : null;
+    } else if (report.targetType === ReportTargetType.USER) {
+      const user = userMap.get(report.targetId);
+      targetPreview = user ? `@${user.username}` : "(deleted user)";
+      targetLink = user ? `/users/${user.username}` : null;
+    } else {
+      const novel = novelMap.get(report.targetId);
+      targetPreview = novel
+        ? novel.author
+          ? `${novel.title} by ${novel.author}`
+          : novel.title
+        : "(deleted novel)";
+      targetLink = novel ? `/novels/${report.targetId}` : null;
+    }
+
+    return {
         id: report.id,
         targetType: report.targetType,
         targetId: report.targetId,
@@ -185,15 +186,20 @@ export async function listReports(
         resolvedByUsername: report.resolvedBy?.username ?? null,
         createdAt: report.createdAt.toISOString(),
         updatedAt: report.updatedAt.toISOString(),
-        targetPreview: preview,
-        targetLink: link,
+        targetPreview,
+        targetLink,
       };
-    })
-  );
+  });
 }
 
 export async function countOpenReports(): Promise<number> {
   return db.report.count({ where: { status: ReportStatus.OPEN } });
+}
+
+export function assertOpenReport(status: ReportStatus): void {
+  if (status !== ReportStatus.OPEN) {
+    throw new Error("Report is already closed.");
+  }
 }
 
 export async function resolveReport(
@@ -204,15 +210,19 @@ export async function resolveReport(
 ): Promise<void> {
   const report = await db.report.findUnique({ where: { id: reportId } });
   if (!report) throw new Error("Report not found.");
+  assertOpenReport(report.status);
 
-  await db.report.update({
-    where: { id: reportId },
+  const updated = await db.report.updateMany({
+    where: { id: reportId, status: ReportStatus.OPEN },
     data: {
       status,
       resolvedById: adminId,
       resolution: resolution?.trim().slice(0, MAX_DETAILS_LENGTH) || null,
     },
   });
+  if (updated.count !== 1) {
+    throw new Error("Report is already closed.");
+  }
 
   await writeAuditLog({
     actorId: adminId,
