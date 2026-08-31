@@ -4,7 +4,6 @@ import { NotificationType } from "@prisma/client";
 import { revalidatePath } from "next/cache";
 import { requireAdminUserId } from "@/lib/admin-auth";
 import { db } from "@/lib/db";
-import { writeAuditLog } from "@/services/audit.service";
 
 export type BroadcastActionResult =
   | { success: true; recipientCount: number }
@@ -32,27 +31,33 @@ export async function broadcastNotificationAction(input: {
       return { success: false, error: "No active users to notify." };
     }
 
-    await db.notification.createMany({
-      data: users.map((user) => ({
-        userId: user.id,
-        type: NotificationType.DIGEST,
-        message: `[Platform] ${message}`,
-        link: input.link?.trim() || null,
-      })),
-    });
-
-    await writeAuditLog({
-      actorId: adminId,
-      action: "BROADCAST_NOTIFICATION",
-      entityType: "Platform",
-      entityId: "all-users",
-      meta: { recipientCount: users.length, message },
+    const recipientCount = await db.$transaction(async (tx) => {
+      const inserted = await tx.notification.createMany({
+        data: users.map((user) => ({
+          userId: user.id,
+          type: NotificationType.DIGEST,
+          message: `[Platform] ${message}`,
+          link: input.link?.trim() || null,
+        })),
+      });
+      await tx.moderationAuditLog.create({
+        data: {
+          actorId: adminId,
+          action: "BROADCAST_NOTIFICATION",
+          entityType: "Platform",
+          entityId: "all-users",
+          meta: { recipientCount: inserted.count, message },
+        },
+      });
+      return inserted.count;
     });
 
     revalidatePath("/admin/notifications");
     revalidatePath("/admin/audit");
+    revalidatePath("/notifications");
+    revalidatePath("/", "layout");
 
-    return { success: true, recipientCount: users.length };
+    return { success: true, recipientCount };
   } catch (error) {
     return {
       success: false,
