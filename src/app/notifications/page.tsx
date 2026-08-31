@@ -1,5 +1,5 @@
 import { redirect } from "next/navigation";
-import { auth } from "@/lib/auth";
+import { getSession } from "@/lib/session";
 import { NotificationInbox } from "@/components/notifications/NotificationInbox";
 import { NotificationSetupError } from "@/components/notifications/NotificationSetupError";
 import {
@@ -15,7 +15,7 @@ export const metadata = {
 export const dynamic = "force-dynamic";
 
 export default async function NotificationsPage() {
-  const session = await auth();
+  const session = await getSession();
 
   if (!session?.user?.id) {
     redirect("/login?callbackUrl=/notifications");
