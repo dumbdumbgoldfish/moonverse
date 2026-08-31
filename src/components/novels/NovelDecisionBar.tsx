@@ -3,18 +3,17 @@
 import Link from "next/link";
 import { PenLine } from "lucide-react";
 import { AskMoonieButton } from "@/components/moonie/AskMoonieButton";
+import { moonieLoggedInEntryHref } from "@/lib/moonie/open-moonie";
 import { MV_PRIMARY_BTN } from "@/lib/novels/salon-surface";
 import { cn } from "@/lib/utils";
 
 interface NovelDecisionBarProps {
   novelId: string;
-  title: string;
   isLoggedIn: boolean;
 }
 
 export function NovelDecisionBar({
   novelId,
-  title,
   isLoggedIn,
 }: NovelDecisionBarProps) {
   return (
@@ -39,7 +38,7 @@ export function NovelDecisionBar({
           Write
         </Link>
         <AskMoonieButton
-          prompt={`Recommend novels similar to ${title}`}
+          href={moonieLoggedInEntryHref()}
           size="md"
           className="min-h-11 flex-1 px-3 text-sm font-bold"
         >

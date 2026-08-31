@@ -14,7 +14,6 @@ import {
   EDITION_PANEL_EYEBROW,
   EDITION_PANEL_TITLE,
 } from "@/components/novels/edition-panel";
-import { moonieEntryHref } from "@/lib/moonie/open-moonie";
 import { groupReadingLinks } from "@/lib/reading-links";
 import { cn } from "@/lib/utils";
 import type {
@@ -101,9 +100,6 @@ export function ReadingSources({
             </div>
           </div>
           <AskMoonieLink
-            href={moonieEntryHref(
-              "Recommend in-catalog novels with verified reading links"
-            )}
             size="sm"
             className="w-full text-[11px] font-bold"
           />

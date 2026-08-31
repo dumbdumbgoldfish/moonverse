@@ -1,6 +1,6 @@
 import { notFound } from "next/navigation";
 import { NovelDetailView } from "@/components/novels/NovelDetailView";
-import { auth } from "@/lib/auth";
+import { getSession } from "@/lib/session";
 import { getReadingStatus } from "@/services/reading-status.service";
 import {
   getNovelById,
@@ -45,7 +45,7 @@ export async function generateMetadata({ params }: NovelDetailPageProps) {
 
 export default async function NovelDetailPage({ params }: NovelDetailPageProps) {
   const { id } = await params;
-  const [novel, session] = await Promise.all([getNovelById(id), auth()]);
+  const [novel, session] = await Promise.all([getNovelById(id), getSession()]);
 
   if (!novel) {
     notFound();

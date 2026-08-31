@@ -76,7 +76,6 @@ export function NovelEditionDesk({
       </div>
       <NovelDecisionBar
         novelId={novel.id}
-        title={novel.title}
         isLoggedIn={isLoggedIn}
       />
     </>

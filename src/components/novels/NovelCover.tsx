@@ -1,6 +1,4 @@
-import Image from "next/image";
-import { DefaultNovelCover } from "@/components/novels/DefaultNovelCover";
-import { canUseNextImageCover, isMissingCoverUrl } from "@/lib/review-utils";
+import { CoverImage } from "@/components/ui/CoverImage";
 import { cn } from "@/lib/utils";
 
 interface NovelCoverProps {
@@ -36,10 +34,6 @@ export function NovelCover({
   size = "lg",
   className,
 }: NovelCoverProps) {
-  const missing = isMissingCoverUrl(src);
-  const coverSrc = src as string;
-  const useNext = !missing && canUseNextImageCover(coverSrc);
-
   return (
     <div
       className={cn(
@@ -49,35 +43,19 @@ export function NovelCover({
         className
       )}
     >
-      {missing ? (
-        <DefaultNovelCover
-          title={title}
-          author={author}
-          genres={genres}
-          language={language}
-          rating={rating}
-          reviewCount={reviewCount}
-          themeSeed={themeSeed || title}
-        />
-      ) : useNext ? (
-        <Image
-          src={coverSrc}
-          alt={`Cover of ${title}${author ? ` by ${author}` : ""}`}
-          fill
-          sizes="(max-width: 640px) 192px, 240px"
-          priority={priority}
-          unoptimized
-          className="object-cover"
-        />
-      ) : (
-        // eslint-disable-next-line @next/next/no-img-element -- host not in next/image allowlist
-        <img
-          src={coverSrc}
-          alt={`Cover of ${title}${author ? ` by ${author}` : ""}`}
-          className="absolute inset-0 h-full w-full object-cover"
-          loading={priority ? "eager" : "lazy"}
-        />
-      )}
+      <CoverImage
+        src={src}
+        alt={`Cover of ${title}${author ? ` by ${author}` : ""}`}
+        title={title}
+        author={author}
+        genres={genres}
+        language={language}
+        rating={rating}
+        reviewCount={reviewCount}
+        themeSeed={themeSeed || title}
+        sizes="(max-width: 640px) 192px, 240px"
+        priority={priority}
+      />
     </div>
   );
 }

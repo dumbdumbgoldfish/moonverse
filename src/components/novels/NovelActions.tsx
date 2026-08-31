@@ -5,6 +5,7 @@ import { useState } from "react";
 import { PenLine, Share2 } from "lucide-react";
 import { ReadingStatusValue } from "@prisma/client";
 import { AskMoonieButton } from "@/components/moonie/AskMoonieButton";
+import { moonieLoggedInEntryHref } from "@/lib/moonie/open-moonie";
 import { ReadingStatusControl } from "@/components/novels/ReadingStatusControl";
 import {
   MV_PRIMARY_BTN,
@@ -29,7 +30,6 @@ export function NovelActions({
 }: NovelActionsProps) {
   const [shareFeedback, setShareFeedback] = useState(false);
   const dark = tone === "dark";
-  const mooniePrompt = `Recommend novels similar to ${title}`;
 
   const handleShare = async () => {
     const url = window.location.href;
@@ -50,7 +50,7 @@ export function NovelActions({
     return (
       <div className="flex flex-wrap items-center gap-2.5">
         <AskMoonieButton
-          prompt={mooniePrompt}
+          href={moonieLoggedInEntryHref()}
           size="md"
           className="min-h-10 px-5 text-[13px] font-bold"
         />
@@ -97,7 +97,7 @@ export function NovelActions({
         initialStatus={initialReadingStatus}
         tone="day"
       />
-      <AskMoonieButton prompt={mooniePrompt} size="md" />
+      <AskMoonieButton href={moonieLoggedInEntryHref()} size="md" />
       <button
         type="button"
         onClick={handleShare}
