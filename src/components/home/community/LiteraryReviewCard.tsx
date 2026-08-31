@@ -6,6 +6,7 @@ import { useRouter } from "next/navigation";
 import { ReportTargetType } from "@prisma/client";
 import { Sparkles, Tag } from "lucide-react";
 import { useCommunityReviewOverlayOptional } from "@/components/community/CommunityReviewOverlay";
+import { useSignInPromptOptional } from "@/components/auth/SignInPromptProvider";
 import { CommunityPostMenu } from "@/components/community/CommunityPostMenu";
 import { PremiumNovelAttachment } from "@/components/home/community/PremiumNovelAttachment";
 import { ReviewExcerpt } from "@/components/feed/ReviewExcerpt";
@@ -37,9 +38,11 @@ export function LiteraryReviewCard({
 }: LiteraryReviewCardProps) {
   const router = useRouter();
   const overlay = useCommunityReviewOverlayOptional();
+  const prompt = useSignInPromptOptional();
   const [commentCount, setCommentCount] = useState(review.commentCount);
   const [likeCount, setLikeCount] = useState(review.likeCount);
   const [saveCount, setSaveCount] = useState(review.saveCount);
+  const [likedByMe, setLikedByMe] = useState(initialLiked);
   const [localSavedIds, setLocalSavedIds] = useState(savedFolderIds);
   const savedIdsRef = useRef(savedFolderIds);
 
@@ -57,6 +60,7 @@ export function LiteraryReviewCard({
   useEffect(() => {
     return subscribeCommunityReviewSync((detail) => {
       if (detail.reviewId !== review.id) return;
+      if (detail.liked !== undefined) setLikedByMe(detail.liked);
       if (detail.likeCount !== undefined) setLikeCount(detail.likeCount);
       if (detail.commentCount !== undefined) setCommentCount(detail.commentCount);
       if (detail.saveCount !== undefined) setSaveCount(detail.saveCount);
@@ -73,10 +77,23 @@ export function LiteraryReviewCard({
     });
   }, [review.id]);
 
+  function promptGuestReviewAction(focusComments = false) {
+    const callback = focusComments ? commentsHref : reviewHref;
+    if (prompt) {
+      prompt.promptSignIn(callback);
+      return;
+    }
+    router.push(`/login?callbackUrl=${encodeURIComponent(callback)}`);
+  }
+
   function openReview(event?: MouseEvent, focusComments = false) {
     if (event) {
       const target = event.target as HTMLElement;
       if (target.closest("a, button, textarea, input, [role='menu']")) return;
+    }
+    if (!isLoggedIn) {
+      promptGuestReviewAction(focusComments);
+      return;
     }
     if (overlay) {
       overlay.openReview(review.id, { focusComments });
@@ -212,12 +229,15 @@ export function LiteraryReviewCard({
           commentCount={commentCount}
           saveCount={saveCount}
           shareCount={review.shareCount}
-          initialLiked={initialLiked}
+          initialLiked={likedByMe}
           folders={folders}
           savedFolderIds={localSavedIds}
           isLoggedIn={isLoggedIn}
           onCommentClick={() => openReview(undefined, true)}
-          onLikeChange={(_liked, nextCount) => setLikeCount(nextCount)}
+          onLikeChange={(liked, nextCount) => {
+            setLikedByMe(liked);
+            setLikeCount(nextCount);
+          }}
           variant="literary"
         />
 
