@@ -217,7 +217,7 @@ export function NavbarUserMenu({
   ];
 
   const rowClass =
-    "flex w-full items-center rounded-2xl px-2.5 py-2 text-left transition-colors hover:bg-[#FBF6FC] focus-visible:bg-[#FBF6FC] focus-visible:outline-none";
+    "flex w-full items-center rounded-2xl px-2.5 py-2 text-left transition-colors hover:bg-violet-100/90 focus-visible:bg-violet-100/90 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#4C2A67]/20";
 
   return (
     <div className="relative" ref={rootRef}>
@@ -250,7 +250,7 @@ export function NavbarUserMenu({
             </Avatar>
             {unreadCount > 0 ? (
               <span
-                className="absolute -right-0.5 -top-0.5 size-2.5 rounded-full bg-[#6c4dff] ring-2 ring-white"
+                className="absolute -right-0.5 -top-0.5 size-2.5 rounded-full bg-rose-600 ring-2 ring-white"
                 aria-hidden
               />
             ) : null}
@@ -348,7 +348,7 @@ export function NavbarUserMenu({
                             >
                               {entry.href === "/notifications" &&
                               unreadCount > 0 ? (
-                                <span className="rounded-full bg-[#4C2A67] px-2 py-0.5 text-[10px] font-bold text-white">
+                                <span className="rounded-full bg-rose-600 px-2 py-0.5 text-[10px] font-bold text-white">
                                   {unreadCount > 99 ? "99+" : unreadCount}
                                 </span>
                               ) : null}

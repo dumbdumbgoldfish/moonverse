@@ -211,7 +211,7 @@ export function NotificationDropdown({
       >
         <Bell className="size-5" aria-hidden />
         {localUnreadCount > 0 ? (
-          <span className="absolute right-1.5 top-1.5 flex min-w-[1.125rem] items-center justify-center rounded-full bg-[#4C2A67] px-1 text-[10px] font-bold leading-none text-white ring-2 ring-white">
+          <span className="absolute right-1.5 top-1.5 flex min-w-[1.125rem] items-center justify-center rounded-full bg-rose-600 px-1 text-[10px] font-bold leading-none text-white ring-2 ring-white">
             {localUnreadCount > 9 ? "9+" : localUnreadCount}
           </span>
         ) : null}

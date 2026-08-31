@@ -275,7 +275,7 @@ export function NotificationCard({
     "border-violet-100/80 bg-white shadow-[0_4px_16px_-12px_rgba(26,16,51,0.3)]",
     "hover:border-primary/20 hover:shadow-[0_10px_24px_-18px_rgba(98,70,234,0.24)]",
     "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary",
-    !isRead && "border-l-[3px] border-l-primary bg-violet-50/40 pl-2 sm:pl-3"
+    !isRead && "border-l-[3px] border-l-rose-600 bg-violet-50/40 pl-2 sm:pl-3"
   );
 
   const mainContent = (

@@ -205,7 +205,7 @@ export function NotificationDropdownRow({
         >
           {!notification.isRead ? (
             <span
-              className="size-2 rounded-full bg-[#6E46C7] ring-2 ring-white"
+              className="size-2 rounded-full bg-rose-600 ring-2 ring-white"
               aria-hidden
             />
           ) : null}
@@ -226,7 +226,7 @@ export function NotificationDropdownRow({
       {mainContent}
       {!notification.isRead ? (
         <span
-          className="absolute right-3 top-1/2 size-2 -translate-y-1/2 rounded-full bg-[#6E46C7] ring-2 ring-white sm:right-4"
+          className="absolute right-3 top-1/2 size-2 -translate-y-1/2 rounded-full bg-rose-600 ring-2 ring-white sm:right-4"
           aria-hidden
         />
       ) : null}
