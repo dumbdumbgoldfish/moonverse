@@ -12,7 +12,7 @@ import type { MoonieLookupCandidate } from "@/types/moonie";
 interface MoonieLookupCandidatesProps {
   candidates: MoonieLookupCandidate[];
   isLoggedIn?: boolean;
-  onSelect?: (prompt: string) => void;
+  onSelect?: (prompt: string, novelId?: string) => void;
   className?: string;
   density?: MoonieCardDensity;
 }
@@ -59,7 +59,7 @@ function LookupCandidateCard({
 }: {
   candidate: MoonieLookupCandidate;
   isLoggedIn: boolean;
-  onSelect?: (prompt: string) => void;
+  onSelect?: (prompt: string, novelId?: string) => void;
   density: MoonieCardDensity;
 }) {
   const [detailsOpen, setDetailsOpen] = useState(false);
@@ -137,7 +137,9 @@ function LookupCandidateCard({
             <button
               type="button"
               disabled={!isLoggedIn}
-              onClick={() => onSelect(`This one — ${candidate.title}`)}
+              onClick={() =>
+                onSelect(`This one — ${candidate.title}`, candidate.novelId)
+              }
               className="rounded-full bg-[#4C2A67] px-3 py-1.5 text-xs font-semibold text-white hover:bg-[#3d2153] disabled:opacity-50"
             >
               This one

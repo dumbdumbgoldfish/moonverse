@@ -109,7 +109,7 @@ export function MoonieComparePanel({
 
       {conclusion ? (
         <div className="border-t border-violet-50 bg-[#FBF6FC] px-4 py-3 text-sm leading-relaxed text-[#1A1224]">
-          {conclusion}
+          {conclusion.replace(/\*\*/g, "")}
         </div>
       ) : null}
     </div>

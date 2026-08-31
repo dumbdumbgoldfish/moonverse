@@ -22,7 +22,10 @@ export type MoonieAnalyticsIntent =
   | "file_lookup"
   | "find_reviewers"
   | "reviewer_overview"
-  | "novel_series";
+  | "novel_series"
+  | "top_reviews"
+  | "salon_reviews"
+  | "catalogue_stat";
 
 export function resolveAnalyticsIntent(options: {
   intents: MoonieIntent[];
@@ -62,12 +65,20 @@ export function resolveAnalyticsIntent(options: {
       return "reviewer_overview";
     case "NOVEL_SERIES":
       return "novel_series";
+    case "TOP_REVIEWS":
+      return "top_reviews";
+    case "SALON_REVIEWS":
+      return "salon_reviews";
+    case "CATALOGUE_STAT":
+      return "catalogue_stat";
     case "RECOMMEND":
       return "recommend";
     default:
       if (options.responseKind === "compare") return "compare";
       if (options.responseKind === "novel_bundle") return "find_novel";
       if (options.responseKind === "recommendations") return "recommend";
+      if (options.responseKind === "reviews") return "top_reviews";
+      if (options.responseKind === "catalogue_stat") return "catalogue_stat";
       return "chat";
   }
 }

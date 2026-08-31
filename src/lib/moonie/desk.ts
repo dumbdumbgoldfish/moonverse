@@ -1,5 +1,6 @@
 import { WEB_NOVEL_GENRES } from "../genres";
-import { WEB_NOVEL_TAGS } from "../tags";
+import { parseSearchQuery } from "../search";
+import { extractPreferencesFromMessage } from "./preferences";
 import type {
   MoonieInterpretedPreferences,
   MoonieRecommendation,
@@ -8,18 +9,6 @@ import type {
 function keywordSearchHref(query: string): string {
   const q = query.trim();
   return q ? `/search?q=${encodeURIComponent(q)}` : "/search";
-}
-
-function tagSlugFromLabel(value: string): string | null {
-  const needle = value.trim().toLowerCase();
-  if (!needle) return null;
-  const match = WEB_NOVEL_TAGS.find(
-    (tag) =>
-      tag.slug === needle ||
-      tag.name.toLowerCase() === needle ||
-      tag.slug.replace(/-/g, " ") === needle
-  );
-  return match?.slug ?? null;
 }
 
 export const MOONIE_CONSTRAINT =
@@ -98,6 +87,33 @@ export const MOONIE_WIDGET_CHIPS = [
   },
 ] as const;
 
+const MOONIE_GENERIC_DISCOVERY_TEXT = new Set(
+  [
+    MOONIE_WIDGET_CHIPS[0],
+    MOONIE_WIDGET_CHIPS[3],
+    {
+      label: "Find a novel",
+      prompt: "Help me find a novel.",
+    },
+    {
+      label: "Find a novel",
+      prompt: "Help me find a novel in the catalogue.",
+    },
+  ].flatMap((chip) => [
+    normalizeDeskChipText(chip.label),
+    normalizeDeskChipText(chip.prompt),
+  ])
+);
+
+/**
+ * Widget/desk starters that ask for discovery, not a catalogue title.
+ * "Where to read" and "Compare novels" are not included.
+ */
+export function isMoonieGenericDiscoveryPrompt(message: string): boolean {
+  if (isMoonieDeskChipPrompt(message)) return true;
+  return MOONIE_GENERIC_DISCOVERY_TEXT.has(normalizeDeskChipText(message));
+}
+
 export function resolveGenreSlug(value: string): string | null {
   const needle = value.trim().toLowerCase();
   if (!needle) return null;
@@ -108,30 +124,55 @@ export function resolveGenreSlug(value: string): string | null {
   return match?.slug ?? null;
 }
 
-export function compareDiscoveryHref(
-  prefs?: MoonieInterpretedPreferences | null,
-  userQuery?: string
-): string {
-  const genre = (prefs?.genres ?? [])
-    .map(resolveGenreSlug)
-    .find((slug): slug is string => Boolean(slug));
-  const tags = (prefs?.tags ?? [])
-    .map((tag) => tagSlugFromLabel(tag))
-    .filter((slug): slug is string => Boolean(slug))
-    .slice(0, 3);
+const CONVERSATIONAL_DISCOVERY_RE =
+  /\b(recommend(?:ation)?s?|suggest|discover|surprise me|what should i read|pick(?:s)? for me|want to read|in the mood|show me|give me|find me|looking for|i want|i need)\b/i;
+const SIMILARITY_REQUEST_RE = /\b(similar to|something like|more like)\b/i;
 
-  const params = new URLSearchParams();
-  const q = userQuery?.trim();
-  if (genre) params.set("genre", genre);
-  if (tags.length) params.set("tags", tags.join(","));
-  if (q) params.set("q", q);
-  if (params.toString()) {
-    if (genre || tags.length) {
-      params.set("type", "works");
-    }
+/**
+ * Translate a Moonie request only when Search can represent it honestly.
+ * Saved/session preferences are intentionally excluded: Search URL facets
+ * come solely from the current user message.
+ */
+export function compareDiscoveryHref(userQuery?: string): string | null {
+  const query = userQuery?.trim();
+  if (!query) return null;
+
+  if (SIMILARITY_REQUEST_RE.test(query)) return null;
+  const parsed = parseSearchQuery(query);
+  const explicit = extractPreferencesFromMessage(query);
+  const hasExplicitPreference =
+    explicit.genres.length > 0 ||
+    explicit.tags.length > 0 ||
+    Boolean(explicit.status || explicit.language || explicit.length) ||
+    explicit.mood.length > 0 ||
+    explicit.excludedTags.length > 0;
+  const hasUnsupportedConstraint =
+    Boolean(explicit.status || explicit.language || explicit.length) ||
+    explicit.mood.length > 0 ||
+    explicit.excludedTags.length > 0;
+  const hasAlternativeFacets =
+    /\bor\b/i.test(query) &&
+    explicit.genres.length + explicit.tags.length > 1;
+  if (hasUnsupportedConstraint || hasAlternativeFacets) return null;
+
+  if (parsed.genreSlug || parsed.tagSlugs.length > 0) {
+    const params = new URLSearchParams();
+    if (parsed.genreSlug) params.set("genre", parsed.genreSlug);
+    if (parsed.tagSlugs.length) params.set("tags", parsed.tagSlugs.join(","));
+    params.set("type", "works");
     return `/search?${params.toString()}`;
   }
-  return keywordSearchHref(userQuery ?? "");
+
+  if (hasExplicitPreference || CONVERSATIONAL_DISCOVERY_RE.test(query)) {
+    return null;
+  }
+
+  return keywordSearchHref(query);
+}
+
+export function compareDiscoveryCtaLabel(href: string): string {
+  const params = new URL(href, "https://moonverse.local").searchParams;
+  return params.has("q") ? "Search this title" : "Open these filters in Search";
 }
 
 export function tasteUsedLabels(

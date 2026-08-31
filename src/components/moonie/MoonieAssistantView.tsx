@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState, useTransition } from "react";
-import { usePathname, useSearchParams } from "next/navigation";
+import { usePathname } from "next/navigation";
 import {
   BookMarked,
   ChevronDown,
@@ -12,21 +12,22 @@ import {
 import {
   MoonieAssistantTitle,
   MoonieDeskComposer,
-  MoonieDeskEmpty,
   MoonieDiscoveryQuotaBadge,
   MoonieGuestDemoBadge,
   MoonieGuestGate,
+  MoonieGuestRateLimit,
   MOONIE_COMPOSER_TOOLBAR_BUTTON,
   MOONIE_COMPOSER_TOOLBAR_BUTTON_ACTIVE,
   MoonieGoldSeal,
-  MoonieGreeting,
   MoonieNoMatch,
   MoonieRateLimit,
   MoonieChatError,
 } from "@/components/moonie/MoonieDesk";
+import { MoonieDeskCanvasEmptyState, MoonieDeskCanvasEmptyBackdrop } from "@/components/moonie/MoonieDeskCanvasEmptyState";
 import { MoonieComposerTooltip } from "@/components/moonie/MoonieComposerTooltip";
 import { MoonieLuxuryCard } from "@/components/moonie/MoonieLuxuryCard";
 import { MoonieReviewResults } from "@/components/moonie/MoonieReviewResults";
+import { MoonieRankedReviews } from "@/components/moonie/MoonieRankedReviews";
 import { MoonieReviewerResults } from "@/components/moonie/MoonieReviewerResults";
 import { MoonieReviewerDetail } from "@/components/moonie/MoonieReviewerDetail";
 import { MoonieReviewerGroupDetail } from "@/components/moonie/MoonieReviewerGroupDetail";
@@ -52,22 +53,28 @@ import { MoonieRememberPreferencePrompt } from "@/components/moonie/MoonieRememb
 import { CatalogLink } from "@/components/ui/CatalogLink";
 import { MoonieQuickStartChips } from "@/components/moonie/MoonieQuickStartChips";
 import { Button } from "@/components/ui/button";
+import {
+  getMoonieTasteProfileAction,
+  updateMoonieUseTasteByDefaultAction,
+} from "@/actions/moonie.actions";
 import { useMoonieChat } from "@/hooks/use-moonie-chat";
 import { useMoonieChatScroll } from "@/hooks/use-moonie-chat-scroll";
 import { previousUserContent } from "@/lib/moonie/desk";
 import {
   hasResultDiagnostics,
+  isActionableMoonieFollowUp,
+  isUnresolvedLookupSession,
   moonieDisplayContent,
   resolveMoonieCardMode,
   resolveMoonieQuickPrompts,
   resolveMoonieReplyIntent,
 } from "@/lib/moonie/presentation";
 import { SITE_SHELL_CLASS } from "@/lib/site-shell";
-import { readMoonieDeskConversationId } from "@/lib/moonie/conversation-url";
 import { SPOILER_MODE_LABELS } from "@/lib/moonie/spoiler-mode";
 import {
   MOONIE_CHAT_ATTACHMENT_INDENT,
   MOONIE_CHAT_CARD_STACK,
+  MOONIE_COMPARE_ATTACHMENT_STACK,
 } from "@/components/moonie/moonie-chat-bubble-styles";
 import { cn } from "@/lib/utils";
 
@@ -77,7 +84,10 @@ interface MoonieAssistantViewProps {
   variant?: "page" | "panel";
   onClose?: () => void;
   initialPrompt?: string;
+  /** Server-known `/moonie?new=1` before client search params hydrate. */
+  initialDeskNewChat?: boolean;
   initialConversationId?: string;
+  initialMessages?: import("@/types/moonie").MoonieChatMessage[];
   /** Guest demo cap for `/ask-moonie` (logged-out users). */
   guestDemoCap?: number;
   /** Compact embedded layout for the guest Ask Moonie two-column page. */
@@ -90,21 +100,21 @@ export function MoonieAssistantView({
   variant = "page",
   onClose,
   initialPrompt,
+  initialDeskNewChat = false,
   initialConversationId,
+  initialMessages,
   guestDemoCap,
   guestPageLayout = false,
 }: MoonieAssistantViewProps) {
   const isGuestDemo = Boolean(guestDemoCap) && !isLoggedIn;
   const isGuestEmbed = isGuestDemo && guestPageLayout;
   const pathname = usePathname();
-  const searchParams = useSearchParams();
   const novelMatch = pathname.match(/^\/novels\/([^/]+)/);
   const contextNovelId = novelMatch?.[1];
   const isPage = variant === "page";
-  const urlConversationId = isPage
-    ? readMoonieDeskConversationId(searchParams)
-    : undefined;
-  const routeConversationId = urlConversationId ?? initialConversationId;
+  const routeConversationId = initialConversationId;
+  const deskNewChat =
+    isPage && !routeConversationId && initialDeskNewChat;
 
   const {
     messages,
@@ -134,20 +144,43 @@ export function MoonieAssistantView({
     isLoggedIn,
     contextNovelId,
     initialConversationId: routeConversationId,
+    initialMessages,
     persistDeskConversation: isPage && isLoggedIn,
+    deskNewChat,
     guestDemoCap,
   });
   const [tasteOpen, setTasteOpen] = useState(false);
   const [completedOnly, setCompletedOnly] = useState(false);
-  const [useTaste, setUseTaste] = useState(true);
+  const [useTaste, setUseTaste] = useState<boolean | undefined>(undefined);
+  const [tasteSaving, setTasteSaving] = useState(false);
   const autoSent = useRef<string | null>(null);
   const [, startTransition] = useTransition();
-  const { scrollRef, registerMessageRef, showJumpToBottom, scrollToBottom } =
-    useMoonieChatScroll(messages, isLoading, {
+  const {
+    scrollRef,
+    contentRef,
+    registerMessageRef,
+    showJumpToBottom,
+    scrollToBottom,
+  } = useMoonieChatScroll(messages, isLoading, {
       conversationId: isPage ? conversationId : undefined,
       restoreScroll: isPage && Boolean(conversationId),
     });
   const firstName = displayName?.trim().split(/\s+/)[0];
+
+  useEffect(() => {
+    if (!isLoggedIn) return;
+    let active = true;
+    void getMoonieTasteProfileAction()
+      .then((profile) => {
+        if (active) setUseTaste(profile.useTasteByDefault);
+      })
+      .catch(() => {
+        // The request route still resolves the persisted server default.
+      });
+    return () => {
+      active = false;
+    };
+  }, [isLoggedIn]);
 
   useEffect(() => {
     const prompt = initialPrompt?.trim();
@@ -155,10 +188,13 @@ export function MoonieAssistantView({
     if (isRestoring) return;
     if (routeConversationId) return;
     if (!isLoggedIn && !isGuestDemo) return;
+    if (isGuestDemo && guestTurnsRemaining === null) return;
+    if (isGuestDemo && (guestTurnsRemaining ?? 0) <= 0) return;
     autoSent.current = prompt;
     void handleSubmit(prompt, isGuestDemo ? {} : { useTaste });
   }, [
     handleSubmit,
+    guestTurnsRemaining,
     initialPrompt,
     isGuestDemo,
     isLoggedIn,
@@ -169,6 +205,20 @@ export function MoonieAssistantView({
 
   function handleStartNew() {
     startNewConversation();
+  }
+
+  function toggleUseTaste() {
+    if (useTaste === undefined || tasteSaving) return;
+    const previous = useTaste;
+    const next = !previous;
+    setUseTaste(next);
+    setTasteSaving(true);
+    void updateMoonieUseTasteByDefaultAction(next)
+      .then((result) => {
+        if (!result.success) setUseTaste(previous);
+      })
+      .catch(() => setUseTaste(previous))
+      .finally(() => setTasteSaving(false));
   }
 
   function applySendModifiers(raw: string): string {
@@ -183,12 +233,17 @@ export function MoonieAssistantView({
     return trimmed;
   }
 
-  function send(raw: string) {
+  function send(raw: string, confirmLookupNovelId?: string) {
     const trimmed = raw.trim();
     if (!trimmed || isLoading) return;
     if (!isLoggedIn && !isGuestDemo) return;
     if (isGuestDemo && (guestTurnsRemaining ?? 0) <= 0) return;
-    void handleSubmit(applySendModifiers(trimmed), isGuestDemo ? {} : { useTaste });
+    void handleSubmit(
+      applySendModifiers(trimmed),
+      isGuestDemo
+        ? { confirmLookupNovelId }
+        : { useTaste, confirmLookupNovelId }
+    );
   }
 
   function sendFromComposer(messageOverride?: string) {
@@ -201,11 +256,12 @@ export function MoonieAssistantView({
     isGuestDemo && (guestTurnsRemaining ?? 0) <= 0;
 
   const empty = messages.length === 0 && !isLoading && !isRestoring;
-  const guestCardCompact = isGuestEmbed && empty && !guestTurnsExhausted;
   const guestShowGateOnly = isGuestEmbed && guestTurnsExhausted && empty;
+  const showDeskEmpty = empty && !guestTurnsExhausted && !guestShowGateOnly;
 
   return (
     <div
+      data-moonie-desk={isGuestEmbed ? "embed" : isPage ? "page" : "widget"}
       className={cn(
         "relative overflow-hidden text-[#FFFBFF]",
         isGuestEmbed
@@ -375,38 +431,38 @@ export function MoonieAssistantView({
               </div>
             ) : (
               <>
+            <div className="relative min-h-0 flex-1 basis-0">
+            {showDeskEmpty ? <MoonieDeskCanvasEmptyBackdrop /> : null}
             <div
               ref={scrollRef}
               className={cn(
-                "relative min-h-0 overflow-x-hidden overflow-y-auto overscroll-contain px-3 py-4 sm:px-5",
-                "flex-1 basis-0",
-                guestCardCompact && "flex flex-col justify-center",
+                "relative h-full min-h-0 overflow-x-hidden overflow-y-auto overscroll-contain px-3 py-4 sm:px-5",
+                showDeskEmpty && "flex flex-col",
               )}
             >
-              <div className="min-w-0 space-y-4">
               <div
+                ref={contentRef}
                 className={cn(
-                  "flex w-full flex-col items-center text-center",
-                  empty ? "pt-1" : "pb-1"
+                  "min-w-0",
+                  isPage &&
+                    isLoggedIn &&
+                    (messages.length > 0 || isLoading || isRestoring)
+                    ? "flex min-h-full flex-col justify-end gap-4 [&>*]:shrink-0"
+                    : showDeskEmpty
+                      ? "flex min-h-full flex-col items-center justify-center"
+                      : "space-y-4"
                 )}
               >
-                {empty && !guestTurnsExhausted ? (
-                  <p className="mb-4">
-                    <MoonieGreeting
-                      firstName={firstName}
-                      className="text-2xl sm:text-3xl"
-                    />
-                  </p>
-                ) : null}
-                {empty && !guestTurnsExhausted ? (
-                  <MoonieDeskEmpty
-                    disabled={isLoading || guestTurnsExhausted}
-                    onSelect={send}
-                    showConstraint={false}
-                    centered
-                  />
-                ) : null}
-              </div>
+              {showDeskEmpty ? (
+                <MoonieDeskCanvasEmptyState firstName={firstName} />
+              ) : null}
+
+              {isRestoring && messages.length === 0 ? (
+                <div role="status" aria-live="polite" className="px-1">
+                  <div className="h-2 w-24 animate-pulse rounded-full bg-white/15" />
+                  <p className="sr-only">Restoring this conversation</p>
+                </div>
+              ) : null}
 
               {messages.map((message, index) => {
                 const userQuery = previousUserContent(messages, index);
@@ -425,9 +481,9 @@ export function MoonieAssistantView({
                     hiddenCount: excludedNovelIds.length,
                   });
 
-                const showLookupCandidates =
-                  Boolean(message.lookupSession?.candidates.length) &&
-                  (message.recommendations?.length ?? 0) === 0;
+                const showLookupCandidates = isUnresolvedLookupSession(
+                  message.lookupSession
+                );
                 const showCompare = (message.compare?.rows.length ?? 0) > 0;
                 const showRecommendations =
                   (message.recommendations?.length ?? 0) > 0 &&
@@ -443,10 +499,18 @@ export function MoonieAssistantView({
                 const showFollowUpQuestion =
                   Boolean(message.followUpQuestion && !message.isError) &&
                   quickPrompts.length === 0;
+                const actionableFollowUp =
+                  message.role === "assistant" &&
+                  isActionableMoonieFollowUp(message.followUpQuestion);
                 const showAttachments =
                   showLookupCandidates ||
                   showCompare ||
-                  (cardMode === "reviews" && Boolean(message.novelOverview)) ||
+                  (cardMode === "reviews" &&
+                    Boolean(
+                      message.novelOverview ||
+                        (message.novelReviewGroups?.length ?? 0) > 0 ||
+                        (message.rankedReviews?.length ?? 0) > 0
+                    )) ||
                   (cardMode === "reviewers" &&
                     Boolean(message.reviewerResults?.length)) ||
                   (cardMode === "reviewer_detail" &&
@@ -461,7 +525,7 @@ export function MoonieAssistantView({
                   (message.state === "no_results" && !message.isError);
 
                 const followUpConsumed =
-                  Boolean(message.followUpQuestion) &&
+                  actionableFollowUp &&
                   messages
                     .slice(index + 1)
                     .some(
@@ -474,7 +538,12 @@ export function MoonieAssistantView({
                 <div
                   key={message.id}
                   ref={(node) => registerMessageRef(message.id, node)}
-                  className="min-w-0 max-w-full space-y-3"
+                  className={cn(
+                    "min-w-0 max-w-full space-y-3",
+                    message.role === "assistant" &&
+                      message.animateEntrance &&
+                      "mv-moonie-reply-enter"
+                  )}
                 >
                   <div
                     className={cn(
@@ -492,7 +561,15 @@ export function MoonieAssistantView({
                     {message.isError ? (
                       <div className="min-w-0 flex-1">
                         {message.state === "rate_limit" ? (
-                          <MoonieRateLimit quotaRemaining={quotaRemaining} />
+                          message.quotaAudience === "guest" ||
+                          (isGuestDemo && message.quotaAudience !== "member") ? (
+                            <MoonieGuestRateLimit
+                              remaining={guestTurnsRemaining}
+                              cap={guestDemoCap ?? 3}
+                            />
+                          ) : (
+                            <MoonieRateLimit quotaRemaining={quotaRemaining} />
+                          )
                         ) : (
                           <MoonieChatError message={message.content} />
                         )}
@@ -512,18 +589,56 @@ export function MoonieAssistantView({
                       message.role === "assistant" && MOONIE_CHAT_ATTACHMENT_INDENT
                     )}
                   >
-                  {showCompare ? (
-                    <MoonieComparePanel
-                      rows={message.compare!.rows}
-                      conclusion={message.compare!.conclusion}
-                    />
+                  {showCompare ||
+                  (showRecommendations &&
+                    (message.compare?.rows.length ?? 0) > 0) ? (
+                    <div className={MOONIE_COMPARE_ATTACHMENT_STACK}>
+                      {showCompare ? (
+                        <MoonieComparePanel
+                          rows={message.compare!.rows}
+                          conclusion={message.compare!.conclusion}
+                        />
+                      ) : null}
+
+                      {showRecommendations &&
+                      (message.compare?.rows.length ?? 0) > 0 ? (
+                        <div className={MOONIE_CHAT_CARD_STACK}>
+                          {message.recommendations!.map((rec) => (
+                            <MoonieLuxuryCard
+                              key={`${message.id}-${rec.novelId}`}
+                              recommendation={rec}
+                              community={message.novelOverview?.community}
+                              isLoggedIn={isLoggedIn}
+                              onNotForMe={hideNovel}
+                              density="widget"
+                              mode={cardMode}
+                              onMoreLikeThis={(novelId) => {
+                                startTransition(() => {
+                                  void handleSubmit(
+                                    "More like this novel, refined to my taste.",
+                                    { similarToNovelId: novelId, useTaste }
+                                  );
+                                });
+                              }}
+                            />
+                          ))}
+                        </div>
+                      ) : null}
+                    </div>
                   ) : null}
 
                   {showLookupCandidates ? (
                     <MoonieLookupCandidates
                       candidates={message.lookupSession!.candidates}
                       isLoggedIn={isLoggedIn}
-                      onSelect={(prompt) => send(prompt)}
+                      onSelect={(prompt, novelId) => send(prompt, novelId)}
+                      density="desk"
+                    />
+                  ) : null}
+
+                  {cardMode === "reviews" && message.rankedReviews?.length ? (
+                    <MoonieRankedReviews
+                      reviews={message.rankedReviews}
                       density="desk"
                     />
                   ) : null}
@@ -534,6 +649,16 @@ export function MoonieAssistantView({
                       density="desk"
                     />
                   ) : null}
+
+                  {cardMode === "reviews" && message.novelReviewGroups?.length
+                    ? message.novelReviewGroups.map((group) => (
+                        <MoonieReviewResults
+                          key={group.novelId}
+                          overview={group.overview}
+                          density="desk"
+                        />
+                      ))
+                    : null}
 
                   {cardMode === "reviewers" && message.reviewerResults?.length ? (
                     <MoonieReviewerResults
@@ -563,7 +688,8 @@ export function MoonieAssistantView({
                     <MoonieSeriesPanel series={message.seriesInfo} density="desk" />
                   ) : null}
 
-                  {showRecommendations ? (
+                  {showRecommendations &&
+                  (message.compare?.rows.length ?? 0) === 0 ? (
                     <div className={MOONIE_CHAT_CARD_STACK}>
                       {message.recommendations!.map((rec) => (
                         <MoonieLuxuryCard
@@ -604,21 +730,42 @@ export function MoonieAssistantView({
                     />
                   ) : null}
 
-                  {message.followUpQuestion && !message.isError && !followUpConsumed && showFollowUpQuestion ? (
-                    <CatalogLink
-                      onClick={() => send(message.followUpQuestion!)}
-                      size="compact"
-                    >
-                      {message.followUpQuestion}
-                    </CatalogLink>
-                  ) : null}
-
-                  {message.state === "no_results" && !message.isError ? (
-                    <MoonieNoMatch
-                      onBroaden={() =>
-                        send("Same request, but drop the strictest constraint.")
-                      }
-                    />
+                  {(message.role === "assistant" &&
+                    message.followUpQuestion &&
+                    !message.isError &&
+                    !followUpConsumed &&
+                    showFollowUpQuestion) ||
+                  (message.state === "no_results" && !message.isError) ? (
+                    <div className="flex min-w-0 flex-col gap-3">
+                      {message.role === "assistant" &&
+                      message.followUpQuestion &&
+                      !message.isError &&
+                      !followUpConsumed &&
+                      showFollowUpQuestion ? (
+                        actionableFollowUp ? (
+                        <CatalogLink
+                          onClick={() => send(message.followUpQuestion!)}
+                          size="compact"
+                          className="!h-auto min-h-9 max-w-full !whitespace-normal break-words !leading-snug"
+                        >
+                          {message.followUpQuestion}
+                        </CatalogLink>
+                        ) : (
+                          <p className="min-w-0 break-words text-xs leading-relaxed text-slate-600">
+                            {message.followUpQuestion}
+                          </p>
+                        )
+                      ) : null}
+                      {message.state === "no_results" && !message.isError ? (
+                        <MoonieNoMatch
+                          reason={message.content}
+                          emptyReason={message.emptyReason}
+                          onBroaden={() =>
+                            send("Same request, but drop the strictest constraint.")
+                          }
+                        />
+                      ) : null}
+                    </div>
                   ) : null}
                   </div>
                   ) : null}
@@ -630,14 +777,15 @@ export function MoonieAssistantView({
                 <MoonieThinkingBubble phase={loadingPhase} />
               ) : null}
               </div>
+            </div>
               {showJumpToBottom ? (
                 <button
                   type="button"
+                  aria-label="Scroll to latest message"
                   onClick={() => scrollToBottom()}
-                  className="absolute bottom-3 left-1/2 z-10 flex -translate-x-1/2 items-center gap-1 rounded-full border border-violet-200 bg-white px-3 py-1.5 text-xs font-semibold text-[#4C2A67] shadow-md transition hover:bg-violet-50"
+                  className="absolute bottom-3 left-1/2 z-10 flex size-11 -translate-x-1/2 items-center justify-center rounded-full border border-violet-200 bg-white text-[#4C2A67] shadow-md transition hover:bg-violet-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-violet-400 focus-visible:ring-offset-2"
                 >
-                  <ChevronDown className="size-3.5" aria-hidden />
-                  New message
+                  <ChevronDown className="size-5" aria-hidden />
                 </button>
               ) : null}
             </div>
@@ -660,22 +808,25 @@ export function MoonieAssistantView({
                     value={input}
                     onChange={setInput}
                     onSubmit={sendFromComposer}
-                    disabled={isLoading || guestTurnsExhausted}
-                    sendDisabled={!input.trim()}
+                    disabled={guestTurnsExhausted}
+                    sendDisabled={!input.trim() || isLoading}
                     placeholder="Ask Moonie"
                     leading={
                       isLoggedIn ? (
                         <>
                           <FilterChip
-                            active={useTaste}
-                            onClick={() => setUseTaste((value) => !value)}
+                            active={useTaste === true}
+                            disabled={useTaste === undefined || tasteSaving}
+                            onClick={toggleUseTaste}
                             icon={BookMarked}
                             label="Use my taste profile for recommendations"
                             tipId="moonie-composer-taste"
                             tipLabel="My taste"
                             tipAlign="start"
                             tipHint={
-                              useTaste
+                              useTaste === undefined
+                                ? "Loading saved preference"
+                                : useTaste
                                 ? "On · uses your saved profile"
                                 : "Off · generic picks this turn"
                             }
@@ -734,6 +885,7 @@ export function MoonieAssistantView({
 
 function FilterChip({
   active,
+  disabled = false,
   onClick,
   icon: Icon,
   label,
@@ -744,6 +896,7 @@ function FilterChip({
   iconOnly = false,
 }: {
   active: boolean;
+  disabled?: boolean;
   onClick: () => void;
   icon: typeof BookMarked;
   label: string;
@@ -757,6 +910,7 @@ function FilterChip({
     <button
       type="button"
       onClick={onClick}
+      disabled={disabled}
       aria-pressed={active}
       aria-label={tipLabel ?? label}
       className={cn(

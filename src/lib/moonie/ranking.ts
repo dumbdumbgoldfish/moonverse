@@ -92,6 +92,22 @@ export function matchPercent(score: number): number {
   return Math.round(Math.max(0, Math.min(1, score)) * 100);
 }
 
+/** Catalogue-fit strength bands aligned with matchPercent thresholds. */
+export function matchStrengthLabel(matchPct: number): "strong" | "moderate" | "weak" {
+  if (matchPct >= 55) return "strong";
+  if (matchPct >= 35) return "moderate";
+  return "weak";
+}
+
+export function confidenceFromMatchPercent(
+  matchPct: number,
+  reviewCount = 0
+): "high" | "medium" | "low" {
+  if (matchPct >= 55 && reviewCount >= 2) return "high";
+  if (matchPct >= 35) return "medium";
+  return "low";
+}
+
 export function parseEmbedding(value: unknown): number[] {
   if (!Array.isArray(value)) return [];
   return value.filter((item): item is number => typeof item === "number");

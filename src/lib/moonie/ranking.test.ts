@@ -6,6 +6,8 @@ import {
   cosineSimilarity,
   lexicalHashEmbedding,
   matchPercent,
+  matchStrengthLabel,
+  confidenceFromMatchPercent,
   overlapScore,
   RANKING_WEIGHTS,
 } from "./ranking";
@@ -49,9 +51,31 @@ describe("ranking", () => {
     assert.equal(Number(breakdown.semantic.toFixed(2)), 0.4);
   });
 
+  it("does not add a diversity floor when diversity signal is zero", () => {
+    const weak = combineRankingScore({
+      semantic: 0,
+      structured: 0,
+      quality: 0.12,
+      history: 0.05,
+      diversity: 0,
+    });
+    assert.ok(weak.score < 0.2);
+    assert.equal(weak.breakdown.diversity, 0);
+  });
+
   it("converts scores to match percent", () => {
     assert.equal(matchPercent(0.73), 73);
     assert.equal(matchPercent(1.4), 100);
+  });
+
+  it("labels match strength bands consistently with confidence", () => {
+    assert.equal(matchStrengthLabel(27), "weak");
+    assert.equal(matchStrengthLabel(40), "moderate");
+    assert.equal(matchStrengthLabel(60), "strong");
+    assert.equal(confidenceFromMatchPercent(27), "low");
+    assert.equal(confidenceFromMatchPercent(40), "medium");
+    assert.equal(confidenceFromMatchPercent(60, 3), "high");
+    assert.equal(confidenceFromMatchPercent(60, 1), "medium");
   });
 
   it("builds a unit lexical hash embedding", () => {

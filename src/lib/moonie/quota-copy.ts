@@ -1,5 +1,22 @@
 import { MOONIE_DAILY_DISCOVERY_LIMIT } from "@/lib/moonie/constants";
 
+export const MOONIE_GUEST_RATE_LIMIT_TITLE = "Demo limit reached";
+
+export function formatGuestQuotaUsed(used: number, cap: number): string {
+  return `${used} / ${cap} free turns used`;
+}
+
+export function buildGuestRateLimitBody(options?: { compact?: boolean }): string {
+  if (options?.compact) {
+    return "Create an account to keep taste, shelves, and multi-turn refine on this desk.";
+  }
+  return "You have used your free Moonie demo turns. Create an account for personalised chats, saved recommendations, and your library desk.";
+}
+
+export function buildGuestRateLimitApiError(): string {
+  return "You have used your free Moonie demo turns. Create an account for personalised chats and saved recommendations.";
+}
+
 export function formatDiscoveryQuotaRemaining(
   remaining: number,
   limit = MOONIE_DAILY_DISCOVERY_LIMIT

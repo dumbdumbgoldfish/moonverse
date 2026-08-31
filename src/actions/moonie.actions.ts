@@ -8,6 +8,7 @@ import { db } from "@/lib/db";
 import type { MooniePersonalizationSettings } from "@/lib/moonie/personalization";
 import { DEFAULT_PERSONALIZATION_SETTINGS } from "@/lib/moonie/personalization";
 import { userAttachmentFromPersisted } from "@/lib/moonie/user-message-attachment";
+import { hydrateStoredAssistantMeta } from "@/lib/moonie/persist-assistant-turn";
 import { MOONIE_MAX_PINNED_CONVERSATIONS } from "@/lib/moonie/constants";
 
 export type MoonieActionResult =
@@ -121,6 +122,27 @@ export async function getMoonieTasteProfileAction() {
       useSearchHistory: taste?.useSearchHistory ?? true,
     },
   };
+}
+
+export async function updateMoonieUseTasteByDefaultAction(
+  useTasteByDefault: boolean
+): Promise<MoonieActionResult> {
+  try {
+    const userId = await requireUserId();
+    await db.moonieTasteProfile.upsert({
+      where: { userId },
+      create: { userId, useTasteByDefault },
+      update: { useTasteByDefault },
+    });
+    revalidatePath("/moonie");
+    revalidatePath("/settings");
+    return { success: true };
+  } catch (error) {
+    return {
+      success: false,
+      error: error instanceof Error ? error.message : "Could not save preference.",
+    };
+  }
 }
 
 export async function updateMoonieTasteProfileAction(input: {
@@ -280,53 +302,34 @@ function mapStoredMoonieMessage(message: {
     message.meta && typeof message.meta === "object"
       ? (message.meta as Record<string, unknown>)
       : {};
+  const hydrated = hydrateStoredAssistantMeta(meta);
   return {
     id: message.id,
     role: message.role === "user" ? "user" : "assistant",
     content: message.content,
     userAttachment: userAttachmentFromPersisted(meta.userAttachment),
-    recommendations: meta.recommendations as
-      | import("@/types/moonie").MoonieRecommendation[]
-      | undefined,
-    novelOverview: meta.novelOverview as
-      | import("@/types/moonie").MoonieNovelOverview
-      | undefined,
-    compare: meta.compare as import("@/types/moonie").MoonieCompareResult | undefined,
-    lookupSession: meta.lookupSession as
-      | import("@/types/moonie").MoonieLookupSession
-      | undefined,
-    interpretedPreferences: meta.interpretedPreferences as
-      | import("@/types/moonie").MoonieInterpretedPreferences
-      | undefined,
-    responseKind: meta.responseKind as
-      | import("@/types/moonie").MoonieResponseKind
-      | undefined,
-    analyticsIntent:
-      typeof meta.analyticsIntent === "string" ? meta.analyticsIntent : undefined,
-    reviewerResults: meta.reviewerResults as
-      | import("@/types/moonie").MoonieReviewerResult[]
-      | undefined,
-    reviewerSession: meta.reviewerSession as
-      | import("@/types/moonie").MoonieReviewerSession
-      | undefined,
-    reviewerOverview: meta.reviewerOverview as
-      | import("@/types/moonie").MoonieReviewerOverview
-      | undefined,
-    reviewerGroupOverview: meta.reviewerGroupOverview as
-      | import("@/types/moonie").MoonieReviewerGroupOverview
-      | undefined,
-    reviewerReviewSession: meta.reviewerReviewSession as
-      | import("@/types/moonie").MoonieReviewerReviewSession
-      | undefined,
-    seriesInfo: meta.seriesInfo as
-      | import("@/types/moonie").MoonieSeriesInfo
-      | undefined,
-    followUpQuestion:
-      typeof meta.followUpQuestion === "string" ? meta.followUpQuestion : undefined,
-    state:
-      typeof meta.state === "string"
-        ? (meta.state as import("@/types/moonie").MoonieResponseState)
-        : undefined,
+    recommendations: hydrated.recommendations,
+    novelOverview: hydrated.novelOverview,
+    novelReviewGroups: hydrated.novelReviewGroups,
+    compare: hydrated.compare,
+    lookupSession: hydrated.lookupSession,
+    interpretedPreferences: hydrated.interpretedPreferences,
+    responseKind: hydrated.responseKind,
+    analyticsIntent: hydrated.analyticsIntent,
+    reviewerResults: hydrated.reviewerResults,
+    reviewerSession: hydrated.reviewerSession,
+    reviewerOverview: hydrated.reviewerOverview,
+    reviewerGroupOverview: hydrated.reviewerGroupOverview,
+    reviewerReviewSession: hydrated.reviewerReviewSession,
+    seriesInfo: hydrated.seriesInfo,
+    followUpQuestion: hydrated.followUpQuestion,
+    state: hydrated.state,
+    emptyReason: hydrated.emptyReason,
+    pendingClarification: hydrated.pendingClarification,
+    rankedReviews: hydrated.rankedReviews,
+    catalogueStat: hydrated.catalogueStat,
+    rankingMetric: hydrated.rankingMetric,
+    requestedCount: hydrated.requestedCount,
   };
 }
 

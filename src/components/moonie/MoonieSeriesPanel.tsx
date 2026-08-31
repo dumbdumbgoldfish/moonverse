@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { BookOpen, ExternalLink } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { moonieLoggedInEntryHref } from "@/lib/moonie/open-moonie";
 import { cn } from "@/lib/utils";
 import type { MoonieCardDensity } from "@/lib/moonie/presentation";
 import type { MoonieSeriesInfo } from "@/types/moonie";
@@ -120,7 +121,7 @@ export function MoonieSeriesPanel({
       {isWidget ? (
         <div className="mt-3">
           <Link
-            href={`/moonie`}
+            href={moonieLoggedInEntryHref()}
             className="text-xs font-semibold text-violet-700 hover:text-violet-900"
           >
             Open full series

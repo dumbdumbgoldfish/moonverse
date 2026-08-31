@@ -15,7 +15,11 @@ import {
   MOONIE_DAILY_DISCOVERY_LIMIT,
   peekMoonieQuota,
 } from "@/lib/moonie/rate-limit";
-import { buildMoonieRateLimitApiError } from "@/lib/moonie/quota-copy";
+import { buildMoonieRateLimitApiError, buildGuestRateLimitApiError } from "@/lib/moonie/quota-copy";
+import {
+  buildMoonieIntentContextFromMessages,
+  moonieRequestLikelyConsumesQuota,
+} from "@/lib/moonie/guest-quota-enforcement";
 import { logMoonieDevQuotaToolsStatus } from "@/lib/moonie/dev-quota";
 import { MOONIE_IMAGE_BASE64_MAX_CHARS } from "@/lib/image-upload-limits";
 import { validateMoonieMessage } from "@/lib/validation";
@@ -23,14 +27,19 @@ import { getSystemSettings } from "@/lib/system-settings";
 import { normalizeSpoilerMode } from "@/lib/moonie/spoiler-mode";
 import { handleMoonieRequest } from "@/services/moonie-response.service";
 import { trackMoonieEvent, resolveResponseConfidenceTier } from "@/lib/moonie/analytics";
+import { buildPersistedAssistantMeta } from "@/lib/moonie/persist-assistant-turn";
 import type { MoonieSessionPreferences } from "@/lib/moonie/personalization";
 import { DEFAULT_PERSONALIZATION_SETTINGS } from "@/lib/moonie/personalization";
+import { resolveMoonieUseTaste } from "@/lib/moonie/recommend-request";
+import { findStoredMoonieTurnResponse } from "@/lib/moonie/recommend-idempotency";
+import { isUnseenRecommendationRequest } from "@/lib/moonie/intent";
 import type { MoonieInterpretedPreferences } from "@/types/moonie";
 
 logMoonieDevQuotaToolsStatus();
 
 const bodySchema = z.object({
   message: z.string().max(500).optional(),
+  clientTurnId: z.string().min(1).max(100).optional(),
   messages: z
     .array(
       z.object({
@@ -49,6 +58,7 @@ const bodySchema = z.object({
   useTaste: z.boolean().optional(),
   contextNovelId: z.string().max(64).optional(),
   contextNovelTitle: z.string().max(200).optional(),
+  confirmLookupNovelId: z.string().max(64).optional(),
   attachmentType: z.enum(["image", "file"]).optional(),
   imageData: z.string().max(MOONIE_IMAGE_BASE64_MAX_CHARS).optional(),
   imageMimeType: z.string().max(64).optional(),
@@ -94,21 +104,22 @@ function userAttachmentPersistenceMeta(
   return { userAttachment: meta };
 }
 
+function userTurnPersistenceMeta(
+  attachment: z.infer<typeof bodySchema>["userAttachmentMeta"],
+  clientTurnId?: string
+): Prisma.InputJsonValue | undefined {
+  const attachmentMeta = userAttachmentPersistenceMeta(attachment);
+  if (!clientTurnId) return attachmentMeta;
+  return {
+    ...((attachmentMeta as Record<string, unknown> | undefined) ?? {}),
+    clientTurnId,
+  } as Prisma.InputJsonValue;
+}
+
 function priorRecommendedNovelIds(
   messages: Array<{ role: string; meta: unknown }>
 ): string[] {
-  const ids = new Set<string>();
-  for (const msg of messages) {
-    if (msg.role !== "assistant" || !msg.meta || typeof msg.meta !== "object") {
-      continue;
-    }
-    const recs = (msg.meta as { recommendations?: { novelId: string }[] })
-      .recommendations;
-    for (const rec of recs ?? []) {
-      ids.add(rec.novelId);
-    }
-  }
-  return [...ids];
+  return collectPriorRecommendedNovelIds(messages);
 }
 
 async function trackEvent(
@@ -153,7 +164,10 @@ async function loadTasteContext(userId: string, useTaste?: boolean): Promise<{
     readingCount > 0 ||
     followCount > 0;
 
-  const shouldUseTaste = useTaste ?? taste?.useTasteByDefault ?? true;
+  const shouldUseTaste = resolveMoonieUseTaste(
+    useTaste,
+    taste?.useTasteByDefault
+  );
   const personalization = {
     useSavedNovels: taste?.useSavedNovels ?? true,
     useSavedReviews: taste?.useSavedReviews ?? true,
@@ -207,8 +221,12 @@ async function persistAssistantTurn(options: {
   message: string;
   result: Awaited<ReturnType<typeof handleMoonieRequest>>;
   userAttachmentMeta?: z.infer<typeof bodySchema>["userAttachmentMeta"];
+  clientTurnId?: string;
 }) {
-  const userMeta = userAttachmentPersistenceMeta(options.userAttachmentMeta);
+  const userMeta = userTurnPersistenceMeta(
+    options.userAttachmentMeta,
+    options.clientTurnId
+  );
 
   await db.$transaction([
     db.moonieMessage.create({
@@ -224,22 +242,10 @@ async function persistAssistantTurn(options: {
         conversationId: options.conversationId,
         role: "assistant",
         content: options.result.reply,
-        meta: {
-          recommendations: options.result.recommendations,
-          interpretedPreferences: options.result.interpretedPreferences,
-          novelOverview: options.result.novelOverview,
-          compare: options.result.compare,
-          responseKind: options.result.responseKind,
-          spoilerMode: options.result.spoilerMode,
-          lookupSession: options.result.lookupSession,
-          reviewerResults: options.result.reviewerResults,
-          reviewerSession: options.result.reviewerSession,
-          reviewerOverview: options.result.reviewerOverview,
-          reviewerGroupOverview: options.result.reviewerGroupOverview,
-          reviewerReviewSession: options.result.reviewerReviewSession,
-          seriesInfo: options.result.seriesInfo,
-          analyticsIntent: options.result.analyticsIntent,
-        } as unknown as Prisma.InputJsonValue,
+        meta: buildPersistedAssistantMeta(
+          options.result,
+          options.clientTurnId
+        ),
       },
     }),
     db.moonieConversation.update({
@@ -303,16 +309,51 @@ export async function POST(request: Request) {
         meta: entry.meta,
       }));
 
-      const excludeIds = [...new Set(parsed.data.excludeNovelIds ?? [])];
+      const seekingUnseen = isUnseenRecommendationRequest(message);
+      const priorIds = priorRecommendedNovelIds(priorMessages);
+      const explicitExcludeIds = [
+        ...new Set(parsed.data.excludeNovelIds ?? []),
+      ];
+      const excludeIds = [
+        ...new Set([
+          ...explicitExcludeIds,
+          ...(seekingUnseen ? priorIds : []),
+        ]),
+      ];
+
+      const guestIntentContext = buildMoonieIntentContextFromMessages(
+        priorMessages
+      );
+      const guestLikelyConsumes = moonieRequestLikelyConsumesQuota(
+        message,
+        guestIntentContext
+      );
+      if (
+        turnsUsed >= settings.guestMoonieDemoCap &&
+        guestLikelyConsumes
+      ) {
+        return NextResponse.json(
+          {
+            error: buildGuestRateLimitApiError(),
+            rateLimited: true,
+            guestTurnsRemaining: 0,
+          },
+          { status: 429 }
+        );
+      }
 
       const result = await handleMoonieRequest({
         message,
         messages: priorMessages,
         isLoggedIn: false,
         excludeNovelIds: excludeIds,
+        previouslyShownNovelIds: priorIds,
+        hasExplicitExclusions: explicitExcludeIds.length > 0,
+        seekingUnseen,
         similarToNovelId: parsed.data.similarToNovelId,
         contextNovelId: parsed.data.contextNovelId,
         contextNovelTitle: parsed.data.contextNovelTitle,
+        confirmLookupNovelId: parsed.data.confirmLookupNovelId,
         attachmentType: parsed.data.attachmentType ?? null,
         imageData: parsed.data.imageData ?? null,
         imageMimeType: parsed.data.imageMimeType ?? null,
@@ -326,9 +367,9 @@ export async function POST(request: Request) {
       if (consumesQuota && turnsUsed >= settings.guestMoonieDemoCap) {
         return NextResponse.json(
           {
-            error:
-              "You have used your free Moonie demo turns. Create an account for personalised chats and saved recommendations.",
+            error: buildGuestRateLimitApiError(),
             rateLimited: true,
+            guestTurnsRemaining: 0,
           },
           { status: 429 }
         );
@@ -376,10 +417,29 @@ export async function POST(request: Request) {
       }));
     const conversationId = conversation.id;
 
+    const storedResponse = findStoredMoonieTurnResponse(
+      conversation.messages,
+      parsed.data.clientTurnId
+    );
+    if (storedResponse) {
+      const quota = await peekMoonieQuota(userId);
+      return NextResponse.json({
+        ...storedResponse,
+        consumesQuota: false,
+        conversationId,
+        quotaRemaining: quota.remaining,
+      });
+    }
+
+    const seekingUnseen = isUnseenRecommendationRequest(message);
+    const priorIds = priorRecommendedNovelIds(conversation.messages);
+    const explicitExcludeIds = [
+      ...new Set(parsed.data.excludeNovelIds ?? []),
+    ];
     const excludeIds = [
       ...new Set([
-        ...(parsed.data.excludeNovelIds ?? []),
-        ...priorRecommendedNovelIds(conversation.messages),
+        ...explicitExcludeIds,
+        ...(seekingUnseen ? priorIds : []),
       ]),
     ];
 
@@ -391,10 +451,14 @@ export async function POST(request: Request) {
       userId,
       isLoggedIn: true,
       excludeNovelIds: excludeIds,
+      previouslyShownNovelIds: priorIds,
+      hasExplicitExclusions: explicitExcludeIds.length > 0,
+      seekingUnseen,
       similarToNovelId: parsed.data.similarToNovelId,
       useTaste: parsed.data.useTaste,
       contextNovelId: parsed.data.contextNovelId,
       contextNovelTitle: parsed.data.contextNovelTitle,
+      confirmLookupNovelId: parsed.data.confirmLookupNovelId,
       attachmentType: parsed.data.attachmentType ?? null,
       imageData: parsed.data.imageData ?? null,
       imageMimeType: parsed.data.imageMimeType ?? null,
@@ -434,6 +498,7 @@ export async function POST(request: Request) {
         message,
         result,
         userAttachmentMeta,
+        clientTurnId: parsed.data.clientTurnId,
       });
       await trackMoonieEvent({
         event: "recommend",
@@ -462,7 +527,10 @@ export async function POST(request: Request) {
             conversationId,
             role: "user",
             content: message,
-            meta: userAttachmentPersistenceMeta(userAttachmentMeta),
+            meta: userTurnPersistenceMeta(
+              userAttachmentMeta,
+              parsed.data.clientTurnId
+            ),
           },
         }),
         db.moonieMessage.create({
@@ -470,10 +538,10 @@ export async function POST(request: Request) {
             conversationId,
             role: "assistant",
             content: result.reply,
-            meta: {
-              responseKind: result.responseKind,
-              intent: result.analyticsIntent,
-            } as unknown as Prisma.InputJsonValue,
+            meta: buildPersistedAssistantMeta(
+              result,
+              parsed.data.clientTurnId
+            ),
           },
         }),
         db.moonieConversation.update({

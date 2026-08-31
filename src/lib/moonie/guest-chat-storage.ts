@@ -39,6 +39,7 @@ function isMoonieChatMessage(value: unknown): value is MoonieChatMessage {
 function serializeMessages(messages: MoonieChatMessage[]): MoonieChatMessage[] {
   return messages.map((message) => ({
     ...message,
+    animateEntrance: undefined,
     userAttachment: message.userAttachment
       ? {
           ...message.userAttachment,

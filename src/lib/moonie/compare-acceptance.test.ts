@@ -1,6 +1,9 @@
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
-import { isAcceptedCompareCatalogueMatch } from "./compare-acceptance";
+import {
+  compareQueryAlignsWithLookup,
+  isAcceptedCompareCatalogueMatch,
+} from "./compare-acceptance";
 import type { MoonieLookupCandidate } from "@/types/moonie";
 
 function candidate(
@@ -96,6 +99,43 @@ describe("compare catalogue acceptance gate", () => {
         })
       ),
       false
+    );
+  });
+});
+
+describe("compare query alignment", () => {
+  it("rejects a semantic neighbour for a named title", () => {
+    assert.equal(
+      compareQueryAlignsWithLookup(
+        "Lord of the Mysteries",
+        candidate({
+          novelId: "locke",
+          title: "The Lies of Locke Lamora",
+          canonicalTitle: "The Lies of Locke Lamora",
+          confidence: "high",
+          confidenceScore: 0.82,
+          evidence: [
+            { kind: "synopsis", label: "Semantic retrieval neighbour" },
+          ],
+        })
+      ),
+      false
+    );
+  });
+
+  it("accepts an exact canonical or alias match for the named title", () => {
+    assert.equal(
+      compareQueryAlignsWithLookup(
+        "Lord of the Mysteries",
+        candidate({
+          title: "Lord of the Mysteries",
+          canonicalTitle: "Lord of the Mysteries",
+          confidence: "high",
+          confidenceScore: 0.95,
+          evidence: [{ kind: "canonical_title", label: "Exact canonical title" }],
+        })
+      ),
+      true
     );
   });
 });

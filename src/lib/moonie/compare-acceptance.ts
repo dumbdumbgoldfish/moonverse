@@ -1,3 +1,5 @@
+import { normalizeLookupQueryText } from "@/lib/moonie/intent";
+import { scoreTitleMatch } from "@/lib/search";
 import type { MoonieLookupCandidate } from "@/types/moonie";
 
 /**
@@ -42,4 +44,32 @@ export function isAcceptedCompareCatalogueMatch(
   return (
     candidate.confidence === "medium" && candidate.confidenceScore >= 0.55
   );
+}
+
+/**
+ * Named compare titles must align with the accepted candidate.
+ * Semantic neighbours (high retrieval score, different title) are rejected.
+ */
+export function compareQueryAlignsWithLookup(
+  query: string,
+  lookup: MoonieLookupCandidate
+): boolean {
+  if (
+    lookup.evidence.some(
+      (item) =>
+        item.kind === "canonical_title" ||
+        (item.kind === "alias" && item.label.startsWith("Catalogue alias"))
+    )
+  ) {
+    return true;
+  }
+  const normalized = normalizeLookupQueryText(query);
+  if (scoreTitleMatch(lookup.canonicalTitle, normalized) >= 85) return true;
+  if (
+    lookup.matchedAlias &&
+    scoreTitleMatch(lookup.matchedAlias, normalized) >= 85
+  ) {
+    return true;
+  }
+  return false;
 }

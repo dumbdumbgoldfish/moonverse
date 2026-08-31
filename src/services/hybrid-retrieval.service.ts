@@ -1,4 +1,4 @@
-import { Prisma } from "@prisma/client";
+import { Prisma, ReadingLinkCategory, ReadingLinkModerationStatus } from "@prisma/client";
 import { slugifyLabel } from "@/lib/moonie/label-match";
 import { db } from "@/lib/db";
 import {
@@ -13,6 +13,25 @@ import {
 import type { MoonieInterpretedPreferences } from "@/types/moonie";
 import type { MooniePersonalizationSettings } from "@/lib/moonie/personalization";
 import { DEFAULT_PERSONALIZATION_SETTINGS } from "@/lib/moonie/personalization";
+import type { MoonieHardInclusionConstraints } from "@/lib/moonie/hard-constraints";
+import {
+  filterNovelsByHardConstraints,
+  hasHardInclusionConstraints,
+} from "@/lib/moonie/hard-constraints";
+import {
+  prismaConstraintEligibleCompletedStatus,
+  prismaConstraintEligibleOngoingStatus,
+} from "@/lib/moonie/metadata-eligibility";
+
+const officialReadingLinkWhere: Prisma.ReadingLinkWhereInput = {
+  active: true,
+  moderationStatus: ReadingLinkModerationStatus.APPROVED,
+  OR: [
+    { isOfficial: true },
+    { isVerified: true },
+    { category: ReadingLinkCategory.OFFICIAL },
+  ],
+};
 
 export interface HybridCandidate {
   id: string;
@@ -23,6 +42,9 @@ export interface HybridCandidate {
   originalLanguage: string | null;
   publicationStatus: string | null;
   lengthBand: string | null;
+  chapterCount: number | null;
+  metadataSource: string | null;
+  createdAt: Date;
   genres: string[];
   tags: string[];
   moods: string[];
@@ -58,6 +80,8 @@ export interface HybridRetrievalOptions {
   disableSemantic?: boolean;
   /** When false, genre filters become ranking signals only (helps cold/sparse requests). */
   strictGenreFilter?: boolean;
+  /** Current-turn inclusion constraints. When set, these replace prefs.genres for SQL filters. */
+  hardConstraints?: MoonieHardInclusionConstraints | null;
   personalization?: MooniePersonalizationSettings;
   /** Client-provided recent searches (localStorage); only used when useSearchHistory is on. */
   recentSearches?: MoonieRecentSearchEntry[];
@@ -95,31 +119,111 @@ async function lexicalCandidateIds(
   return scores;
 }
 
+function genreClause(genre: string): Prisma.NovelWhereInput {
+  const trimmed = genre.trim();
+  const slug = slugifyLabel(trimmed);
+  return {
+    genres: {
+      some: {
+        OR: [
+          { slug: { equals: slug, mode: "insensitive" } },
+          { name: { equals: trimmed, mode: "insensitive" } },
+        ],
+      },
+    },
+  };
+}
+
+function tagOrGenreClause(label: string): Prisma.NovelWhereInput {
+  const trimmed = label.trim();
+  const slug = slugifyLabel(trimmed);
+  return {
+    OR: [
+      genreClause(trimmed),
+      {
+        tags: {
+          some: {
+            OR: [
+              { slug: { equals: slug, mode: "insensitive" } },
+              { name: { equals: trimmed, mode: "insensitive" } },
+            ],
+          },
+        },
+      },
+    ],
+  };
+}
+
+function applyGenreFilters(
+  and: Prisma.NovelWhereInput[],
+  genres: string[],
+  match: "all" | "any"
+) {
+  if (genres.length === 0) return;
+  if (match === "all" || genres.length === 1) {
+    for (const genre of genres) {
+      and.push(genreClause(genre));
+    }
+    return;
+  }
+  and.push({ OR: genres.map((genre) => genreClause(genre)) });
+}
+
+function lengthClause(length: "short" | "medium" | "long"): Prisma.NovelWhereInput {
+  if (length === "short") {
+    return {
+      OR: [
+        { lengthBand: "short" },
+        {
+          lengthBand: null,
+          chapterCount: { gt: 0, lt: 80 },
+        },
+      ],
+    };
+  }
+  if (length === "medium") {
+    return {
+      OR: [
+        { lengthBand: "medium" },
+        {
+          lengthBand: null,
+          chapterCount: { gte: 80, lt: 300 },
+        },
+      ],
+    };
+  }
+  return {
+    OR: [
+      { lengthBand: "long" },
+      {
+        lengthBand: null,
+        chapterCount: { gte: 300 },
+      },
+    ],
+  };
+}
+
 function hardFilters(
   prefs: MoonieInterpretedPreferences,
   exclude: string[],
-  strictGenreFilter = true
+  strictGenreFilter = true,
+  hard?: MoonieHardInclusionConstraints | null
 ): Prisma.NovelWhereInput {
   const and: Prisma.NovelWhereInput[] = [];
   if (exclude.length) and.push({ id: { notIn: exclude } });
 
-  if (strictGenreFilter && prefs.genres.length > 0) {
-    and.push({
-      OR: prefs.genres.map((genre) => {
-        const trimmed = genre.trim();
-        const slug = slugifyLabel(trimmed);
-        return {
-          genres: {
-            some: {
-              OR: [
-                { slug: { equals: slug, mode: "insensitive" } },
-                { name: { equals: trimmed, mode: "insensitive" } },
-              ],
-            },
-          },
-        };
-      }),
-    });
+  if (hasHardInclusionConstraints(hard)) {
+    const inclusionClauses = [
+      ...hard!.genres.map((genre) => genreClause(genre)),
+      ...hard!.tags.map((tag) => tagOrGenreClause(tag)),
+    ];
+    if (hard!.inclusionMatch === "any" && inclusionClauses.length > 1) {
+      and.push({ OR: inclusionClauses });
+    } else {
+      and.push(...inclusionClauses);
+    }
+  } else if (strictGenreFilter && prefs.genres.length > 0) {
+    applyGenreFilters(and, prefs.genres, "any");
   }
 
   if (prefs.excludedTags.length > 0) {
@@ -136,54 +240,139 @@ function hardFilters(
     });
   }
 
-  if (prefs.status === "completed") {
-    and.push({ publicationStatus: { contains: "complet", mode: "insensitive" } });
-  } else if (prefs.status === "ongoing") {
+  const status = hasHardInclusionConstraints(hard) ? hard!.status : prefs.status;
+  const language = hasHardInclusionConstraints(hard)
+    ? hard!.language
+    : prefs.language;
+  const length = hasHardInclusionConstraints(hard) ? hard!.length : prefs.length;
+
+  if (status === "completed") {
+    and.push(prismaConstraintEligibleCompletedStatus());
+  } else if (status === "ongoing") {
+    and.push(prismaConstraintEligibleOngoingStatus());
+  }
+
+  if (language) {
     and.push({
-      OR: [
-        { publicationStatus: { contains: "ongoing", mode: "insensitive" } },
-        { publicationStatus: { contains: "hiatus", mode: "insensitive" } },
-      ],
+      originalLanguage: { contains: language, mode: "insensitive" },
     });
   }
 
-  if (prefs.language) {
-    and.push({
-      originalLanguage: { contains: prefs.language, mode: "insensitive" },
-    });
+  if (length === "short" || length === "medium" || length === "long") {
+    and.push(lengthClause(length));
   }
 
-  if (prefs.length) {
-    and.push({ lengthBand: prefs.length });
+  if (hard?.requireOfficialReadingLink) {
+    and.push({ readingLinks: { some: officialReadingLinkWhere } });
   }
 
   return and.length ? { AND: and } : {};
 }
 
-/** Pick top results with genre diversity after score sort. */
-export function selectDiverseCandidates<T extends { id: string; genres: string[] }>(
-  ranked: T[],
-  limit: number
-): T[] {
+export function novelWhereMatchingPreferences(
+  prefs: MoonieInterpretedPreferences,
+  excludeNovelIds: string[] = [],
+  strictGenreFilter = true,
+  hardConstraints?: MoonieHardInclusionConstraints | null
+): Prisma.NovelWhereInput {
+  return hardFilters(
+    prefs,
+    excludeNovelIds,
+    strictGenreFilter,
+    hardConstraints
+  );
+}
+
+export async function countNovelsMatchingPreferences(options: {
+  prefs: MoonieInterpretedPreferences;
+  excludeNovelIds?: string[];
+  strictGenreFilter?: boolean;
+  hardConstraints?: MoonieHardInclusionConstraints | null;
+}): Promise<number> {
+  return db.novel.count({
+    where: hardFilters(
+      options.prefs,
+      options.excludeNovelIds ?? [],
+      options.strictGenreFilter,
+      options.hardConstraints
+    ),
+  });
+}
+
+/** Theme/other filters match, but publication status is missing or explicitly unknown. */
+export async function countUnverifiedHardStatusMatches(options: {
+  prefs: MoonieInterpretedPreferences;
+  hardConstraints: MoonieHardInclusionConstraints;
+  excludeNovelIds?: string[];
+  strictGenreFilter?: boolean;
+}): Promise<number> {
+  if (!options.hardConstraints.status) return 0;
+  const withoutStatus: MoonieHardInclusionConstraints = {
+    ...options.hardConstraints,
+    status: null,
+  };
+  const themeWhere = hardFilters(
+    { ...options.prefs, status: null },
+    options.excludeNovelIds ?? [],
+    options.strictGenreFilter,
+    hasHardInclusionConstraints(withoutStatus) ? withoutStatus : null
+  );
+  return db.novel.count({
+    where: {
+      AND: [
+        themeWhere,
+        {
+          OR: [
+            { publicationStatus: null },
+            { publicationStatus: { equals: "" } },
+            {
+              publicationStatus: {
+                contains: "unknown",
+                mode: "insensitive",
+              },
+            },
+          ],
+        },
+      ],
+    },
+  });
+}
+
+/**
+ * Pick a diverse subset from a pre-sorted candidate list.
+ * Greedy highest-valid selection preserves the input sort metric; callers
+ * re-sort the returned subset when display order must match that metric.
+ */
+export function selectDiverseCandidates<
+  T extends { id: string; genres: string[]; score?: number },
+>(ranked: T[], limit: number): T[] {
   const selected: T[] = [];
+  const selectedIds = new Set<string>();
   const genreCounts = new Map<string, number>();
 
-  for (const candidate of ranked) {
-    if (selected.length >= limit) break;
-    const primary = candidate.genres[0] ? normalize(candidate.genres[0]) : "none";
-    const seen = genreCounts.get(primary) ?? 0;
-    if (seen >= 2 && selected.length >= 2) continue;
-    selected.push(candidate);
-    genreCounts.set(primary, seen + 1);
-  }
-
-  if (selected.length < limit) {
+  while (selected.length < limit) {
+    let picked: T | undefined;
     for (const candidate of ranked) {
-      if (selected.length >= limit) break;
-      if (!selected.some((row) => row.id === candidate.id)) {
-        selected.push(candidate);
+      if (selectedIds.has(candidate.id)) continue;
+      const primary = candidate.genres[0] ? normalize(candidate.genres[0]) : "none";
+      const seen = genreCounts.get(primary) ?? 0;
+      if (seen >= 2 && selected.length >= 2) continue;
+      picked = candidate;
+      break;
+    }
+    if (!picked) {
+      for (const candidate of ranked) {
+        if (!selectedIds.has(candidate.id)) {
+          picked = candidate;
+          break;
+        }
       }
     }
+    if (!picked) break;
+    selected.push(picked);
+    selectedIds.add(picked.id);
+    const primary = picked.genres[0] ? normalize(picked.genres[0]) : "none";
+    genreCounts.set(primary, (genreCounts.get(primary) ?? 0) + 1);
   }
 
   return selected;
@@ -194,8 +383,9 @@ const novelInclude = {
   tags: true,
   reviews: {
     where: { moderationStatus: "OK" as const },
-    select: { id: true, rating: true },
+    select: { id: true },
     orderBy: { likeCount: "desc" as const },
+    take: 1,
   },
 } satisfies Prisma.NovelInclude;
 
@@ -205,11 +395,12 @@ export async function retrieveHybridCandidates(
   const limit = options.limit ?? 40;
   const exclude = [...(options.excludeNovelIds ?? [])];
   const strictGenreFilter = options.strictGenreFilter ?? true;
-  const where = hardFilters(options.prefs, exclude, strictGenreFilter);
-
-  const lexical = options.queryText
-    ? await lexicalCandidateIds(options.queryText, limit * 3)
-    : new Map<string, number>();
+  const where = hardFilters(
+    options.prefs,
+    exclude,
+    strictGenreFilter,
+    options.hardConstraints
+  );
 
   const personalization = {
     ...DEFAULT_PERSONALIZATION_SETTINGS,
@@ -220,6 +411,7 @@ export async function retrieveHybridCandidates(
     Boolean(options.userId) && personalization.useLikes;
 
   const [
+    lexical,
     pool,
     similar,
     likedGenres,
@@ -233,6 +425,9 @@ export async function retrieveHybridCandidates(
     searchHistoryNovels,
     catalogue,
   ] = await Promise.all([
+    options.queryText
+      ? lexicalCandidateIds(options.queryText, limit * 3)
+      : Promise.resolve(new Map<string, number>()),
     db.novel.findMany({
       where,
       include: novelInclude,
@@ -379,16 +574,34 @@ export async function retrieveHybridCandidates(
   const catalogueMean = catalogue._avg.rating ?? 3.6;
 
   const seen = new Set(pool.map((novel) => novel.id));
-  if (lexical.size > 0) {
-    const extraIds = [...lexical.keys()].filter((id) => !seen.has(id));
-    if (extraIds.length) {
-      const extra = await db.novel.findMany({
-        where: { AND: [where, { id: { in: extraIds } }] },
-        include: novelInclude,
-      });
-      pool.push(...extra);
-    }
-  }
+  const extraIds =
+    lexical.size > 0
+      ? [...lexical.keys()].filter((id) => !seen.has(id))
+      : [];
+  const statIds = [...seen, ...extraIds];
+  const [extra, reviewStats] = await Promise.all([
+    extraIds.length
+      ? db.novel.findMany({
+          where: { AND: [where, { id: { in: extraIds } }] },
+          include: novelInclude,
+        })
+      : Promise.resolve([]),
+    statIds.length
+      ? db.review.groupBy({
+          by: ["novelId"],
+          where: { novelId: { in: statIds }, moderationStatus: "OK" },
+          _avg: { rating: true },
+          _count: { _all: true },
+        })
+      : Promise.resolve([]),
+  ]);
+  if (extra.length) pool.push(...extra);
+  const statsByNovel = new Map(
+    reviewStats.map((row) => [
+      row.novelId,
+      { average: row._avg.rating, count: row._count._all },
+    ])
+  );
 
   const ranked: HybridCandidate[] = pool.map((novel) => {
     const genres = novel.genres.map((g) => g.name);
@@ -399,11 +612,9 @@ export async function retrieveHybridCandidates(
       .filter((tag) => tag.kind === "MOOD")
       .map((t) => t.name);
     const tags = novel.tags.map((t) => t.name);
-    const reviewCount = novel.reviews.length;
-    const averageRating =
-      reviewCount > 0
-        ? novel.reviews.reduce((sum, r) => sum + r.rating, 0) / reviewCount
-        : null;
+    const stats = statsByNovel.get(novel.id);
+    const reviewCount = stats?.count ?? 0;
+    const averageRating = stats?.average ?? null;
 
     const structured = overlapScore(
       [...genres, ...tropes, ...moods],
@@ -450,7 +661,7 @@ export async function retrieveHybridCandidates(
       structured,
       quality,
       history: Math.min(1, history),
-      diversity: 1,
+      diversity: 0,
     });
 
     return {
@@ -462,6 +673,9 @@ export async function retrieveHybridCandidates(
       originalLanguage: novel.originalLanguage,
       publicationStatus: novel.publicationStatus,
       lengthBand: novel.lengthBand ?? null,
+      chapterCount: novel.chapterCount ?? null,
+      metadataSource: novel.metadataSource ?? null,
+      createdAt: novel.createdAt,
       genres,
       tags,
       moods,
@@ -491,7 +705,7 @@ export async function retrieveHybridCandidates(
   });
 
   ranked.sort((a, b) => b.score - a.score || b.reviewCount - a.reviewCount);
-  return selectDiverseCandidates(ranked, limit);
+  return ranked.slice(0, limit);
 }
 
 async function resolveSearchHistoryNovels(
@@ -557,4 +771,65 @@ async function resolveSearchHistoryNovels(
     merged.push(novel);
   }
   return merged;
+}
+
+/** Count novels that satisfy hard constraints after metadata eligibility post-filtering. */
+export async function countConstraintEligibleNovels(options: {
+  prefs: MoonieInterpretedPreferences;
+  excludeNovelIds?: string[];
+  strictGenreFilter?: boolean;
+  hardConstraints: MoonieHardInclusionConstraints;
+}): Promise<number> {
+  const where = hardFilters(
+    options.prefs,
+    options.excludeNovelIds ?? [],
+    options.strictGenreFilter,
+    options.hardConstraints
+  );
+
+  const rows = await db.novel.findMany({
+    where,
+    select: {
+      id: true,
+      publicationStatus: true,
+      originalLanguage: true,
+      lengthBand: true,
+      chapterCount: true,
+      metadataSource: true,
+      genres: { select: { name: true } },
+      tags: { select: { name: true } },
+    },
+    take: 2000,
+  });
+
+  if (rows.length === 0) return 0;
+
+  const stats =
+    options.hardConstraints.minAverageRating != null
+      ? await db.review.groupBy({
+          by: ["novelId"],
+          where: {
+            novelId: { in: rows.map((row) => row.id) },
+            moderationStatus: "OK",
+          },
+          _avg: { rating: true },
+        })
+      : [];
+
+  const avgByNovel = new Map(
+    stats.map((row) => [row.novelId, row._avg.rating ?? null])
+  );
+
+  const novels = rows.map((row) => ({
+    genres: row.genres.map((genre) => genre.name),
+    tags: row.tags.map((tag) => tag.name),
+    publicationStatus: row.publicationStatus,
+    originalLanguage: row.originalLanguage,
+    lengthBand: row.lengthBand,
+    chapterCount: row.chapterCount,
+    metadataSource: row.metadataSource,
+    averageRating: avgByNovel.get(row.id) ?? null,
+  }));
+
+  return filterNovelsByHardConstraints(novels, options.hardConstraints).length;
 }

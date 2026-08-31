@@ -68,7 +68,7 @@ export function CoverImage({
 }: CoverImageProps) {
   const [failedSrc, setFailedSrc] = useState<string | null>(null);
   const displayTitle = title?.trim() || alt?.trim() || "MoonVerse";
-  const missing = isMissingCoverUrl(src) || failedSrc === src;
+  const missing = isMissingCoverUrl(src) || (src != null && failedSrc === src);
 
   if (missing) {
     return (

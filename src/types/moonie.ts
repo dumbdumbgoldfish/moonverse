@@ -82,7 +82,77 @@ export type MoonieResponseKind =
   | "recommendations"
   | "novel_bundle"
   | "compare"
+  | "reviews"
+  | "catalogue_stat"
   | "error";
+
+export type MoonieRankingMetric =
+  | "review_rating"
+  | "review_helpful"
+  | "review_recent"
+  | "novel_review_count"
+  | "novel_average_rating";
+
+export type MoonieEmptyReason =
+  | "unknown_status"
+  | "no_matches"
+  | "unseen_exhausted"
+  | "excluded_exhausted"
+  | "quota"
+  | "error"
+  | "retrieval_incomplete";
+
+export type MooniePendingClarification =
+  | {
+      kind: "review_ranking";
+      count: number;
+      amongThese: boolean;
+    }
+  | {
+      kind: "review_preference";
+      count: number;
+    }
+  | {
+      kind: "constraint_relaxation";
+      hard: {
+        genres: string[];
+        tags: string[];
+        inclusionMatch: "all" | "any";
+        genreMatch: "all" | "any";
+        status: "completed" | "ongoing" | null;
+        language: string | null;
+        length: "short" | "medium" | "long" | null;
+      };
+      phase: "pick_constraint" | "genre_or_status";
+      offeredGenre?: string;
+    }
+  | {
+      kind: "compare_titles";
+      unresolvedTitles?: string[];
+      resolvedNovelIds?: string[];
+    };
+
+export interface MoonieRankedReview {
+  id: string;
+  title: string;
+  excerpt: string;
+  rating: number;
+  reviewerName: string;
+  reviewerUsername?: string | null;
+  novelId: string;
+  novelTitle: string;
+  containsSpoilers: boolean;
+  likeCount?: number;
+  commentCount?: number;
+}
+
+export interface MoonieCatalogueStat {
+  metric: MoonieRankingMetric;
+  novelId: string;
+  title: string;
+  count: number;
+  ties: Array<{ novelId: string; title: string; count: number }>;
+}
 
 export type MoonieLoadingPhase =
   | "thinking"
@@ -190,6 +260,12 @@ export interface MoonieNovelOverview {
   provenance?: MoonieFieldProvenance[];
   matchedAlias?: string | null;
   confidence?: MoonieConfidence;
+}
+
+export interface MoonieNovelReviewGroup {
+  novelId: string;
+  title: string;
+  overview: MoonieNovelOverview;
 }
 
 export interface MoonieCompareRow {
@@ -354,15 +430,20 @@ export interface MoonieChatMessage {
   id: string;
   role: "user" | "assistant";
   content: string;
+  /** Client-only presentation hint; never persist with conversation history. */
+  animateEntrance?: boolean;
   /** Session / resume display metadata for sent attachments (no binary payloads). */
   userAttachment?: MoonieUserAttachmentDisplay;
   recommendations?: MoonieRecommendation[];
   novelOverview?: MoonieNovelOverview;
+  novelReviewGroups?: MoonieNovelReviewGroup[];
   followUpQuestion?: string | null;
   quickPrompts?: string[];
   interpretedPreferences?: MoonieInterpretedPreferences;
   isError?: boolean;
   state?: MoonieResponseState;
+  /** Which quota audience produced a rate_limit card — avoids cross-session copy drift. */
+  quotaAudience?: "guest" | "member";
   responseKind?: MoonieResponseKind;
   compare?: MoonieCompareResult;
   lookupSession?: MoonieLookupSession;
@@ -373,6 +454,12 @@ export interface MoonieChatMessage {
   reviewerGroupOverview?: MoonieReviewerGroupOverview;
   reviewerReviewSession?: MoonieReviewerReviewSession;
   seriesInfo?: MoonieSeriesInfo | null;
+  emptyReason?: MoonieEmptyReason;
+  pendingClarification?: MooniePendingClarification | null;
+  rankedReviews?: MoonieRankedReview[];
+  catalogueStat?: MoonieCatalogueStat;
+  rankingMetric?: MoonieRankingMetric | null;
+  requestedCount?: number;
 }
 
 export type MoonieUserAttachmentType = "image" | "file" | "voice";
@@ -406,6 +493,7 @@ export interface MoonieRecommendResponse {
   responseKind?: MoonieResponseKind;
   loadingPhase?: MoonieLoadingPhase;
   novelOverview?: MoonieNovelOverview;
+  novelReviewGroups?: MoonieNovelReviewGroup[];
   compare?: MoonieCompareResult;
   lookupSession?: MoonieLookupSession;
   consumesQuota?: boolean;
@@ -419,6 +507,12 @@ export interface MoonieRecommendResponse {
   reviewerReviewSession?: MoonieReviewerReviewSession;
   seriesInfo?: MoonieSeriesInfo | null;
   analyticsConfidenceTier?: MoonieConfidence | null;
+  emptyReason?: MoonieEmptyReason;
+  pendingClarification?: MooniePendingClarification | null;
+  rankedReviews?: MoonieRankedReview[];
+  catalogueStat?: MoonieCatalogueStat;
+  rankingMetric?: MoonieRankingMetric | null;
+  requestedCount?: number;
 }
 
 export interface MoonieRecommendErrorResponse {

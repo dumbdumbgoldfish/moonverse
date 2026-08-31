@@ -5,13 +5,17 @@ import {
   extractReviewerLookupQuery,
   extractReviewerResultLimit,
   isReviewerAuthoredReviewsMessage,
+  isReviewerFolderRequest,
+  isReviewerListRequest,
   messageReferencesReviewerGroup,
   pickReviewerByOrdinal,
   resolveReviewerOrdinalFromMessage,
   resolveReviewerRankBy,
   resolveTargetReviewerFromSession,
 } from "@/lib/moonie/reviewer-intent";
+import { buildMoonieReviewerFolderReply } from "@/lib/moonie/reviewer-folder-reply";
 import { isFollowing } from "@/services/follow-queries";
+import { getFoldersByUser } from "@/services/folder.service";
 import { getReviewsByUserId } from "@/services/review.service";
 import { getUserById, searchUsers } from "@/services/user.service";
 import type {
@@ -81,12 +85,15 @@ export async function buildMoonieReviewerOverview(options: {
   reviewerId: string;
   viewerId?: string;
   emphasizeAuthoredReviews?: boolean;
+  authoredReviewsLimit?: number;
 }): Promise<MoonieReviewerOverview | null> {
   const profile = await getUserById(options.reviewerId);
   if (!profile) return null;
 
   const reviews = await getReviewsByUserId(options.reviewerId);
-  const authoredLimit = options.emphasizeAuthoredReviews ? 5 : 3;
+  const authoredLimit = options.emphasizeAuthoredReviews
+    ? options.authoredReviewsLimit ?? AUTHORED_REVIEWS_PAGE_SIZE
+    : 3;
   const recentReviews = reviews.slice(0, authoredLimit);
   const averageRatingGiven =
     reviews.length > 0
@@ -117,6 +124,26 @@ export async function buildMoonieReviewerOverview(options: {
     })),
     isFollowing: following,
     emphasizeAuthoredReviews: options.emphasizeAuthoredReviews,
+  };
+}
+
+function synthesizeReviewerOverviewFromResult(
+  reviewer: MoonieReviewerResult
+): MoonieReviewerOverview {
+  return {
+    id: reviewer.id,
+    displayName: reviewer.displayName,
+    username: reviewer.username,
+    avatarInitials: reviewer.avatarInitials,
+    avatarUrl: reviewer.avatarUrl,
+    bio: null,
+    reviewCount: reviewer.reviewCount,
+    followerCount: reviewer.followerCount,
+    followingCount: 0,
+    averageRatingGiven: null,
+    topGenres: [],
+    recentReviews: [],
+    isFollowing: reviewer.isFollowing,
   };
 }
 
@@ -153,6 +180,11 @@ function buildReviewerReviewSession(
 }
 
 const GROUP_WIDGET_LIMIT = 3;
+const AUTHORED_REVIEWS_PAGE_SIZE = 25;
+
+function normalizeReviewerMessage(message: string): string {
+  return message.trim().replace(/\breviwer(s?)\b/gi, "reviewer$1");
+}
 
 async function buildMoonieReviewerGroupItem(options: {
   reviewer: MoonieReviewerResult;
@@ -160,7 +192,7 @@ async function buildMoonieReviewerGroupItem(options: {
   includeRecentReview?: boolean;
 }): Promise<MoonieReviewerGroupItem> {
   const profile = await getUserById(options.reviewer.id);
-  const reviews = await getReviewsByUserId(options.reviewer.id);
+  const reviews = profile ? await getReviewsByUserId(options.reviewer.id) : [];
   const following = options.viewerId
     ? await isFollowing(options.viewerId, options.reviewer.id)
     : false;
@@ -197,8 +229,11 @@ export async function buildMoonieReviewerGroupOverviewResponse(options: {
   userId?: string;
   emphasizeAuthoredReviews?: boolean;
   limit?: number;
+  message?: string;
 }): Promise<MoonieRecommendResponse> {
-  const limit = options.limit ?? GROUP_WIDGET_LIMIT;
+  const totalInSession = options.session.reviewers.length;
+  const requestedLimit = options.limit ?? GROUP_WIDGET_LIMIT;
+  const limit = Math.min(totalInSession, requestedLimit);
   const reviewers = options.session.reviewers.slice(0, limit);
   const items = await Promise.all(
     reviewers.map((reviewer) =>
@@ -217,7 +252,9 @@ export async function buildMoonieReviewerGroupOverviewResponse(options: {
 
   const reply = options.emphasizeAuthoredReviews
     ? `Here are recent reviews from these ${items.length} MoonVerse reviewers.`
-    : `Here are ${items.length} MoonVerse reviewers from your list.`;
+    : limit < totalInSession
+      ? `Here are ${items.length} of ${totalInSession} MoonVerse reviewers from your list. Ask for the rest or name a rank number.`
+      : `Here are ${items.length} MoonVerse reviewers from your list.`;
 
   return {
     reply,
@@ -256,22 +293,61 @@ export async function buildMoonieReviewerOverviewResponse(options: {
     resolveReviewerOrdinalFromMessage(options.message) == null &&
     (messageReferencesReviewerGroup(options.message) ||
       (options.emphasizeAuthoredReviews &&
-        isReviewerAuthoredReviewsMessage(options.message)));
+        isReviewerAuthoredReviewsMessage(options.message) &&
+        !(session.activeReviewerId || options.activeReviewerId)));
 
   if (wantsGroupOverview && session) {
     return buildMoonieReviewerGroupOverviewResponse({
       session,
       userId: options.userId,
       emphasizeAuthoredReviews: options.emphasizeAuthoredReviews,
+      limit: messageReferencesReviewerGroup(options.message)
+        ? session.reviewers.length
+        : undefined,
+      message: options.message,
     });
   }
 
   if (fromSession) {
     targetId = fromSession.id;
   } else if (namedQuery) {
-    const users = await searchUsers(namedQuery, 1, 0, options.userId);
-    targetId = users[0]?.id ?? null;
-    if (users[0] && !session) {
+    const normalizedQuery = namedQuery.trim().replace(/^@/, "");
+    const users = await searchUsers(normalizedQuery, 5, 0, options.userId);
+    const exactUsername = users.find(
+      (user) => user.username.toLowerCase() === normalizedQuery.toLowerCase()
+    );
+    const exactDisplay = users.find(
+      (user) => user.displayName.toLowerCase() === normalizedQuery.toLowerCase()
+    );
+    const pick = exactUsername ?? exactDisplay ?? (users.length === 1 ? users[0] : null);
+
+    if (!pick && users.length > 1) {
+      const sessionFromSearch: MoonieReviewerSession = {
+        reviewers: users.map((user) => ({
+          id: user.id,
+          displayName: user.displayName,
+          username: user.username,
+          avatarInitials: user.avatarInitials,
+          avatarUrl: user.avatarUrl,
+          reviewCount: user.reviewCount,
+          followerCount: user.followerCount,
+          isFollowing: user.isFollowing,
+        })),
+        rankBy: "reviews",
+        queryType: "lookup",
+      };
+      return {
+        reply: `I found ${users.length} MoonVerse reviewers matching "${namedQuery}". Which one do you mean?`,
+        recommendations: [],
+        responseKind: "chat",
+        consumesQuota: true,
+        reviewerResults: sessionFromSearch.reviewers,
+        reviewerSession: sessionFromSearch,
+      };
+    }
+
+    targetId = pick?.id ?? null;
+    if (pick && !session) {
       session = {
         reviewers: users.map((user) => ({
           id: user.id,
@@ -285,12 +361,22 @@ export async function buildMoonieReviewerOverviewResponse(options: {
         })),
         rankBy: "reviews",
         queryType: "lookup",
-        activeReviewerId: users[0].id,
+        activeReviewerId: pick.id,
       };
     }
   }
 
   if (!targetId) {
+    if (namedQuery) {
+      return {
+        reply: `I couldn't find a MoonVerse reviewer matching "${namedQuery}". Try Community search or check the username spelling.`,
+        recommendations: [],
+        responseKind: "chat",
+        consumesQuota: true,
+        reviewerSession: session ?? undefined,
+      };
+    }
+
     const ordinal = resolveReviewerOrdinalFromMessage(options.message);
     if (ordinal != null) {
       const limit = Math.max(
@@ -324,11 +410,53 @@ export async function buildMoonieReviewerOverviewResponse(options: {
     };
   }
 
-  const overview = await buildMoonieReviewerOverview({
+  if (isReviewerFolderRequest(options.message)) {
+    const overviewForFolder = await buildMoonieReviewerOverview({
+      reviewerId: targetId,
+      viewerId: options.userId,
+    });
+    if (!overviewForFolder) {
+      return {
+        reply: "I couldn't load that reviewer profile on MoonVerse.",
+        recommendations: [],
+        responseKind: "chat",
+        consumesQuota: true,
+        reviewerSession: session ?? undefined,
+      };
+    }
+
+    const folders = await getFoldersByUser(targetId);
+    const folderReply = buildMoonieReviewerFolderReply({
+      folders,
+      overview: overviewForFolder,
+      viewerId: options.userId,
+    });
+
+    return {
+      reply: folderReply.reply,
+      recommendations: [],
+      responseKind: "chat",
+      consumesQuota: true,
+      reviewerOverview: overviewForFolder,
+      reviewerSession: session
+        ? withActiveReviewerSession(session, overviewForFolder.id)
+        : undefined,
+    };
+  }
+
+  const authoredReviewsLimit = options.emphasizeAuthoredReviews
+    ? AUTHORED_REVIEWS_PAGE_SIZE
+    : undefined;
+  let overview = await buildMoonieReviewerOverview({
     reviewerId: targetId,
     viewerId: options.userId,
     emphasizeAuthoredReviews: options.emphasizeAuthoredReviews,
+    authoredReviewsLimit,
   });
+
+  if (!overview && fromSession && !options.emphasizeAuthoredReviews) {
+    overview = synthesizeReviewerOverviewFromResult(fromSession);
+  }
 
   if (!overview) {
     return {
@@ -360,9 +488,19 @@ export async function buildMoonieReviewerOverviewResponse(options: {
         activeReviewerId: overview.id,
       };
 
+  const profileLink = overview.username
+    ? `[View profile](/users/${overview.username})`
+    : null;
+
   const reply = options.emphasizeAuthoredReviews
-    ? `Here are recent reviews by ${overview.displayName} on MoonVerse.`
-    : `Here's ${overview.displayName} on MoonVerse.`;
+    ? overview.recentReviews.length > 0
+      ? overview.reviewCount > overview.recentReviews.length
+        ? `Here are ${overview.recentReviews.length} of ${overview.reviewCount} public reviews by ${overview.displayName} on MoonVerse.`
+        : `Here are ${overview.recentReviews.length} public reviews by ${overview.displayName} on MoonVerse.`
+      : `${overview.displayName} hasn't published any public reviews on MoonVerse yet.`
+    : profileLink
+      ? `Here's **${overview.displayName}** on MoonVerse. ${profileLink}`
+      : `Here's ${overview.displayName} on MoonVerse.`;
 
   const reviewerReviewSession = options.emphasizeAuthoredReviews
     ? buildReviewerReviewSession(
@@ -393,6 +531,39 @@ export async function buildMoonieReviewerResponse(options: {
   userId?: string;
 }): Promise<MoonieRecommendResponse> {
   const lookupQuery = extractReviewerLookupQuery(options.message);
+  const wantsProfileDetails = /\b(?:information|info|details?|profiles?)\b/i.test(
+    normalizeReviewerMessage(options.message)
+  );
+
+  if (isReviewerListRequest(options.message) && wantsProfileDetails) {
+    const limit = extractReviewerResultLimit(options.message);
+    const rankBy = resolveReviewerRankBy(options.message);
+    const reviewers = await getMoonieRankedReviewers(limit, rankBy);
+    if (reviewers.length === 0) {
+      return {
+        reply:
+          "Moonie can search novels, reviews, links, and recommendations, but there are no ranked reviewers in the catalogue yet.",
+        recommendations: [],
+        responseKind: "chat",
+        consumesQuota: true,
+        reviewerResults: [],
+      };
+    }
+
+    const session: MoonieReviewerSession = {
+      reviewers,
+      rankBy,
+      queryType: "ranking",
+    };
+
+    return buildMoonieReviewerGroupOverviewResponse({
+      session,
+      userId: options.userId,
+      limit: reviewers.length,
+      message: options.message,
+    });
+  }
+
   if (lookupQuery) {
     const users = await searchUsers(lookupQuery, 5, 0, options.userId);
     if (users.length === 0) {
@@ -471,6 +642,7 @@ export async function buildMoonieReviewerResponse(options: {
     reviewers,
     rankBy,
     queryType: "ranking",
+    activeReviewerId: reviewers[0]?.id,
   };
 
   return {

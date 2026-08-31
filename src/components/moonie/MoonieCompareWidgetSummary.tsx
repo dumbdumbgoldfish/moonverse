@@ -1,6 +1,7 @@
 "use client";
 
 import { CatalogLink } from "@/components/ui/CatalogLink";
+import { moonieLoggedInEntryHref } from "@/lib/moonie/open-moonie";
 import { buildCompareWidgetSummary } from "@/lib/moonie/compare-widget-summary";
 import { cn } from "@/lib/utils";
 import type { MoonieCompareRow } from "@/types/moonie";
@@ -43,7 +44,7 @@ export function MoonieCompareWidgetSummary({
         </p>
       )}
 
-      <CatalogLink href="/moonie" size="compact" className="mt-2.5 inline-flex">
+      <CatalogLink href={moonieLoggedInEntryHref()} size="compact" className="mt-2.5 inline-flex">
         Open full comparison
       </CatalogLink>
     </article>

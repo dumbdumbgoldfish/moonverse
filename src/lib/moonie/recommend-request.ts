@@ -13,12 +13,14 @@ import type {
  */
 export interface MoonieRecommendRequestInput {
   message: string;
+  clientTurnId?: string;
   conversationId?: string | null;
   similarToNovelId?: string;
   excludeNovelIds?: string[];
   useTaste?: boolean;
   contextNovelId?: string;
   contextNovelTitle?: string;
+  confirmLookupNovelId?: string;
   attachmentType?: "image" | "file" | null;
   imageData?: string | null;
   imageMimeType?: string | null;
@@ -36,6 +38,24 @@ export interface MoonieRecommendRequestInput {
     content: string;
     meta?: Record<string, unknown>;
   }>;
+}
+
+export function resolveMoonieUseTaste(
+  explicitChoice: boolean | undefined,
+  savedDefault: boolean | null | undefined
+): boolean {
+  return explicitChoice ?? savedDefault ?? true;
+}
+
+export function buildMoonieExcludeNovelIds(options: {
+  explicitExcludedNovelIds: string[];
+  priorRecommendedNovelIds: string[];
+  seekingUnseen: boolean;
+}): string[] {
+  // The API derives previously shown IDs from persisted conversation history
+  // (or guest priorMessages). Keeping them out of this field preserves the
+  // distinction between novelty and titles the user explicitly rejected.
+  return [...new Set(options.explicitExcludedNovelIds)];
 }
 
 function buildAssistantPriorMeta(
@@ -62,6 +82,14 @@ function buildAssistantPriorMeta(
     meta.reviewerReviewSession = message.reviewerReviewSession;
   }
   if (message.seriesInfo) meta.seriesInfo = message.seriesInfo;
+  if (message.emptyReason) meta.emptyReason = message.emptyReason;
+  if (message.pendingClarification) {
+    meta.pendingClarification = message.pendingClarification;
+  }
+  if (message.rankedReviews?.length) meta.rankedReviews = message.rankedReviews;
+  if (message.catalogueStat) meta.catalogueStat = message.catalogueStat;
+  if (message.rankingMetric) meta.rankingMetric = message.rankingMetric;
+  if (message.requestedCount != null) meta.requestedCount = message.requestedCount;
   return Object.keys(meta).length > 0 ? meta : undefined;
 }
 
@@ -79,9 +107,14 @@ export function buildMoonieRecommendRequestBody(
   const body: Record<string, unknown> = {
     message: input.message,
     spoilerMode: input.spoilerMode,
-    excludeNovelIds: input.excludeNovelIds ?? [],
   };
 
+  if (input.clientTurnId) {
+    body.clientTurnId = input.clientTurnId;
+  }
+  if (input.excludeNovelIds?.length) {
+    body.excludeNovelIds = input.excludeNovelIds;
+  }
   if (input.conversationId) {
     body.conversationId = input.conversationId;
   }
@@ -96,6 +129,9 @@ export function buildMoonieRecommendRequestBody(
   }
   if (input.contextNovelTitle) {
     body.contextNovelTitle = input.contextNovelTitle;
+  }
+  if (input.confirmLookupNovelId) {
+    body.confirmLookupNovelId = input.confirmLookupNovelId;
   }
 
   if (input.attachmentType === "image" && input.imageData) {

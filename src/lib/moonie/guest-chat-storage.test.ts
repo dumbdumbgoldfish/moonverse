@@ -1,5 +1,6 @@
 import assert from "node:assert/strict";
 import { describe, it, beforeEach, afterEach } from "node:test";
+import { buildAssistantMessage } from "@/hooks/use-moonie-chat";
 import {
   clearAllGuestMoonieConversations,
   createGuestMoonieConversation,
@@ -78,6 +79,24 @@ describe("guest chat storage", () => {
     assert.equal(restored.conversationId, "guest-a");
     assert.equal(restored.messages.length, 1);
     assert.equal(restored.messages[0]?.content, "Chat A");
+  });
+
+  it("does not persist new-reply entrance state into restored history", () => {
+    const freshReply = buildAssistantMessage({
+      reply: "Fresh reply",
+      recommendations: [],
+      responseKind: "chat",
+    });
+    assert.equal(freshReply.animateEntrance, true);
+
+    upsertGuestMoonieConversation({
+      conversationId: "guest-a",
+      setActive: true,
+      messages: [freshReply],
+    });
+
+    const restored = getGuestMoonieConversation("guest-a");
+    assert.equal(restored?.messages[0]?.animateEntrance, undefined);
   });
 
   it("supports rename and delete", () => {

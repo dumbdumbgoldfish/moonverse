@@ -1,4 +1,9 @@
 import {
+  isConstraintRelaxationRequest,
+  isHardConstraintFollowUpMessage,
+  isRecommendationDiscoveryMessage,
+  isRecommendationReplayRequest,
+  isUnseenRecommendationRequest,
   messageReferencesActiveNovel,
   normalizeLookupConfirmationMessage,
   resolveOrdinalIndex,
@@ -22,9 +27,13 @@ import {
   resolveReviewerReviewFollowUpTarget,
   resolveReviewerReviewOrdinalFromMessage,
 } from "@/lib/moonie/reviewer-review-intent";
+import { pickStoredMoonieMetaField } from "@/lib/moonie/persist-assistant-turn";
+import { latestPendingClarification } from "@/lib/moonie/pending-clarification";
 
 export interface MoonieConversationContext {
   priorRecommendations: MoonieRecommendation[];
+  /** Distinct recommendations from the active request/refinement sequence (replay). */
+  sequenceRecommendations: MoonieRecommendation[];
   priorCompareRows: MoonieCompareRow[];
   activeNovelId: string | null;
   activeNovelTitle: string | null;
@@ -36,6 +45,17 @@ export interface MoonieConversationContext {
   activeReviewerUsername: string | null;
   activeReviewerDisplayName: string | null;
   reviewerReviewSession: MoonieReviewerReviewSession | null;
+  pendingClarification: import("@/types/moonie").MooniePendingClarification | null;
+}
+
+export function resolveSimilarNovelTargetId(
+  explicitNovelId: string | undefined,
+  activeNovelId: string | null,
+  options?: { allowContextFallback?: boolean }
+): string | null {
+  if (explicitNovelId) return explicitNovelId;
+  if (options?.allowContextFallback === false) return null;
+  return activeNovelId;
 }
 
 interface StoredMessage {
@@ -49,31 +69,55 @@ interface FocusedNovel {
   title: string;
 }
 
+function asStoredMetaRecord(meta: unknown): Record<string, unknown> | null {
+  if (!meta || typeof meta !== "object") return null;
+  return meta as Record<string, unknown>;
+}
+
 function recommendationsFromMeta(meta: unknown): MoonieRecommendation[] {
-  if (!meta || typeof meta !== "object") return [];
-  const recs = (meta as { recommendations?: MoonieRecommendation[] })
-    .recommendations;
+  const record = asStoredMetaRecord(meta);
+  if (!record) return [];
+  const recs = pickStoredMoonieMetaField<MoonieRecommendation[]>(
+    record,
+    "recommendations"
+  );
   return Array.isArray(recs) ? recs : [];
 }
 
+export function recommendationsFromStoredMeta(
+  meta: unknown
+): MoonieRecommendation[] {
+  return recommendationsFromMeta(meta);
+}
+
 function compareRowsFromMeta(meta: unknown): MoonieCompareRow[] {
-  if (!meta || typeof meta !== "object") return [];
-  const compare = (meta as { compare?: { rows?: MoonieCompareRow[] } }).compare;
+  const record = asStoredMetaRecord(meta);
+  if (!record) return [];
+  const compare = pickStoredMoonieMetaField<{ rows?: MoonieCompareRow[] }>(
+    record,
+    "compare"
+  );
   return Array.isArray(compare?.rows) ? compare.rows : [];
 }
 
 function lookupSessionFromMeta(meta: unknown): MoonieLookupSession | null {
-  if (!meta || typeof meta !== "object") return null;
-  const session = (meta as { lookupSession?: MoonieLookupSession }).lookupSession;
+  const record = asStoredMetaRecord(meta);
+  if (!record) return null;
+  const session = pickStoredMoonieMetaField<MoonieLookupSession>(
+    record,
+    "lookupSession"
+  );
   if (!session || !Array.isArray(session.candidates)) return null;
   return session;
 }
 
 function novelOverviewFromMeta(meta: unknown): FocusedNovel | null {
-  if (!meta || typeof meta !== "object") return null;
-  const overview = (
-    meta as { novelOverview?: { novelId: string; title: string } }
-  ).novelOverview;
+  const record = asStoredMetaRecord(meta);
+  if (!record) return null;
+  const overview = pickStoredMoonieMetaField<{ novelId: string; title: string }>(
+    record,
+    "novelOverview"
+  );
   if (!overview?.novelId) return null;
   return { novelId: overview.novelId, title: overview.title };
 }
@@ -200,33 +244,36 @@ function lastSelectedLookupCandidate(
 }
 
 function reviewerSessionFromMeta(meta: unknown): MoonieReviewerSession | null {
-  if (!meta || typeof meta !== "object") return null;
-  const session = (meta as { reviewerSession?: MoonieReviewerSession })
-    .reviewerSession;
+  const record = asStoredMetaRecord(meta);
+  if (!record) return null;
+  const session = pickStoredMoonieMetaField<MoonieReviewerSession>(
+    record,
+    "reviewerSession"
+  );
   if (!session || !Array.isArray(session.reviewers)) return null;
   return session;
 }
 
 function reviewerResultsFromMeta(meta: unknown): MoonieReviewerResult[] {
-  if (!meta || typeof meta !== "object") return [];
-  const results = (meta as { reviewerResults?: MoonieReviewerResult[] })
-    .reviewerResults;
+  const record = asStoredMetaRecord(meta);
+  if (!record) return [];
+  const results = pickStoredMoonieMetaField<MoonieReviewerResult[]>(
+    record,
+    "reviewerResults"
+  );
   return Array.isArray(results) ? results : [];
 }
 
 function reviewerOverviewFromMeta(
   meta: unknown
 ): { id: string; username: string; displayName: string } | null {
-  if (!meta || typeof meta !== "object") return null;
-  const overview = (
-    meta as {
-      reviewerOverview?: {
-        id: string;
-        username: string;
-        displayName: string;
-      };
-    }
-  ).reviewerOverview;
+  const record = asStoredMetaRecord(meta);
+  if (!record) return null;
+  const overview = pickStoredMoonieMetaField<{
+    id: string;
+    username: string;
+    displayName: string;
+  }>(record, "reviewerOverview");
   if (!overview?.id) return null;
   return overview;
 }
@@ -247,9 +294,12 @@ function buildReviewerSessionFromMeta(meta: unknown): MoonieReviewerSession | nu
 function reviewerReviewSessionFromMeta(
   meta: unknown
 ): MoonieReviewerReviewSession | null {
-  if (!meta || typeof meta !== "object") return null;
-  const session = (meta as { reviewerReviewSession?: MoonieReviewerReviewSession })
-    .reviewerReviewSession;
+  const record = asStoredMetaRecord(meta);
+  if (!record) return null;
+  const session = pickStoredMoonieMetaField<MoonieReviewerReviewSession>(
+    record,
+    "reviewerReviewSession"
+  );
   if (!session || !Array.isArray(session.reviews)) return null;
   return session;
 }
@@ -406,6 +456,122 @@ function latestOverviewNovel(messages: StoredMessage[]): FocusedNovel | null {
   return null;
 }
 
+function isRecommendationSequenceContinuation(message: string): boolean {
+  const text = message.trim();
+  if (!text) return false;
+  const lower = text.toLowerCase();
+  return (
+    isUnseenRecommendationRequest(text) ||
+    isRecommendationReplayRequest(text) ||
+    isConstraintRelaxationRequest(text) ||
+    isHardConstraintFollowUpMessage(text) ||
+    /\bshow\s+more\b/.test(lower) ||
+    /\bmore\s+(?:like\s+that|of\s+(?:those|these|them))\b/.test(lower)
+  );
+}
+
+function findRecommendationSequenceStart(messages: StoredMessage[]): number {
+  for (let index = messages.length - 1; index >= 0; index -= 1) {
+    const entry = messages[index];
+    if (entry.role !== "user") continue;
+    if (isRecommendationSequenceContinuation(entry.content)) continue;
+    if (isRecommendationDiscoveryMessage(entry.content)) {
+      return index;
+    }
+    return index + 1;
+  }
+  return 0;
+}
+
+export function collectSequenceRecommendationsForReplay(
+  messages: StoredMessage[]
+): MoonieRecommendation[] {
+  const start = findRecommendationSequenceStart(messages);
+  const seen = new Set<string>();
+  const collected: MoonieRecommendation[] = [];
+
+  for (let index = start; index < messages.length; index += 1) {
+    const entry = messages[index];
+    if (entry.role !== "assistant") continue;
+    const recs = recommendationsFromMeta(entry.meta);
+    for (const rec of recs) {
+      if (seen.has(rec.novelId)) continue;
+      seen.add(rec.novelId);
+      collected.push(rec);
+    }
+  }
+
+  return collected;
+}
+
+/** Every distinct recommendation card shown in this conversation, in first-seen order. */
+export function collectAllConversationRecommendationsForReplay(
+  messages: StoredMessage[]
+): MoonieRecommendation[] {
+  const seen = new Set<string>();
+  const collected: MoonieRecommendation[] = [];
+
+  for (const entry of messages) {
+    if (entry.role !== "assistant") continue;
+    const recs = recommendationsFromMeta(entry.meta);
+    for (const rec of recs) {
+      if (seen.has(rec.novelId)) continue;
+      seen.add(rec.novelId);
+      collected.push(rec);
+    }
+  }
+
+  return collected;
+}
+
+/** Distinct novel ids from every assistant recommendation batch in the thread. */
+export function collectPriorRecommendedNovelIds(
+  messages: StoredMessage[]
+): string[] {
+  return collectAllConversationRecommendationsForReplay(messages).map(
+    (rec) => rec.novelId
+  );
+}
+
+/** Parse "do not recommend Title again" against prior recommendation cards. */
+export function parseConversationNovelExclusionRequest(
+  message: string,
+  recommendations: MoonieRecommendation[]
+): string | null {
+  const patterns = [
+    /\b(?:do\s+not|don't|never)\s+recommend\s+(.+?)\s+again\b/i,
+    /\bstop\s+recommending\s+(.+?)(?:\s+again)?\b/i,
+  ];
+  for (const pattern of patterns) {
+    const match = message.match(pattern);
+    if (!match?.[1]) continue;
+    const needle = match[1].trim().toLowerCase().replace(/[.!?]+$/, "");
+    if (!needle) continue;
+    const hit = recommendations.find(
+      (rec) =>
+        rec.title.toLowerCase() === needle ||
+        rec.title.toLowerCase().includes(needle) ||
+        needle.includes(rec.title.toLowerCase())
+    );
+    if (hit) return hit.novelId;
+  }
+  return null;
+}
+
+/** Every novel the user asked not to recommend again in this thread. */
+export function collectConversationExcludedNovelIds(
+  messages: StoredMessage[],
+  recommendations: MoonieRecommendation[]
+): string[] {
+  const excluded = new Set<string>();
+  for (const entry of messages) {
+    if (entry.role !== "user") continue;
+    const id = parseConversationNovelExclusionRequest(entry.content, recommendations);
+    if (id) excluded.add(id);
+  }
+  return [...excluded];
+}
+
 export function resolveActiveNovel(options: {
   messages: StoredMessage[];
   priorRecommendations: MoonieRecommendation[];
@@ -543,6 +709,7 @@ export function buildConversationContext(
 
   return {
     priorRecommendations,
+    sequenceRecommendations: collectSequenceRecommendationsForReplay(messages),
     priorCompareRows,
     activeNovelId: active?.novelId ?? null,
     activeNovelTitle: active?.title ?? null,
@@ -554,5 +721,6 @@ export function buildConversationContext(
     activeReviewerUsername: activeReviewer?.username ?? null,
     activeReviewerDisplayName: activeReviewer?.displayName ?? null,
     reviewerReviewSession,
+    pendingClarification: latestPendingClarification(messages),
   };
 }

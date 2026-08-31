@@ -54,7 +54,7 @@ export function MoonieFab({
         "mv-moonie-fab fixed right-4 z-50 flex size-[4.5rem] items-end justify-center overflow-visible rounded-full p-0",
         elevateForMobileNav ? "bottom-20 md:bottom-4" : "bottom-4",
         "transition-transform duration-200 hover:scale-105",
-        "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--mv-gold)] focus-visible:ring-offset-2 focus-visible:ring-offset-background"
+        "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--mv-gold-seal)] focus-visible:ring-offset-2 focus-visible:ring-offset-background"
       )}
     >
       {showAnimated ? (

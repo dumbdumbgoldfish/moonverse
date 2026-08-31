@@ -1,6 +1,7 @@
 import type {
   MoonieInterpretedPreferences,
   MoonieLookupPendingIntent,
+  MooniePendingClarification,
 } from "@/types/moonie";
 import {
   buildConversationalState,
@@ -10,10 +11,14 @@ import {
 import {
   extractReviewerLookupQuery,
   isCommunityPeopleQuery,
+  isPublicSalonReviewRequest,
   isReviewerAuthoredReviewsMessage,
   isReviewerOverviewMessage,
   isReviewerRankingMessage,
   isReviewerDetailsFollowUpMessage,
+  isReviewerFolderRequest,
+  isReviewerListRequest,
+  isReviewerOrdinalQuestion,
   messageReferencesActiveReviewer,
   messageReferencesReviewerGroup,
 } from "@/lib/moonie/reviewer-intent";
@@ -25,7 +30,26 @@ import {
   isSeriesFollowUpMessage,
   isSeriesQueryMessage,
 } from "@/lib/moonie/series-intent";
-import { isMoonieDeskChipPrompt } from "@/lib/moonie/desk";
+import {
+  isMoonieDeskChipPrompt,
+  isMoonieGenericDiscoveryPrompt,
+} from "@/lib/moonie/desk";
+import {
+  isCatalogueTaskMessage,
+  isForYouShelfReviewsRequest,
+  isMostReviewedNovelRequest,
+  isSalonReviewsRequest,
+  isTopReviewsRequest,
+} from "@/lib/moonie/catalogue-task";
+import {
+  DISCOVERY_MOOD_CHIPS,
+  DISCOVERY_TROPE_COMBOS,
+  MOONIE_QUICK_PROMPTS,
+} from "@/lib/moonie/constants";
+import {
+  isSimilarityRecommendationMessage,
+  parseSimilarityRequest,
+} from "@/lib/moonie/similarity-request";
 
 export type MoonieIntent =
   | "GREETING"
@@ -46,7 +70,10 @@ export type MoonieIntent =
   | "FILE_LOOKUP"
   | "FIND_REVIEWERS"
   | "REVIEWER_OVERVIEW"
-  | "NOVEL_SERIES";
+  | "NOVEL_SERIES"
+  | "TOP_REVIEWS"
+  | "SALON_REVIEWS"
+  | "CATALOGUE_STAT";
 
 export interface MoonieIntentContext {
   hasPriorRecommendations?: boolean;
@@ -58,6 +85,7 @@ export interface MoonieIntentContext {
   attachmentType?: "image" | "file" | null;
   recentMessages?: Array<{ role: string; content: string }>;
   pendingLookupIntent?: MoonieLookupPendingIntent | null;
+  pendingClarification?: MooniePendingClarification | null;
 }
 
 const GREETING_RE =
@@ -130,7 +158,13 @@ const NON_TITLE_LOOKUP_PHRASE_RE = [
   /^(?:can you\s+)?(?:give|get|send)(?:\s+me)?(?:\s+the)?\s+link\s*[?.!]*$/i,
   /^(?:give|get|send)\s+me\s+(?:the\s+)?(?:a\s+)?(?:novel\s+)?(?:reading\s+)?links?\s*[?.!]*$/i,
   /^(?:the\s+)?(?:novel\s+)?(?:reading\s+)?link\s*[?.!]*$/i,
-  /^(?:show(?:\s+me)?\s+)?(?:all\s+)?reviews?\s*[?.!]*$/i,
+  /^(?:show(?:\s+me)?\s+)?(?:all\s+)?(?:novel\s+)?reviews?\s*[?.!]*$/i,
+  /^more\s+like\s+this\s+novel(?:,\s*refined\s+to\s+my\s+taste)?\s*[?.!]*$/i,
+  /^(?:no spoilers?|spoiler[- ]?free|keep it spoiler[- ]?free|without spoilers?|spoiler[- ]?safe|no plot spoilers?)\s*[?.!]*$/i,
+  /^(?:please\s+)?(?:keep|stay)\s+it\s+spoiler[- ]?free\s*[?.!]*$/i,
+  /^(?:light spoilers?(?:\s+only)?|mild spoilers?)\s*[?.!]*$/i,
+  /^light spoilers?\s+only\s*[?.!]*$/i,
+  /^(?:full discussion|full spoilers?|discuss everything)\s*[?.!]*$/i,
   /^(?:summarize|summarise)\s+(?:what\s+)?(?:moonverse\s+)?readers\s+think\s*[?.!]*$/i,
   /^tell\s+me\s+more\s*[?.!]*$/i,
   /^and\??\s*$/i,
@@ -203,17 +237,67 @@ export function isAllowedShortMoonieMessage(message: string): boolean {
   return isGreetingMessage(trimmed) || THANKS_RE.test(trimmed);
 }
 
-const NOVEL_QUERY_PRONOUNS = new Set(["it", "this", "that", "one", "them"]);
+const NOVEL_QUERY_PRONOUNS = new Set([
+  "it",
+  "this",
+  "that",
+  "one",
+  "them",
+  "these",
+  "those",
+]);
 
-function isUsableNovelQuery(candidate: string): boolean {
+const PRONOUN_ONLY_REVIEW_TITLE_RE =
+  /^(?:these|those|that|them|it|this)(?:\s+novels?)?$/i;
+
+const NON_CATALOGUE_TITLE_FRAGMENTS = new Set([
+  "first one",
+  "the first one",
+  "second one",
+  "the second one",
+  "third one",
+  "the third one",
+  "last one",
+  "the last one",
+  "this one",
+  "that one",
+  "this novel",
+  "that novel",
+  "this novel about",
+  "that novel about",
+  "the novel about",
+]);
+
+const GENERIC_NOVEL_SCOPE_RE =
+  /^(?:(?:help me|please)\s+)?find(?:\s+me)?\s+(?:a|an|the)\s+novel(?:\s+(?:from|in)\s+(?:the\s+)?(?:moonverse\s+)?catalogue)?$|^(?:(?:a|an|two|three|\d+)\s+)?novels?\s+(?:from|in)\s+(?:the\s+)?(?:moonverse\s+)?catalogue$|^(?:a|an|two|three|\d+)\s+novels?$/i;
+
+const CATALOGUE_SCOPE_ONLY_RE =
+  /^(?:(?:in|from|of)\s+)?(?:the\s+)?(?:moonverse\s+)?catalogue$/i;
+
+/** Catalogue-scope wording, pronouns, and generic "find a novel" leftovers. */
+export function isNonCatalogueTitleQuery(candidate: string): boolean {
+  const normalized = normalizeLookupQueryText(candidate)
+    .trim()
+    .toLowerCase()
+    .replace(/[?.!]+$/, "");
+  if (!normalized) return true;
+  if (NOVEL_QUERY_PRONOUNS.has(normalized)) return true;
+  if (NON_CATALOGUE_TITLE_FRAGMENTS.has(normalized)) return true;
+  if (isConversationalLookupFragment(normalized)) return true;
+  if (GENERIC_NOVEL_SCOPE_RE.test(normalized)) return true;
+  if (CATALOGUE_SCOPE_ONLY_RE.test(normalized)) return true;
+  return false;
+}
+
+export function isUsableNovelQuery(candidate: string): boolean {
   const normalized = candidate.trim().toLowerCase().replace(/[?.!]+$/, "");
   if (normalized.length < 2) return false;
-  if (NOVEL_QUERY_PRONOUNS.has(normalized)) return false;
-  if (isConversationalLookupFragment(normalized)) return false;
+  if (isNonCatalogueTitleQuery(normalized)) return false;
   return true;
 }
 
 export function isReadingSourceRequest(message: string): boolean {
+  if (isSimilarityRecommendationMessage(message)) return false;
   const text = message.trim().toLowerCase();
   if (containsReviewLinkPhrase(message) || isNovelReviewRequest(message)) {
     return false;
@@ -227,7 +311,6 @@ export function isBareReadingLinkRequest(message: string): boolean {
   if (!isReadingSourceRequest(text)) return false;
   if (extractNovelQuery(text)) return false;
   if (extractDirectTitleQuery(text)) return false;
-  if (messageReferencesActiveNovel(text)) return false;
   return true;
 }
 
@@ -252,8 +335,6 @@ const TRAILING_LOOKUP_TITLE_SUFFIXES = [
   /\s+light\s+novels?$/i,
   /\s+reading\s+link$/i,
   /\s+novel\s+link$/i,
-  /\s+novels?$/i,
-  /\s+books?$/i,
   /\s+stories?$/i,
   /\s+manhua$/i,
   /\s+manhwa$/i,
@@ -339,6 +420,10 @@ const REVIEW_FOLLOW_UP_PATTERNS = [
 
 const NOVEL_OVERVIEW_FOLLOW_UP_PATTERNS = [
   /^tell me\s+more\s*[?.!]*$/i,
+  /^tell me\s+more\s+about\s+(?:the\s+)?(?:first|second|third|1st|2nd|3rd|last)\s+(?:one|pick|novel|book|title)\s*[?.!]*$/i,
+  /^tell me\s+about\s+(?:the\s+)?(?:first|second|third|1st|2nd|3rd|last)\s+(?:one|pick|novel|book|title)\s*[?.!]*$/i,
+  /^what\s+is\s+this\s+novel\s+about\s*[?.!]*$/i,
+  /^what\s+is\s+that\s+novel\s+about\s*[?.!]*$/i,
   /^more\s+details?\s*[?.!]*$/i,
   /^more\s+(?:information|info)\s*[?.!]*$/i,
   /^(?:tell me\s+)?detail(?:ed)?\s+information\s*[?.!]*$/i,
@@ -357,12 +442,124 @@ const READING_SOURCE_FOLLOW_UP_PATTERNS = [
   /^verified\s+reading\s+links?\s*[?.!]*$/i,
 ] as const;
 
+const HARD_CONSTRAINT_FOLLOW_UP_COMMAND_RE = [
+  /^show me completed(?:\s+(?!novels\b)[\w][\w&'/-]*(?:\s+(?:and|or)\s+[\w][\w&'/-]*)*)?\s+novels[.!?]*$/i,
+  /^show me short(?:\s+(?:completed|ongoing))?(?:\s+(?!novels\b)[\w][\w&'/-]*(?:\s+(?:and|or)\s+[\w][\w&'/-]*)*)?\s+novels[.!?]*$/i,
+  /^show me more(?:\s+(?!novels\b)[\w][\w&'/-]*(?:\s+(?:and|or)\s+[\w][\w&'/-]*)*)?\s+novels[.!?]*$/i,
+] as const;
+
+const HARD_CONSTRAINT_FOLLOW_UP_LEGACY_RE = [
+  /^want completed .+ only, or are ongoing stories fine\??$/i,
+  /^want shorter or longer .+ next\??$/i,
+  /^want a spoiler-safe look at these .+ picks, or more plot detail\??$/i,
+] as const;
+
+/** New command chips and persisted legacy hard-constraint follow-up questions. */
+export function isHardConstraintFollowUpMessage(message: string): boolean {
+  const text = normalizeLookupQueryText(message).trim();
+  if (!text) return false;
+  return (
+    HARD_CONSTRAINT_FOLLOW_UP_COMMAND_RE.some((pattern) => pattern.test(text)) ||
+    HARD_CONSTRAINT_FOLLOW_UP_LEGACY_RE.some((pattern) => pattern.test(text))
+  );
+}
+
+export function isLegacyHardConstraintFollowUpQuestion(message: string): boolean {
+  const text = normalizeLookupQueryText(message).trim();
+  if (!text) return false;
+  return HARD_CONSTRAINT_FOLLOW_UP_LEGACY_RE.some((pattern) => pattern.test(text));
+}
+
+export function isConstraintRelaxationRequest(message: string): boolean {
+  const text = normalizeLookupQueryText(message).trim();
+  return /^(?:(?:same|previous|last)\s+request,?\s+but\s+)?(?:drop|remove|relax|loosen)\s+(?:(?:one|a|the)\s+)?(?:(?:strictest|current)\s+)?(?:constraint|restriction|filter)s?[.!?]*$/i.test(
+    text
+  );
+}
+
+export function isRecommendationReplayRequest(message: string): boolean {
+  const text = normalizeLookupQueryText(message).trim().toLowerCase();
+  return (
+    /^show all previous recommendations again[.!?]*$/.test(text) ||
+    /^all previous recommendations again[.!?]*$/.test(text) ||
+    /^(?:please\s+)?(?:show|send|give)(?:\s+me)?\s+(?:(?:all\s+)?(?:previous|prior|earlier|those|them)(?:\s+(?:recommendations?|picks?|results?))?|the\s+(?:earlier|previous|last)\s+(?:recommendations?|picks?|results?))\s+again[.!?]*$/.test(
+      text
+    )
+  );
+}
+
+/** User explicitly asked for unseen/new titles — not a broad discovery repeat. */
+export function isExplicitlyUnseenRecommendationRequest(message: string): boolean {
+  const text = normalizeLookupQueryText(message).trim().toLowerCase();
+  if (!text || isRecommendationReplayRequest(text)) return false;
+  return (
+    /\b(?:new|different|other|additional|unseen)\s+(?:novels?|books?|titles?|recommendations?|picks?|results?)\b/.test(
+      text
+    ) ||
+    /\b(?:novels?|books?|titles?|recommendations?|picks?|results?)\s+(?:you\s+)?(?:have not|haven't|did not|didn't)\s+(?:shown|recommended)\b/.test(
+      text
+    ) ||
+    /\bshow me more\b.*\b(?:novels?|books?|titles?|recommendations?|picks?|results?)\b/.test(
+      text
+    )
+  );
+}
+
+export function isUnseenRecommendationRequest(message: string): boolean {
+  const text = normalizeLookupQueryText(message).trim().toLowerCase();
+  if (!text || isRecommendationReplayRequest(text)) return false;
+  if (isTopBestCatalogueSelectionRequest(message)) return false;
+  return (
+    isExplicitlyUnseenRecommendationRequest(message) ||
+    isRecommendationDiscoveryMessage(text)
+  );
+}
+
+/** Catalogue-wide best/top pick — may include previously shown eligible titles. */
+export function isTopBestCatalogueSelectionRequest(message: string): boolean {
+  const text = normalizeLookupQueryText(message).trim().toLowerCase();
+  if (!text || isRecommendationReplayRequest(text)) return false;
+  if (isTopReviewsRequest(message) || isMostReviewedNovelRequest(message)) {
+    return false;
+  }
+  if (isTopBestAmongShownRequest(message)) return false;
+  if (isExplicitlyUnseenRecommendationRequest(message)) return false;
+  return (
+    /\b(?:which|what)(?:'s| is) (?:the )?(?:best|top)\b/.test(text) ||
+    /\bpick (?:the )?(?:best|top|single best)\b/.test(text) ||
+    /\b(?:best|top|single)\s+(?:match|pick|recommendation|novel|book|title|choice)\b/.test(
+      text
+    ) ||
+    /\bhighest[- ]rated\b/.test(text) ||
+    /\b(?:the )?top (?:one|pick|novel|book|title)\b/.test(text)
+  );
+}
+
+/** Best/top within cards already shown in this thread. */
+export function isTopBestAmongShownRequest(message: string): boolean {
+  const text = normalizeLookupQueryText(message).trim().toLowerCase();
+  if (!text) return false;
+  if (!/\b(?:best|top|highest[- ]rated)\b/.test(text)) return false;
+  return /\b(?:among|between|of these|from these|in this list|these picks|these results|these recommendations|already shown|you showed)\b/.test(
+    text
+  );
+}
+
+export function isHighestRatedSelectionRequest(message: string): boolean {
+  const text = normalizeLookupQueryText(message).trim().toLowerCase();
+  return /\bhighest[- ]rated\b/.test(text) || /\bbest rated\b/.test(text);
+}
+
 /** Phrases that look like lookups but must never be treated as catalogue titles. */
 export function isNonTitleLookupPhrase(message: string): boolean {
   const text = normalizeLookupQueryText(message).trim();
   if (MOONIE_GENERATED_FOLLOW_UP_RE.some((pattern) => pattern.test(text))) {
     return true;
   }
+  if (isHardConstraintFollowUpMessage(text)) return true;
+  if (isConstraintRelaxationRequest(text)) return true;
+  if (isRecommendationReplayRequest(text)) return true;
+  if (isMoreLikeThisActionMessage(text)) return true;
   return NON_TITLE_LOOKUP_PHRASE_RE.some((pattern) => pattern.test(text));
 }
 
@@ -380,10 +577,63 @@ export function isMoonieGeneratedFollowUpQuestion(message: string): boolean {
   return MOONIE_GENERATED_FOLLOW_UP_RE.some((pattern) => pattern.test(text));
 }
 
+/** Taste/preference asks that must route to discovery, never bare-title lookup. */
+export function isCataloguePreferenceDescription(message: string): boolean {
+  const text = normalizeLookupQueryText(message).trim();
+  if (!text) return false;
+  if (isNonTitleLookupPhrase(text)) return true;
+  if (isMoonieDeskChipPrompt(text)) return true;
+  if (isMoonieGenericDiscoveryPrompt(text)) return true;
+  if (isUseSavedPreferencesRequest(text)) return true;
+  if (RECOMMENDATION_DISCOVERY_RE.test(text)) return true;
+
+  const normalized = text.toLowerCase().replace(/[?.!]+$/, "");
+  for (const prompt of MOONIE_QUICK_PROMPTS) {
+    if (normalized === prompt.toLowerCase().replace(/[?.!]+$/, "")) return true;
+  }
+  for (const chip of DISCOVERY_MOOD_CHIPS) {
+    if (normalized === chip.prompt.toLowerCase().replace(/[?.!]+$/, "")) {
+      return true;
+    }
+  }
+  for (const combo of DISCOVERY_TROPE_COMBOS) {
+    if (normalized === combo.prompt.toLowerCase().replace(/[?.!]+$/, "")) {
+      return true;
+    }
+  }
+
+  const lower = text.toLowerCase();
+  if (/\bwith (?:a|an) \w+ (heroine|hero|lead|mc|protagonist|fl)\b/i.test(lower)) {
+    return true;
+  }
+  if (/\bbut no\b/i.test(lower)) return true;
+  if (
+    /^a[n]?\s+\w+.*\b(romance|fantasy|story|novel)\b/i.test(lower) &&
+    WEB_NOVEL_SIGNAL.test(lower)
+  ) {
+    return true;
+  }
+  if (/^something\s+(similar|like)\b/i.test(lower)) return true;
+  if (
+    /^comforting\b/i.test(lower) ||
+    /^an?\s+(intense|mysterious|romantic|funny)\b/i.test(lower)
+  ) {
+    return true;
+  }
+
+  if (extractDirectTitleQuery(text)) return false;
+
+  const signalMatches = lower.match(
+    /\b(completed|ongoing|slow.?burn|romance|fantasy|found.?family|heroine|hero|female lead|clever|cozy|comforting|dark|angst|fluff|cultivation|xianxia|litrpg|enemies.?to.?lovers|slice.?of.?life|hopeful|binge)\b/g
+  );
+  return Boolean(signalMatches && signalMatches.length >= 2);
+}
+
 /** Bare catalogue title with no lookup verb (e.g. "Cultivation Chat Group"). */
 export function isBareCatalogueTitleQuery(message: string): boolean {
   const text = normalizeLookupQueryText(message).trim();
   if (!text || text.length < 2 || text.length > 120) return false;
+  if (isCataloguePreferenceDescription(text)) return false;
   if (isGreetingMessage(text)) return false;
   if (isSmallTalkMessage(text)) return false;
   if (THANKS_RE.test(text)) return false;
@@ -391,7 +641,9 @@ export function isBareCatalogueTitleQuery(message: string): boolean {
   if (isUnrelatedFactualQuestion(text)) return false;
   if (isLookupSessionReplyMessage(text)) return false;
   if (isMoonieGeneratedFollowUpQuestion(text)) return false;
+  if (isHardConstraintFollowUpMessage(text)) return false;
   if (isMoonieDeskChipPrompt(text)) return false;
+  if (isMoonieGenericDiscoveryPrompt(text)) return false;
   if (extractDirectTitleQuery(text) || extractNovelQuery(text)) return false;
   if (/\?/.test(text)) return false;
   if (
@@ -424,12 +676,14 @@ export function isBareCatalogueTitleQuery(message: string): boolean {
   }
 
   if (isCommunityPeopleQuery(text)) return false;
+  if (isCatalogueTaskMessage(text)) return false;
   if (isReviewerOverviewMessage(text)) return false;
   if (isReviewerRankingMessage(text)) return false;
   if (isReviewerDetailsFollowUpMessage(text)) return false;
   if (/\breviewer\b/i.test(text)) return false;
   if (/^@[\w][\w.-]*$/i.test(text)) return false;
   if (/^their\b/i.test(text)) return false;
+  if (/^\s*top\s+\d{1,2}\s*$/i.test(text)) return false;
 
   return true;
 }
@@ -480,7 +734,22 @@ export function resolveAwaitingCatalogueTitleIntent(
 export function isBareReviewRequestWithoutNovel(message: string): boolean {
   if (extractReviewNovelQuery(message)) return false;
   const text = normalizeLookupQueryText(message).trim();
-  return /^(?:show(?:\s+me)?\s+)?(?:all\s+)?reviews?\s*[?.!]*$/i.test(text);
+  return /^(?:show(?:\s+me)?\s+)?(?:all\s+)?(?:novel\s+)?reviews?\s*[?.!]*$/i.test(
+    text
+  );
+}
+
+/** Moonie card/menu similarity action — never a catalogue title. */
+export function isMoreLikeThisActionMessage(message: string): boolean {
+  const text = normalizeLookupQueryText(message).trim();
+  if (!text) return false;
+  return (
+    /^more\s+like\s+this\s+novel(?:,\s*refined\s+to\s+my\s+taste)?\s*[?.!]*$/i.test(
+      text
+    ) ||
+    (/\bmore\s+like\s+this\b/i.test(text) &&
+      /\brefined\s+to\s+my\s+taste\b/i.test(text))
+  );
 }
 
 /** Bare community-consensus ask with no embedded title. */
@@ -516,9 +785,10 @@ export function extractReviewNovelQuery(message: string): string | null {
   for (const pattern of REVIEW_TITLE_PATTERNS) {
     const match = source.match(pattern);
     const candidate = match?.[1]?.trim();
-    if (candidate && isUsableNovelQuery(candidate)) {
-      return normalizeLookupTitle(candidate);
-    }
+    if (!candidate || !isUsableNovelQuery(candidate)) continue;
+    const normalized = normalizeLookupTitle(candidate);
+    if (PRONOUN_ONLY_REVIEW_TITLE_RE.test(normalized)) continue;
+    return normalized;
   }
 
   return null;
@@ -528,6 +798,13 @@ export function extractReviewNovelQuery(message: string): string | null {
 export function isReviewFollowUpMessage(message: string): boolean {
   const text = normalizeLookupQueryText(message).trim();
   if (extractReviewNovelQuery(text)) return false;
+
+  if (
+    /\b(?:its|their)\s+reviews?\b/i.test(text) ||
+    /\bshow\s+me\s+(?:its|their)\s+reviews?\b/i.test(text)
+  ) {
+    return true;
+  }
 
   return REVIEW_FOLLOW_UP_PATTERNS.some((pattern) => pattern.test(text));
 }
@@ -565,6 +842,64 @@ export function isReadingSourceFollowUpMessage(message: string): boolean {
  * Map a short contextual follow-up to a retrieval intent when a novel is already active.
  * Returns null when the message names a new title or is unrelated small talk.
  */
+export type NovelFactualField =
+  | "author"
+  | "genre"
+  | "tags"
+  | "status"
+  | "rating"
+  | "review_count"
+  | "reading_link"
+  | "review_link";
+
+/** Field-level factual question about the active novel (no embedded new title). */
+export function resolveNovelFactualFieldQuestion(
+  message: string
+): NovelFactualField | null {
+  const text = normalizeLookupQueryText(message).trim();
+  const lower = text.toLowerCase();
+  if (!text) return null;
+  if (extractNovelQuery(text) || extractReviewNovelQuery(text)) return null;
+
+  if (
+    /^who (?:is|was) the author\b/.test(lower) ||
+    /^who wrote\b/.test(lower) ||
+    /^what(?:'s| is) the author\b/.test(lower)
+  ) {
+    return "author";
+  }
+  if (/^what genre(?:s)? (?:is|are|does)\b/.test(lower)) {
+    return "genre";
+  }
+  if (/^what tags (?:does|are)\b/.test(lower)) {
+    return "tags";
+  }
+  if (
+    /^is it (?:completed|complete|ongoing|finished|on hiatus)\b/.test(lower) ||
+    /^(?:what is|what's) (?:its |the )?status\b/.test(lower) ||
+    /^(?:is it|are they) (?:completed|complete|ongoing|finished)\b/.test(lower)
+  ) {
+    return "status";
+  }
+  if (
+    /\bmoonverse rating\b/.test(lower) ||
+    /^what(?:'s| is) (?:the |its )?(?:average )?rating\b/.test(lower)
+  ) {
+    return "rating";
+  }
+  if (/^how many reviews\b/.test(lower)) {
+    return "review_count";
+  }
+  if (
+    /\b(?:moonverse|review) link\b/.test(lower) ||
+    /^give me the (?:novel|review) link\b/.test(lower)
+  ) {
+    return "review_link";
+  }
+
+  return null;
+}
+
 export function resolveNovelContextFollowUpIntent(
   message: string
 ): MoonieIntent | null {
@@ -586,6 +921,9 @@ export function resolveNovelContextFollowUpIntent(
   if (isReadingSourceFollowUpMessage(text)) {
     return "FIND_READING_SOURCE";
   }
+  if (resolveNovelFactualFieldQuestion(text)) {
+    return "NOVEL_OVERVIEW";
+  }
   if (isNovelOverviewFollowUpMessage(text)) {
     return "NOVEL_OVERVIEW";
   }
@@ -604,6 +942,18 @@ export function isNovelReviewRequest(message: string): boolean {
 
   if (extractReviewNovelQuery(text)) return true;
   if (isReviewFollowUpMessage(text)) return true;
+  if (isBareReviewRequestWithoutNovel(text)) return true;
+  if (
+    /\b(?:give|get|show)(?:\s+me)?\s+(?:the\s+)?reviews?\s+(?:for|of)\s+(?:these|those)\s+novels?\b/i.test(
+      text
+    ) ||
+    /\b(?:these|those)\s+novels?\b.*\breviews?\b/i.test(text) ||
+    /\b(?:give|get|show)(?:\s+me)?\s+(?:the\s+)?reviews?\s+(?:for|of)\s+that\s+novels?\b/i.test(
+      text
+    )
+  ) {
+    return true;
+  }
 
   if (
     /\b(?:recommend|suggest|discover|something|mood for|want to read|surprise me|hidden gem)\b/i.test(
@@ -619,6 +969,7 @@ export function isNovelReviewRequest(message: string): boolean {
 export function extractNovelQuery(message: string): string | null {
   const source = normalizeLookupQueryText(message);
 
+  if (isSimilarityRecommendationMessage(source)) return null;
   if (isNonTitleLookupPhrase(source)) return null;
   if (isUnrelatedFactualQuestion(source)) return null;
   if (messageReferencesReviewerReviewSession(source)) return null;
@@ -646,21 +997,28 @@ export function extractNovelQuery(message: string): string | null {
     const match = source.match(pattern);
     const candidate = match?.[1]?.trim();
     if (candidate && isUsableNovelQuery(candidate)) {
-      return normalizeLookupTitle(candidate);
+      const normalized = normalizeLookupTitle(candidate);
+      if (isUsableNovelQuery(normalized)) return normalized;
     }
   }
 
   const patterns = [
-    /(?:find|look up|search for|tell me about|what is)\s+(?:me\s+)?(?:the\s+)?(?:novel|book\s+)?["“]?(.+?)["”]?\s*$/i,
+    /(?:find|look up|search for|tell me about|what is)\s+(?:me\s+)?(?:the\s+)?(?:(?:novels?|books?)\b\s+)?["“]?(.+?)["”]?\s*$/i,
+    /^who (?:is|was) the author of\s+["“']?(.+?)["”']?\s*$/i,
+    /^who wrote\s+["“']?(.+?)["”']?\s*$/i,
     /^(?:tell me\s+)?(?:more )?about\s+["“']?(.+?)["”']?\s*$/i,
     /where can i read\s+["“]?(.+?)["”]?\s*$/i,
+    /^is\s+(?!it\b|this\b|that\b)["“']?(.+?)["”']?\s+(?:completed|complete|ongoing|finished|on\s+hiatus)\b/i,
+    /^how many chapters does\s+(?!it\b|this\b|that\b)["“']?(.+?)["”']?\s+have\b/i,
+    /^what language is\s+(?!it\b|this\b|that\b)["“']?(.+?)["”']?\s+in\b/i,
     /["“](.+?)["”]/,
   ];
   for (const pattern of patterns) {
     const match = source.match(pattern);
     const candidate = match?.[1]?.trim();
     if (candidate && isUsableNovelQuery(candidate)) {
-      return normalizeLookupTitle(candidate);
+      const normalized = normalizeLookupTitle(candidate);
+      if (isUsableNovelQuery(normalized)) return normalized;
     }
   }
   return null;
@@ -700,12 +1058,159 @@ export function extractCompareTitles(
     const parts = cleaned
       .split(pattern)
       .map((part) => part.replace(/[?.!]+$/, "").trim())
-      .filter((part) => part.length >= 2);
+      .filter((part) => part.length >= 2 && isUsableNovelQuery(part));
     if (parts.length >= 2 && parts.length <= 3) {
       return parts.slice(0, 3);
     }
   }
 
+  return [];
+}
+
+/** Strip compare/vs lead-in so a title-only answer can be parsed. */
+export function stripCompareLeadIn(message: string): string {
+  return message
+    .replace(/\b(compare|which should i read|between)\b/gi, " ")
+    .replace(/\s+/g, " ")
+    .trim()
+    .replace(/[?.!]+$/, "")
+    .trim();
+}
+
+function uniqueCompareTitleParses(parses: string[][]): string[][] {
+  const seen = new Set<string>();
+  const unique: string[][] = [];
+  for (const parse of parses) {
+    const titles = parse
+      .map((title) => title.replace(/[?.!]+$/, "").trim())
+      .filter((title) => title.length >= 2 && isUsableNovelQuery(title));
+    if (titles.length === 0) continue;
+    const key = titles.map((title) => title.toLowerCase()).join("||");
+    if (seen.has(key)) continue;
+    seen.add(key);
+    unique.push(titles.slice(0, 3));
+  }
+  return unique;
+}
+
+function adjacentAndTitleGroupings(parts: string[]): string[][] {
+  if (parts.length < 2 || parts.length > 3) return [];
+  if (parts.length === 2) {
+    return [parts, [`${parts[0]} and ${parts[1]}`]];
+  }
+  return [
+    parts,
+    [`${parts[0]} and ${parts[1]}`, parts[2]!],
+    [parts[0]!, `${parts[1]} and ${parts[2]}`],
+    [`${parts[0]} and ${parts[1]} and ${parts[2]}`],
+  ];
+}
+
+/**
+ * Candidate title lists for comparison. Includes "and" splits and the
+ * unsplit phrase so genuine titles like "Pride and Prejudice" are not
+ * discarded when the fragments do not resolve.
+ */
+export function enumerateCompareTitleParses(
+  message: string,
+  activeNovelTitle?: string | null
+): string[][] {
+  const parses: string[][] = [];
+  const extracted = extractCompareTitles(message, activeNovelTitle);
+  if (extracted.length > 0) parses.push(extracted);
+
+  const cleaned = stripCompareLeadIn(message);
+  if (cleaned && isUsableNovelQuery(cleaned)) {
+    parses.push([cleaned]);
+    const andParts = cleaned
+      .split(/\s+and\s+/i)
+      .map((part) => part.replace(/[?.!]+$/, "").trim())
+      .filter((part) => part.length >= 2 && isUsableNovelQuery(part));
+    parses.push(...adjacentAndTitleGroupings(andParts));
+  }
+
+  return uniqueCompareTitleParses(parses);
+}
+
+export function preferCompareTitleParse(
+  left: { resolvedCount: number; titleCount: number },
+  right: { resolvedCount: number; titleCount: number }
+): number {
+  if (left.resolvedCount !== right.resolvedCount) {
+    return right.resolvedCount - left.resolvedCount;
+  }
+  const leftComplete = left.resolvedCount === left.titleCount ? 1 : 0;
+  const rightComplete = right.resolvedCount === right.titleCount ? 1 : 0;
+  if (leftComplete !== rightComplete) return rightComplete - leftComplete;
+  return right.titleCount - left.titleCount;
+}
+
+const CONVERSATIONAL_INTENT_SET = new Set<MoonieIntent>([
+  "GREETING",
+  "CHAT",
+  "SMALL_TALK",
+  "THANKS",
+  "HELP",
+  "IDENTITY",
+]);
+
+/** Explicit switch away from a pending compare-titles wait. */
+export function isExplicitNonCompareTaskChange(
+  message: string,
+  intents: MoonieIntent[]
+): boolean {
+  const text = normalizeConversationalInput(message);
+  if (COMPARE_RE.test(text)) return false;
+  if (isMoonieGenericDiscoveryPrompt(text)) return true;
+  if (isMoonieDeskChipPrompt(text)) return true;
+  if (isDirectTitleLookupMessage(text)) return true;
+  if (isMoreLikeThisActionMessage(text)) return true;
+  if (isBareReadingLinkRequest(text)) return true;
+  return intents.some((intent) =>
+    (
+      [
+        "FIND_READING_SOURCE",
+        "MORE_LIKE_THIS",
+        "TOP_REVIEWS",
+        "SALON_REVIEWS",
+        "NOVEL_REVIEWS",
+        "NOVEL_SERIES",
+        "FIND_REVIEWERS",
+        "REVIEWER_OVERVIEW",
+        "CATALOGUE_STAT",
+        "IMAGE_LOOKUP",
+        "FILE_LOOKUP",
+        "REFINE",
+        "RECOMMEND",
+      ] as MoonieIntent[]
+    ).includes(intent)
+  );
+}
+
+/** Compare ordinals against recommendations already shown in the thread. */
+export function extractOrdinalCompareTitlesFromRecommendations(
+  message: string,
+  recommendations: Array<{ title: string }>
+): string[] {
+  if (recommendations.length < 2) return [];
+  const text = message.trim().toLowerCase();
+  const comparesFirstTwo =
+    /\bcompare\s+(?:the\s+)?first\s+(?:and|&|with)\s+second\b/.test(text) ||
+    /\bcompare\s+(?:the\s+)?first\s+two\b/.test(text) ||
+    /\bcompare\s+(?:the\s+)?(?:first|1st)\s+(?:and|&|with)\s+(?:second|2nd)\b/.test(
+      text
+    );
+  if (comparesFirstTwo) {
+    return recommendations.slice(0, 2).map((rec) => rec.title);
+  }
+  if (
+    recommendations.length >= 3 &&
+    /\bcompare\s+(?:the\s+)?(?:first|1st)\s+(?:and|&|with)\s+(?:third|3rd)\b/.test(
+      text
+    )
+  ) {
+    return [recommendations[0]!.title, recommendations[2]!.title];
+  }
   return [];
 }
 
@@ -790,6 +1295,7 @@ export function resolveOrdinalIndex(message: string): number | null {
 export function messageReferencesActiveNovel(message: string): boolean {
   const text = message.trim().toLowerCase();
   if (!text) return false;
+  if (resolveOrdinalIndex(message) != null) return true;
   if (/\b(this one|that one|the one)\b/.test(text)) return true;
   if (/\b(where can i read it|is it completed|about it|read it)\b/.test(text)) {
     return true;
@@ -811,12 +1317,13 @@ export interface DirectTitleTask {
 }
 
 const RECOMMENDATION_DISCOVERY_RE =
-  /\b(recommend(?:ation)?s?|suggest|something like|similar to|discover|surprise me|hidden gem|safe pick|trending|mood for|want to read|in the mood|what should i read|pick(?:s)? for me)\b/i;
+  /\b(recommend(?:ation)?s?|suggest|something like|similar to|discover|surprise me|hidden gem|safe pick|trending|mood for|want to read|in the mood|what should i read|pick(?:s)? for me|find novels?|search(?:\s+moonverse)?\s+for|looking for)\b/i;
 
 /** Named-title task + catalogue title for explicit lookup routing. */
 export function resolveDirectTitleTask(message: string): DirectTitleTask | null {
   const text = normalizeLookupQueryText(message).trim();
   if (!text || extractCompareTitles(text).length >= 2) return null;
+  if (isSimilarityRecommendationMessage(text)) return null;
   if (isNonTitleLookupPhrase(text)) return null;
   if (isUnrelatedFactualQuestion(text)) return null;
   if (isCommunityPeopleQuery(text)) return null;
@@ -849,6 +1356,17 @@ export function resolveDirectTitleTask(message: string): DirectTitleTask | null 
     return { intent: "NOVEL_OVERVIEW", title: readingTitle };
   }
 
+  if (
+    readingTitle &&
+    (/^is\s+(?!it\b|this\b|that\b).+\s+(?:completed|complete|ongoing|finished|on\s+hiatus)\b/i.test(
+      text
+    ) ||
+      /^how many chapters does\s+(?!it\b|this\b|that\b).+\s+have\b/i.test(text) ||
+      /^what language is\s+(?!it\b|this\b|that\b).+\s+in\b/i.test(text))
+  ) {
+    return { intent: "NOVEL_OVERVIEW", title: readingTitle };
+  }
+
   return null;
 }
 
@@ -860,13 +1378,30 @@ export function isDirectTitleLookupMessage(message: string): boolean {
   return resolveDirectTitleTask(message) != null;
 }
 
+export function isBrowseClarifyFirstRequest(message: string): boolean {
+  const text = normalizeConversationalInput(message);
+  return /\bask me one (?:useful )?(?:preference )?clarifying question\b/i.test(
+    text
+  );
+}
+
 export function isRecommendationDiscoveryMessage(message: string): boolean {
+  if (isBrowseClarifyFirstRequest(message)) return false;
+  if (isRecommendationReplayRequest(message)) return true;
+  if (isSimilarityRecommendationMessage(message)) return true;
+  if (isHardConstraintFollowUpMessage(message)) return true;
+  if (isConstraintRelaxationRequest(message)) return true;
+  if (isCataloguePreferenceDescription(message)) return true;
+  if (isCatalogueTaskMessage(message)) return false;
+  if (isNovelReviewRequest(message)) return false;
+  if (isMoreLikeThisActionMessage(message)) return false;
   if (isDirectTitleLookupMessage(message)) return false;
   if (isBareCatalogueTitleQuery(message)) return false;
   if (isMoonieGeneratedFollowUpQuestion(message)) return false;
 
   if (isUseSavedPreferencesRequest(message)) return true;
   if (isMoonieDeskChipPrompt(message)) return true;
+  if (isMoonieGenericDiscoveryPrompt(message)) return true;
   const text = normalizeLookupQueryText(message).toLowerCase();
   if (/\bmore like this\b/i.test(text)) return true;
   if (RECOMMENDATION_DISCOVERY_RE.test(text)) return true;
@@ -894,25 +1429,37 @@ export function classifyMoonieIntents(
   if (HELP_RE.test(lower)) intents.push("HELP");
 
   const reviewRequest = isNovelReviewRequest(text);
+  const similarityRequest = parseSimilarityRequest(text);
   const directTask = resolveDirectTitleTask(text);
-  const communityPeopleQuery = isCommunityPeopleQuery(text);
+  const communityPeopleQuery =
+    isCommunityPeopleQuery(text) && !directTask;
   const awaitingCatalogueTitle =
     context.pendingLookupIntent ??
     (context.recentMessages
       ? resolveAwaitingCatalogueTitleIntent(context.recentMessages)
       : null);
   const moonieFollowUpChip = isMoonieGeneratedFollowUpQuestion(text);
+  const constraintRelaxation = isConstraintRelaxationRequest(text);
+  const salonReviewRequest = isPublicSalonReviewRequest(text);
   const reviewerOverviewRequest =
-    isReviewerOverviewMessage(text) ||
-    isReviewerAuthoredReviewsMessage(text) ||
-    (context.hasPriorReviewerResults &&
-      isReviewerDetailsFollowUpMessage(text)) ||
-    (context.hasPriorReviewerResults &&
-      messageReferencesReviewerGroup(text)) ||
-    (context.hasPriorReviewerResults &&
-      messageReferencesActiveReviewer(text) &&
-      !isReviewerRankingMessage(text) &&
-      !messageReferencesReviewerReviewSession(text));
+    !salonReviewRequest &&
+    (isReviewerOverviewMessage(text) ||
+      isReviewerAuthoredReviewsMessage(text) ||
+      isReviewerFolderRequest(text) ||
+      isReviewerOrdinalQuestion(text) ||
+      (context.hasPriorReviewerResults &&
+        isReviewerDetailsFollowUpMessage(text)) ||
+      (context.hasPriorReviewerResults &&
+        messageReferencesReviewerGroup(text)) ||
+      (context.hasPriorReviewerResults &&
+        messageReferencesActiveReviewer(text) &&
+        !isReviewerRankingMessage(text) &&
+        !messageReferencesReviewerReviewSession(text)));
+
+  const reviewerRankingExpansion =
+    context.hasPriorReviewerResults &&
+    /^\s*top\s+\d{1,2}\s*$/i.test(text.trim()) &&
+    !isReviewerOrdinalQuestion(text);
 
   const reviewerReviewFollowUp =
     Boolean(context.hasPriorReviewerReviewSession) &&
@@ -941,20 +1488,40 @@ export function classifyMoonieIntents(
 
   if (
     !reviewerOverviewRequest &&
+    !reviewerRankingExpansion &&
     (isReviewerRankingMessage(text) || extractReviewerLookupQuery(text))
   ) {
     intents.push("FIND_REVIEWERS");
   }
 
+  if (reviewerRankingExpansion) {
+    intents.push("FIND_REVIEWERS");
+  }
+
+  if (
+    isSalonReviewsRequest(text) ||
+    isForYouShelfReviewsRequest(text) ||
+    salonReviewRequest
+  ) {
+    intents.push("SALON_REVIEWS");
+  } else if (isTopReviewsRequest(text)) {
+    intents.push("TOP_REVIEWS");
+  } else if (isMostReviewedNovelRequest(text)) {
+    intents.push("CATALOGUE_STAT");
+  }
+
   if (READING_SOURCE_RE.test(lower) && !reviewRequest && !communityPeopleQuery) {
-    intents.push("FIND_READING_SOURCE");
+    if (!similarityRequest) {
+      intents.push("FIND_READING_SOURCE");
+    }
   }
   if (
     !isUnrelatedFactualQuestion(text) &&
     !communityPeopleQuery &&
     NOVEL_LOOKUP_RE.test(lower) &&
     !isReadingSourceRequest(text) &&
-    !reviewRequest
+    !reviewRequest &&
+    !similarityRequest
   ) {
     intents.push("FIND_NOVEL");
   }
@@ -964,6 +1531,7 @@ export function classifyMoonieIntents(
     !communityPeopleQuery &&
     !isReadingSourceRequest(text) &&
     !reviewRequest &&
+    !similarityRequest &&
     extractedTitle &&
     /\b(find|look up|search for|tell me about|what is)\b/i.test(lower) &&
     !intents.includes("FIND_NOVEL")
@@ -972,6 +1540,15 @@ export function classifyMoonieIntents(
   }
   if (NOVEL_QUESTION_RE.test(lower) && context.hasActiveNovel) {
     intents.push("NOVEL_OVERVIEW");
+  }
+  if (
+    resolveOrdinalIndex(text) != null &&
+    context.hasPriorRecommendations &&
+    !reviewRequest
+  ) {
+    if (!intents.includes("NOVEL_OVERVIEW")) intents.push("NOVEL_OVERVIEW");
+    const findIdx = intents.indexOf("FIND_NOVEL");
+    if (findIdx >= 0) intents.splice(findIdx, 1);
   }
   if (reviewRequest) {
     intents.push("NOVEL_REVIEWS");
@@ -985,9 +1562,10 @@ export function classifyMoonieIntents(
   }
   if (COMPARE_RE.test(lower)) intents.push("COMPARE");
   if (/\bmore like this\b/i.test(lower)) intents.push("MORE_LIKE_THIS");
+  if (similarityRequest) intents.push("MORE_LIKE_THIS");
 
   if (
-    REFINE_RE.test(lower) &&
+    (REFINE_RE.test(lower) || constraintRelaxation) &&
     (context.hasPriorRecommendations || context.hasConversationPrefs)
   ) {
     intents.push("REFINE");
@@ -1004,24 +1582,60 @@ export function classifyMoonieIntents(
     }
   }
 
+  const pendingClarification = context.pendingClarification ?? null;
+  if (
+    pendingClarification?.kind === "constraint_relaxation" &&
+    intents.includes("FIND_NOVEL")
+  ) {
+    const findIdx = intents.indexOf("FIND_NOVEL");
+    if (findIdx >= 0) intents.splice(findIdx, 1);
+    if (!intents.includes("REFINE")) intents.push("REFINE");
+  }
+  if (
+    pendingClarification?.kind === "review_ranking" &&
+    !intents.includes("TOP_REVIEWS")
+  ) {
+    intents.push("TOP_REVIEWS");
+  }
+  if (
+    pendingClarification?.kind === "review_preference" &&
+    !intents.includes("SALON_REVIEWS")
+  ) {
+    intents.push("SALON_REVIEWS");
+  }
+
+  const pendingCompareTitles = pendingClarification?.kind === "compare_titles";
+  const hasConversationalIntent = intents.some((intent) =>
+    CONVERSATIONAL_INTENT_SET.has(intent)
+  );
+  const explicitNonCompareTask = isExplicitNonCompareTaskChange(text, intents);
+  if (
+    pendingCompareTitles &&
+    !explicitNonCompareTask &&
+    !hasConversationalIntent &&
+    !intents.includes("COMPARE")
+  ) {
+    intents.push("COMPARE");
+  }
+
   if (isBareCatalogueTitleQuery(text)) {
-    const hasConversationalIntent = intents.some((intent) =>
-      (
-        [
-          "GREETING",
-          "CHAT",
-          "SMALL_TALK",
-          "THANKS",
-          "HELP",
-          "IDENTITY",
-        ] as MoonieIntent[]
-      ).includes(intent)
-    );
-    if (!hasConversationalIntent) {
+    if (
+      !hasConversationalIntent &&
+      pendingClarification?.kind !== "constraint_relaxation" &&
+      !(pendingCompareTitles && !explicitNonCompareTask)
+    ) {
       const lookupIntent = awaitingCatalogueTitle ?? "FIND_NOVEL";
       if (!intents.includes(lookupIntent)) {
         intents.push(lookupIntent);
       }
+    }
+  }
+
+  if (pendingCompareTitles && !explicitNonCompareTask) {
+    const findIdx = intents.indexOf("FIND_NOVEL");
+    if (findIdx >= 0) intents.splice(findIdx, 1);
+    if (!hasConversationalIntent && !intents.includes("COMPARE")) {
+      intents.push("COMPARE");
     }
   }
 
@@ -1048,7 +1662,14 @@ export function classifyMoonieIntents(
   }
 
   if (intents.length === 0) {
-    if (isSmallTalkMessage(text)) {
+    if (isReviewerAuthoredReviewsMessage(text)) {
+      intents.push("REVIEWER_OVERVIEW");
+    } else if (
+      context.hasPriorReviewerResults &&
+      (isReviewerOrdinalQuestion(text) || reviewerRankingExpansion)
+    ) {
+      intents.push("REVIEWER_OVERVIEW");
+    } else if (isSmallTalkMessage(text)) {
       intents.push("SMALL_TALK");
     } else if (isUnrelatedFactualQuestion(text)) {
       intents.push("CHAT");
@@ -1086,42 +1707,46 @@ export function classifyMoonieIntents(
     }
   }
 
-  if (isMoonieDeskChipPrompt(text)) {
+  if (isMoonieDeskChipPrompt(text) || isMoonieGenericDiscoveryPrompt(text)) {
     const findNovelIdx = intents.indexOf("FIND_NOVEL");
     if (findNovelIdx >= 0) intents.splice(findNovelIdx, 1);
     if (!intents.includes("RECOMMEND")) intents.push("RECOMMEND");
   }
 
+  if (isHardConstraintFollowUpMessage(text)) {
+    for (let index = intents.length - 1; index >= 0; index -= 1) {
+      const intent = intents[index];
+      if (intent && EXPLICIT_LOOKUP_INTENT_SET.has(intent)) {
+        intents.splice(index, 1);
+      }
+    }
+    const chatIdx = intents.indexOf("CHAT");
+    if (chatIdx >= 0) intents.splice(chatIdx, 1);
+    if (!intents.includes("RECOMMEND") && !intents.includes("REFINE")) {
+      intents.push(
+        context.hasPriorRecommendations || context.hasConversationPrefs
+          ? "REFINE"
+          : "RECOMMEND"
+      );
+    }
+  }
+
   if (context.hasActiveNovel) {
     const novelFollowUp = resolveNovelContextFollowUpIntent(text);
     if (novelFollowUp) {
-      const overridable = new Set<MoonieIntent>([
-        "CHAT",
-        "SMALL_TALK",
-        "REFINE",
-        "RECOMMEND",
-      ]);
-      const hasExplicitLookup = intents.some((intent) =>
-        EXPLICIT_LOOKUP_INTENT_SET.has(intent)
-      );
-      const falseTitleLookup =
-        hasExplicitLookup && isNonTitleLookupPhrase(text);
-      if (
-        !hasExplicitLookup ||
-        falseTitleLookup ||
-        intents.length === 0 ||
-        intents.every((intent) => overridable.has(intent))
-      ) {
-        if (falseTitleLookup) {
-          for (let index = intents.length - 1; index >= 0; index -= 1) {
-            const intent = intents[index];
-            if (intent && EXPLICIT_LOOKUP_INTENT_SET.has(intent)) {
-              intents.splice(index, 1);
-            }
-          }
-        } else {
-          intents.length = 0;
+      for (let index = intents.length - 1; index >= 0; index -= 1) {
+        const intent = intents[index];
+        if (
+          intent &&
+          intent !== novelFollowUp &&
+          (EXPLICIT_LOOKUP_INTENT_SET.has(intent) ||
+            intent === "REVIEWER_OVERVIEW" ||
+            intent === "FIND_REVIEWERS")
+        ) {
+          intents.splice(index, 1);
         }
+      }
+      if (!intents.includes(novelFollowUp)) {
         intents.push(novelFollowUp);
       }
     }
@@ -1160,9 +1785,32 @@ export function classifyMoonieIntents(
     if (findIdx >= 0) intents.splice(findIdx, 1);
   }
 
+  if (salonReviewRequest) {
+    for (let index = intents.length - 1; index >= 0; index -= 1) {
+      const intent = intents[index];
+      if (
+        intent === "REVIEWER_OVERVIEW" ||
+        intent === "FIND_REVIEWERS" ||
+        intent === "RECOMMEND" ||
+        intent === "TOP_REVIEWS"
+      ) {
+        intents.splice(index, 1);
+      }
+    }
+    if (!intents.includes("SALON_REVIEWS")) intents.push("SALON_REVIEWS");
+  }
+
   if (reviewerReviewFollowUp) {
     const findNovelIdx = intents.indexOf("FIND_NOVEL");
     if (findNovelIdx >= 0) intents.splice(findNovelIdx, 1);
+  }
+
+  if (similarityRequest) {
+    for (const intent of ["FIND_READING_SOURCE", "FIND_NOVEL"] as const) {
+      const idx = intents.indexOf(intent);
+      if (idx >= 0) intents.splice(idx, 1);
+    }
+    if (!intents.includes("MORE_LIKE_THIS")) intents.push("MORE_LIKE_THIS");
   }
 
   return [...new Set(intents)];
@@ -1187,9 +1835,12 @@ export function primaryRetrievalIntent(
     "FILE_LOOKUP",
     "MORE_LIKE_THIS",
     "COMPARE",
+    "SALON_REVIEWS",
     "FIND_REVIEWERS",
     "REVIEWER_OVERVIEW",
     "NOVEL_SERIES",
+    "TOP_REVIEWS",
+    "CATALOGUE_STAT",
     "NOVEL_REVIEWS",
     "FIND_READING_SOURCE",
     "FIND_NOVEL",

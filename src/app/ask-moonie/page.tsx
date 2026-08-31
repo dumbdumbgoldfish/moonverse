@@ -1,6 +1,7 @@
 import { redirect } from "next/navigation";
-import { auth } from "@/lib/auth";
+import { getSession } from "@/lib/session";
 import { GuestAskMooniePageShell } from "@/components/moonie/GuestAskMooniePageShell";
+import { moonieLoggedInEntryHref } from "@/lib/moonie/open-moonie";
 import { getSystemSettings } from "@/lib/system-settings";
 
 export const metadata = {
@@ -17,13 +18,9 @@ export default async function AskMoonieGatePage({
   searchParams,
 }: AskMoonieGatePageProps) {
   const { prompt } = await searchParams;
-  const session = await auth();
+  const session = await getSession();
   if (session?.user?.id) {
-    redirect(
-      prompt?.trim()
-        ? `/moonie?prompt=${encodeURIComponent(prompt.trim())}`
-        : "/moonie",
-    );
+    redirect(moonieLoggedInEntryHref(prompt?.trim() || undefined));
   }
 
   const settings = await getSystemSettings();

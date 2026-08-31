@@ -24,8 +24,6 @@ export function MoonieWidget({
 }: MoonieWidgetProps) {
   const pathname = usePathname();
   const hideFab = pathname.startsWith("/moonie");
-  const novelMatch = pathname.match(/^\/novels\/([^/]+)/);
-  const contextNovelId = novelMatch?.[1];
 
   const open = useSyncExternalStore(
     subscribeMooniePanelOpen,
@@ -49,7 +47,9 @@ export function MoonieWidget({
     handleSubmit,
     hideNovel,
     quotaRemaining,
-  } = useMoonieChat({ isLoggedIn, contextNovelId });
+    conversationId,
+    startNewConversation,
+  } = useMoonieChat({ isLoggedIn });
 
   const setPanelOpen = useCallback((next: boolean) => {
     setMooniePanelOpen(next);
@@ -60,18 +60,14 @@ export function MoonieWidget({
   }, [setPanelOpen]);
 
   useEffect(() => {
-    const handleOpen = (event: Event) => {
+    const handleOpen = () => {
       if (pathname.startsWith("/moonie")) return;
+      startNewConversation();
       setMooniePanelOpen(true);
-      const detail = (event as CustomEvent<{ prompt?: string }>).detail;
-      if (detail?.prompt && isLoggedIn) {
-        setInput(detail.prompt);
-        void handleSubmit(detail.prompt);
-      }
     };
     window.addEventListener("moonie:open", handleOpen);
     return () => window.removeEventListener("moonie:open", handleOpen);
-  }, [handleSubmit, isLoggedIn, pathname, setInput]);
+  }, [pathname, startNewConversation]);
 
   if (hideFab) return null;
 
@@ -103,6 +99,7 @@ export function MoonieWidget({
             }
             loginCallbackUrl={pathname}
             quotaRemaining={quotaRemaining}
+            conversationId={conversationId}
           />
         </div>
       ) : null}

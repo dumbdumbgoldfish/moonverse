@@ -1,7 +1,8 @@
 "use client";
 
 import Link from "next/link";
-import type { ComponentPropsWithoutRef, ReactNode } from "react";
+import { usePathname } from "next/navigation";
+import type { ComponentPropsWithoutRef, MouseEvent, ReactNode } from "react";
 import { Sparkles } from "lucide-react";
 import {
   MV_MOONIE_BTN,
@@ -11,7 +12,14 @@ import {
   MV_MOONIE_ICON_ON_DARK,
   MV_MOONIE_SIZE,
 } from "@/lib/mv-buttons";
-import { moonieEntryHref, openMoonie } from "@/lib/moonie/open-moonie";
+import { useSession } from "next-auth/react";
+import { deskHrefIsExplicitNewChat } from "@/lib/moonie/conversation-url";
+import {
+  moonieEntryHref,
+  moonieLoggedInEntryHref,
+  openMoonie,
+  openMoonieDeskFresh,
+} from "@/lib/moonie/open-moonie";
 import { cn } from "@/lib/utils";
 
 type AskMoonieButtonVariant = "solid" | "soft";
@@ -95,7 +103,7 @@ export function AskMoonieButton({
       onClick={(event) => {
         onClick?.(event);
         if (!event.defaultPrevented) {
-          openMoonie(prompt);
+          openMoonie();
         }
       }}
       {...props}
@@ -115,10 +123,34 @@ export function AskMoonieLink({
   showIcon = true,
   children = "Ask Moonie",
   className,
-}: Omit<AskMoonieButtonProps, "onClick" | "type">) {
+  onClick,
+}: Omit<AskMoonieButtonProps, "onClick" | "type"> & {
+  onClick?: () => void;
+}) {
+  const { data: session } = useSession();
+  const pathname = usePathname();
+  const resolvedHref =
+    href ??
+    (session?.user ? moonieLoggedInEntryHref() : moonieEntryHref());
+
+  const handleClick = (event: MouseEvent<HTMLAnchorElement>) => {
+    if (
+      session?.user &&
+      pathname === "/moonie" &&
+      deskHrefIsExplicitNewChat(resolvedHref)
+    ) {
+      event.preventDefault();
+      openMoonieDeskFresh(session.user.id);
+      onClick?.();
+      return;
+    }
+    onClick?.();
+  };
+
   return (
     <Link
-      href={href ?? moonieEntryHref(prompt)}
+      href={resolvedHref}
+      onClick={handleClick}
       className={moonieBtnClasses({ variant, tone, size, className })}
     >
       {showIcon ? (

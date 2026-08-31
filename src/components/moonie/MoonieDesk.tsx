@@ -26,11 +26,15 @@ import { CatalogLink } from "@/components/ui/CatalogLink";
 import type { MoonieAnimationContext } from "@/lib/moonie/animation-states";
 import type { MoonieEmotion } from "@/lib/moonie/emotions";
 import { MOONIE_DAILY_DISCOVERY_LIMIT } from "@/lib/moonie/constants";
+import { moonieNoMatchCopy } from "@/lib/moonie/empty-reason";
 import {
+  buildGuestRateLimitBody,
   buildMoonieRateLimitBody,
   formatDiscoveryQuotaRemaining,
   formatDiscoveryQuotaRemainingCompact,
   formatDiscoveryQuotaUsed,
+  formatGuestQuotaUsed,
+  MOONIE_GUEST_RATE_LIMIT_TITLE,
   MOONIE_RATE_LIMIT_TITLE,
 } from "@/lib/moonie/quota-copy";
 import {
@@ -38,6 +42,7 @@ import {
   MOONIE_DESK_CHIPS,
   MOONIE_WIDGET_CHIPS,
   MOONIE_WIDGET_HELPER,
+  compareDiscoveryCtaLabel,
   compareDiscoveryHref,
   slateDiversityLine,
   tasteUsedLabels,
@@ -386,21 +391,20 @@ export function MoonieSlateMeta({
 }
 
 export function MoonieCompareChip({
-  prefs,
   userQuery,
   className,
 }: {
-  prefs?: MoonieInterpretedPreferences | null;
   userQuery?: string;
   className?: string;
 }) {
   const router = useRouter();
-  const href = compareDiscoveryHref(prefs, userQuery);
+  const href = compareDiscoveryHref(userQuery);
+  const label = href ? compareDiscoveryCtaLabel(href) : null;
   const navigate = useCallback(() => {
-    router.push(href);
+    if (href) router.push(href);
   }, [href, router]);
 
-  if (href === "/search" && !userQuery?.trim()) return null;
+  if (!href) return null;
 
   return (
     <Link
@@ -416,7 +420,7 @@ export function MoonieCompareChip({
         navigate();
       }}
     >
-      See how search ranks this
+      {label}
     </Link>
   );
 }
@@ -640,12 +644,34 @@ export function MoonieLoadingTicks({
 export function MoonieNoMatch({
   onBroaden,
   browseHref = "/browse",
+  reason,
+  emptyReason,
   className,
 }: {
   onBroaden?: () => void;
   browseHref?: string;
+  reason?: string;
+  emptyReason?: import("@/types/moonie").MoonieEmptyReason;
   className?: string;
 }) {
+  const inferred: import("@/types/moonie").MoonieEmptyReason | undefined =
+    emptyReason ??
+    (/could not verify any MoonVerse novels as/i.test(
+      reason ?? ""
+    )
+      ? "unknown_status"
+      : /no additional unseen/i.test(reason ?? "")
+        ? "unseen_exhausted"
+        : /(?:after (?:respecting )?(?:the )?titles you (?:hid|rejected)|after your exclusions)/i.test(
+              reason ?? ""
+            )
+          ? "excluded_exhausted"
+          : /Verified retrieval incomplete|Could not verify this batch yet/i.test(
+              reason ?? ""
+            )
+            ? "retrieval_incomplete"
+            : undefined);
+  const copy = moonieNoMatchCopy(inferred);
   return (
     <div
       className={cn(
@@ -654,12 +680,9 @@ export function MoonieNoMatch({
       )}
     >
       <p className="font-[family-name:var(--font-source-serif)] text-lg font-semibold text-[#1A1224]">
-        Nothing in the catalogue matches that slip.
+        {copy.title}
       </p>
-      <p className="mt-1 text-sm text-slate-600">
-        Moonie will not invent a title to fill the desk. Drop one constraint, or
-        open browse.
-      </p>
+      <p className="mt-1 text-sm text-slate-600">{copy.description}</p>
       <div className="mt-3 flex flex-wrap gap-2">
         {onBroaden ? (
           <CatalogLink onClick={onBroaden} size="compact">
@@ -713,6 +736,49 @@ export function MoonieRateLimit({
         </CatalogLink>
         <CatalogLink href="/discover" size="compact">
           Open discover
+        </CatalogLink>
+      </div>
+    </div>
+  );
+}
+
+export function MoonieGuestRateLimit({
+  className,
+  remaining,
+  cap,
+  compact = false,
+}: {
+  className?: string;
+  remaining?: number | null;
+  cap: number;
+  compact?: boolean;
+}) {
+  const used =
+    typeof remaining === "number" ? Math.max(0, cap - remaining) : cap;
+
+  return (
+    <div
+      className={cn(
+        "rounded-2xl border border-amber-200 bg-amber-50 px-4 py-4",
+        className
+      )}
+      role="alert"
+    >
+      <p className="font-[family-name:var(--font-source-serif)] text-lg font-semibold text-[#1A1224]">
+        {MOONIE_GUEST_RATE_LIMIT_TITLE}
+      </p>
+      <p className="mt-1 text-xs font-medium text-amber-900/80">
+        {formatGuestQuotaUsed(used, cap)}
+      </p>
+      <p className="mt-1 text-sm text-slate-700">
+        {buildGuestRateLimitBody({ compact })}
+      </p>
+      <div className="mt-3 flex flex-wrap gap-2">
+        <CatalogLink href="/register" size="compact">
+          Create free account
+        </CatalogLink>
+        <CatalogLink href="/login?callbackUrl=/ask-moonie" size="compact">
+          Log in
         </CatalogLink>
       </div>
     </div>
@@ -916,7 +982,7 @@ export function MoonieDeskComposer({
   return (
     <form
       className={cn("flex min-w-0 flex-col overflow-visible", isWidget ? "gap-1" : "gap-1.5")}
-      onSubmit={(event) => {
+        onSubmit={(event) => {
         event.preventDefault();
         if (sendDisabled || disabled) return;
         onSubmit(value.trim() || undefined);

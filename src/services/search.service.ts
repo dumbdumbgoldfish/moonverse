@@ -20,6 +20,13 @@ import {
   workMatchReason,
 } from "@/lib/search-rank";
 import { resolveCoverUrl } from "@/lib/review-utils";
+import {
+  constraintEligibleGenreLabels,
+  constraintEligibleTagLabels,
+  novelMatchesSearchGenreFacet,
+  PROGRESSION_FANTASY_GENRE_SLUGS,
+} from "@/lib/moonie/metadata-eligibility";
+import { labelsMatch } from "@/lib/moonie/label-match";
 import { getTrendingNovels } from "@/services/discovery.service";
 import {
   countReviews,
@@ -243,7 +250,20 @@ async function searchWorks(input: {
     }),
   ]);
 
-  const novelIds = candidates.map((novel) => novel.id);
+  const facetFilteredCandidates =
+    input.genreSlug &&
+    (PROGRESSION_FANTASY_GENRE_SLUGS.has(input.genreSlug) ||
+      input.genreSlug === "cultivation")
+      ? candidates.filter((novel) =>
+          novelMatchesSearchGenreFacet(
+            novel.metadataSource,
+            novel.genres,
+            input.genreSlug!
+          )
+        )
+      : candidates;
+
+  const novelIds = facetFilteredCandidates.map((novel) => novel.id);
   const stats = novelIds.length
     ? await db.review.groupBy({
         by: ["novelId"],
@@ -259,7 +279,7 @@ async function searchWorks(input: {
     ])
   );
 
-  const scored = candidates
+  const scored = facetFilteredCandidates
     .map((novel) => scoreWork(novel, input, statsById.get(novel.id)))
     .sort((a, b) => {
       if (input.sort === "most-reviewed") {
@@ -373,12 +393,40 @@ function scoreWork(
   ) || Boolean(
     query && novel.author?.toLowerCase().includes(query.toLowerCase())
   );
+  const genreNames = novel.genres.map((genre) => genre.name);
+  const tagNames = novel.tags.map((tag) => tag.name);
+  const eligibleGenres = constraintEligibleGenreLabels(
+    novel.metadataSource,
+    genreNames,
+    tagNames
+  );
+  const eligibleTags = constraintEligibleTagLabels(
+    novel.metadataSource,
+    genreNames,
+    tagNames
+  );
   const genreHit = Boolean(
-    input.genreSlug && novel.genres.some((genre) => genre.slug === input.genreSlug)
+    input.genreSlug &&
+      (PROGRESSION_FANTASY_GENRE_SLUGS.has(input.genreSlug)
+        ? eligibleGenres.some((label) =>
+            novel.genres.some(
+              (genre) =>
+                genre.slug === input.genreSlug &&
+                labelsMatch(label, genre.name)
+            )
+          )
+        : novel.genres.some((genre) => genre.slug === input.genreSlug))
   );
-  const tagHit = input.tagSlugs.some((slug) =>
-    novel.tags.some((tag) => tag.slug === slug)
-  );
+  const tagHit = input.tagSlugs.some((slug) => {
+    if (PROGRESSION_FANTASY_GENRE_SLUGS.has(slug) || slug === "cultivation") {
+      return novel.tags.some(
+        (tag) =>
+          tag.slug === slug &&
+          eligibleTags.some((label) => labelsMatch(label, tag.name))
+      );
+    }
+    return novel.tags.some((tag) => tag.slug === slug);
+  });
   const official = novel.readingLinks[0];
   const reviewCount = stats?.count ?? novel._count.reviews;
   const averageRating = stats?.average ?? null;

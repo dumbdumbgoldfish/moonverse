@@ -11,7 +11,7 @@ describe("bare reading link requests", () => {
     assert.equal(isBareReadingLinkRequest("give me novel link"), true);
     assert.equal(isBareReadingLinkRequest("give me reading link"), true);
     assert.equal(isBareReadingLinkRequest("can you give me the link"), true);
-    assert.equal(isBareReadingLinkRequest("where can I read it"), false);
+    assert.equal(isBareReadingLinkRequest("where can I read it"), true);
   });
 
   it("does not treat titled link asks as bare", () => {

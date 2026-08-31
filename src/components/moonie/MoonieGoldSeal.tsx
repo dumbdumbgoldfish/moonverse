@@ -37,7 +37,7 @@ export function MoonieGoldSeal({
     >
       <div
         aria-hidden
-        className="absolute bottom-1 left-1/2 -translate-x-1/2 rounded-full bg-[var(--mv-dark-surface)] shadow-[0_16px_32px_-16px_rgba(26,18,36,0.75)] ring-2 ring-[var(--mv-gold)]"
+        className="absolute bottom-1 left-1/2 -translate-x-1/2 rounded-full bg-[var(--mv-dark-surface)] shadow-[0_16px_32px_-16px_rgba(26,18,36,0.75)] ring-2 ring-[var(--mv-gold-seal)]"
         style={{ width: disc, height: disc }}
       />
       <div className="absolute inset-x-0 bottom-0 flex justify-center overflow-visible">

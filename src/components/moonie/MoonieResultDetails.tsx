@@ -81,7 +81,12 @@ export function MoonieResultDetails({
           ))}
 
           {rec?.matchPercent != null ? (
-            <p>Match score: {rec.matchPercent}%</p>
+            <p>
+              Catalogue fit score: {rec.matchPercent}%
+              {rec.matchPercent < 35
+                ? " — weak catalogue overlap (not a calibrated probability)."
+                : null}
+            </p>
           ) : rec?.confidence && showFullDiagnostics ? (
             <p>Confidence: {confidenceLabel(rec.confidence)}</p>
           ) : null}
@@ -103,7 +108,13 @@ export function MoonieResultDetails({
 
           {showFullDiagnostics && rec?.scoreBreakdown ? (
             <dl className="grid grid-cols-2 gap-x-4 gap-y-1">
-              {Object.entries(rec.scoreBreakdown).map(([key, value]) => (
+              <p className="col-span-2 text-[11px] text-slate-500">
+                Weighted catalogue signals. Genre diversity is applied after
+                scoring, not as a fixed bonus.
+              </p>
+              {Object.entries(rec.scoreBreakdown)
+                .filter(([key]) => key !== "diversity")
+                .map(([key, value]) => (
                 <div key={key} className="flex justify-between gap-2">
                   <dt className="capitalize">{key}</dt>
                   <dd>{Math.round(value * 100)}</dd>
@@ -119,7 +130,6 @@ export function MoonieResultDetails({
           {showFullDiagnostics && message ? (
             <div className="relative z-10 pt-1">
               <MoonieCompareChip
-                prefs={prefs ?? message.interpretedPreferences}
                 userQuery={userQuery}
               />
             </div>

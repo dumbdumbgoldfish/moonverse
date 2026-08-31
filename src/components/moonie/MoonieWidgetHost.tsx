@@ -13,7 +13,7 @@ export function MoonieWidgetHost({ isLoggedIn }: { isLoggedIn: boolean }) {
   useEffect(() => {
     setMoonieWidgetMounted(visible);
     return () => setMoonieWidgetMounted(false);
-  }, [visible]);
+  }, [isLoggedIn, visible]);
 
   if (!visible) return null;
 

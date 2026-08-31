@@ -8,7 +8,6 @@ import {
   useSyncExternalStore,
   type SetStateAction,
 } from "react";
-import { useRouter } from "next/navigation";
 import { useSession } from "next-auth/react";
 import {
   loadLatestMoonieConversationAction,
@@ -17,7 +16,13 @@ import {
 import { createMessageId } from "@/lib/moonie/constants";
 import {
   buildMoonieDeskHref,
+  clearMoonieNewChatIntent,
+  deskHrefIsExplicitNewChat,
+  hasActiveMoonieNewChatIntent,
+  markMoonieNewChatIntent,
   readMoonieDeskConversationId,
+  writeMoonieDeskUrl,
+  shouldRestoreLatestMoonieConversation,
 } from "@/lib/moonie/conversation-url";
 import {
   readSessionPreferences,
@@ -43,15 +48,33 @@ import {
 } from "@/lib/moonie/guest-chat-storage";
 import { getSearchRecentScope, readRecentSearchEntries } from "@/lib/search";
 import { loadingPhaseForMessage } from "@/lib/moonie/chat-phases";
-import { buildMoonieRecommendRequestBody, buildGuestPriorMessages } from "@/lib/moonie/recommend-request";
-import { isUseSavedPreferencesRequest } from "@/lib/moonie/intent";
+import {
+  mooniePendingLoadingVisible,
+  shouldApplyMooniePendingResponse,
+  type MooniePendingRequest,
+} from "@/lib/moonie/pending-request";
+import {
+  processMoonieRecommendResponse,
+} from "@/lib/moonie/recommend-response-handler";
+import {
+  buildGuestPriorMessages,
+  buildMoonieExcludeNovelIds,
+  buildMoonieRecommendRequestBody,
+} from "@/lib/moonie/recommend-request";
+import {
+  isUnseenRecommendationRequest,
+  isUseSavedPreferencesRequest,
+} from "@/lib/moonie/intent";
 import {
   buildUserAttachmentDisplay,
   toPersistedUserAttachment,
 } from "@/lib/moonie/user-message-attachment";
 import {
+  DEFAULT_SPOILER_MODE,
   getStoredSpoilerModeServerSnapshot,
   readStoredSpoilerMode,
+  sanitizeStoredRankedReviewsForMode,
+  shouldSyncClientSpoilerModeFromResponse,
   subscribeStoredSpoilerMode,
   writeStoredSpoilerMode,
 } from "@/lib/moonie/spoiler-mode";
@@ -71,14 +94,19 @@ interface UseMoonieChatOptions {
   contextNovelTitle?: string;
   /** Sync `/moonie?conversation=` and hydrate chats on the full desk. */
   persistDeskConversation?: boolean;
+  /** `/moonie?new=1` from the address bar — explicit blank desk. */
+  deskNewChat?: boolean;
   /** Guest demo on `/ask-moonie` — allows unauthenticated turns with `guestDemo: true`. */
   guestDemoCap?: number;
+  /** Server-loaded desk transcript so returning to Moonie is not blank. */
+  initialMessages?: MoonieChatMessage[];
 }
 
 interface SubmitOptions {
   similarToNovelId?: string;
   excludeNovelIds?: string[];
   useTaste?: boolean;
+  confirmLookupNovelId?: string;
 }
 
 interface GuestChatBox {
@@ -127,9 +155,10 @@ function priorRecommendedIds(messages: MoonieChatMessage[]): string[] {
   return [...ids];
 }
 
-function buildAssistantMessage(
+export function buildAssistantMessage(
   success: MoonieRecommendResponse
 ): MoonieChatMessage {
+  const spoilerMode = success.spoilerMode ?? DEFAULT_SPOILER_MODE;
   const showCards =
     success.responseKind === "recommendations" ||
     success.responseKind === "novel_bundle" ||
@@ -139,8 +168,10 @@ function buildAssistantMessage(
     id: createMessageId(),
     role: "assistant",
     content: success.reply,
+    animateEntrance: true,
     recommendations: showCards ? success.recommendations : undefined,
     novelOverview: success.novelOverview,
+    novelReviewGroups: success.novelReviewGroups,
     compare: success.compare,
     lookupSession: success.lookupSession,
     followUpQuestion: success.followUpQuestion,
@@ -154,6 +185,15 @@ function buildAssistantMessage(
     reviewerGroupOverview: success.reviewerGroupOverview,
     reviewerReviewSession: success.reviewerReviewSession,
     seriesInfo: success.seriesInfo,
+    emptyReason: success.emptyReason,
+    pendingClarification: success.pendingClarification,
+    rankedReviews: sanitizeStoredRankedReviewsForMode(
+      success.rankedReviews,
+      spoilerMode
+    ),
+    catalogueStat: success.catalogueStat,
+    rankingMetric: success.rankingMetric,
+    requestedCount: success.requestedCount,
     state:
       success.state ??
       (success.responseKind === "recommendations" &&
@@ -169,12 +209,16 @@ export function useMoonieChat({
   contextNovelId,
   contextNovelTitle,
   persistDeskConversation = false,
+  deskNewChat = false,
   guestDemoCap,
+  initialMessages,
 }: UseMoonieChatOptions) {
   const isGuestDemo = Boolean(guestDemoCap) && !isLoggedIn;
 
-  const router = useRouter();
-  const { data: session } = useSession();
+  const { data: session, status: sessionStatus } = useSession();
+  const sessionUserId = session?.user?.id ?? "";
+  const sessionReady =
+    !isLoggedIn || (sessionStatus !== "loading" && Boolean(sessionUserId));
   const searchRecentScope = getSearchRecentScope(session?.user?.id);
   const deskRouteEnabled = persistDeskConversation && isLoggedIn;
   const isGuestClientReady = useSyncExternalStore(
@@ -184,19 +228,18 @@ export function useMoonieChat({
   );
   const [guestChat, setGuestChat] = useState<GuestChatBox>(() => ({
     guestHydrated: !isGuestDemo,
-    messages: [],
+    messages: initialMessages ?? [],
     conversationId: initialConversationId,
     guestConversations: [],
   }));
   const [input, setInput] = useState("");
-  const [isLoading, setIsLoading] = useState(false);
+  const [pendingRequest, setPendingRequest] =
+    useState<MooniePendingRequest | null>(null);
   const [loadingPhase, setLoadingPhase] =
     useState<MoonieLoadingPhase>("thinking");
   const [excludedNovelIds, setExcludedNovelIds] = useState<string[]>([]);
   const [quotaRemaining, setQuotaRemaining] = useState<number | null>(null);
-  const [guestTurnsRemaining, setGuestTurnsRemaining] = useState<number | null>(
-    guestDemoCap ?? null
-  );
+  const [guestTurnsRemaining, setGuestTurnsRemaining] = useState<number | null>(null);
   const spoilerMode = useSyncExternalStore(
     subscribeStoredSpoilerMode,
     readStoredSpoilerMode,
@@ -205,7 +248,11 @@ export function useMoonieChat({
   const [rememberPreferenceOffer, setRememberPreferenceOffer] =
     useState<Partial<MoonieInterpretedPreferences> | null>(null);
   const [isRestoring, setIsRestoring] = useState(() =>
-    Boolean(deskRouteEnabled && initialConversationId)
+    Boolean(
+      deskRouteEnabled &&
+        initialConversationId &&
+        !(initialMessages && initialMessages.length > 0)
+    )
   );
 
   let nextGuestChat = guestChat;
@@ -224,6 +271,24 @@ export function useMoonieChat({
   const conversationId = nextGuestChat.conversationId;
   const guestConversations = nextGuestChat.guestConversations;
   const guestHydrated = nextGuestChat.guestHydrated;
+  const hasNewChatIntent = useCallback(() => {
+    if (typeof window !== "undefined") {
+      const urlId = readMoonieDeskConversationId(
+        new URLSearchParams(window.location.search)
+      );
+      if (urlId) return false;
+    }
+    if (initialConversationId) return false;
+    return hasActiveMoonieNewChatIntent({
+      userId: sessionUserId,
+      urlNewChat: deskNewChat && !conversationId,
+    });
+  }, [
+    conversationId,
+    deskNewChat,
+    initialConversationId,
+    sessionUserId,
+  ]);
 
   const setMessages = useCallback((update: SetStateAction<MoonieChatMessage[]>) => {
     setGuestChat((current) => ({
@@ -264,8 +329,24 @@ export function useMoonieChat({
   const dismissedConversationRef = useRef<string | null>(null);
   const syncedConversationRef = useRef<string | undefined>(undefined);
   const userSelectedConversationRef = useRef<string | null>(null);
-  const skipLatestRestoreRef = useRef(false);
+  const skipLatestRestoreRef = useRef(
+    deskNewChat && !initialConversationId
+  );
   const hydratingLatestRef = useRef(false);
+  const requestEpochRef = useRef(0);
+  const pendingRequestRef = useRef<MooniePendingRequest | null>(null);
+
+  const abandonInFlightRequest = useCallback(() => {
+    requestEpochRef.current += 1;
+    pendingRequestRef.current = null;
+    loadingRef.current = false;
+    setPendingRequest(null);
+  }, []);
+
+  const visibleLoading = mooniePendingLoadingVisible(
+    pendingRequest,
+    conversationId
+  );
 
   const refreshGuestConversations = useCallback(() => {
     if (!isGuestDemo) return;
@@ -291,22 +372,19 @@ export function useMoonieChat({
   );
 
   const syncMoonieDeskUrl = useCallback(
-    (nextConversationId?: string) => {
+    (
+      nextConversationId?: string,
+      options?: { newChat?: boolean; history?: "replace" | "push" }
+    ) => {
       if (!deskRouteEnabled) return;
 
-      const nextHref = buildMoonieDeskHref({ conversationId: nextConversationId });
-      const currentHref =
-        typeof window !== "undefined"
-          ? `${window.location.pathname}${window.location.search}`
-          : "";
-
-      if (currentHref === nextHref) {
-        return;
-      }
-
-      router.replace(nextHref, { scroll: false });
+      const nextHref = buildMoonieDeskHref({
+        conversationId: options?.newChat ? undefined : nextConversationId,
+        newChat: options?.newChat,
+      });
+      writeMoonieDeskUrl(nextHref, options?.history ?? "replace");
     },
-    [deskRouteEnabled, router]
+    [deskRouteEnabled]
   );
 
   useEffect(() => {
@@ -320,7 +398,7 @@ export function useMoonieChat({
         }
       })
       .catch(() => {
-        // Keep the cap-based fallback until the next successful recommend response.
+        // Keep unknown until the next successful recommend response.
       });
   }, [isGuestDemo]);
 
@@ -366,6 +444,36 @@ export function useMoonieChat({
     setRememberPreferenceOffer(null);
   }, [setConversationId, setMessages]);
 
+  const sessionOwnerRef = useRef<string | null>(null);
+  useEffect(() => {
+    if (!isLoggedIn) {
+      sessionOwnerRef.current = null;
+      return;
+    }
+    if (!sessionReady) return;
+    if (sessionOwnerRef.current === null) {
+      sessionOwnerRef.current = sessionUserId;
+      return;
+    }
+    if (sessionOwnerRef.current === sessionUserId) return;
+    sessionOwnerRef.current = sessionUserId;
+    abandonInFlightRequest();
+    hydratedConversationRef.current = null;
+    hydratingConversationRef.current = null;
+    userSelectedConversationRef.current = null;
+    syncedConversationRef.current = undefined;
+    dismissedConversationRef.current = null;
+    skipLatestRestoreRef.current = true;
+    setIsRestoring(false);
+    clearChat();
+  }, [
+    abandonInFlightRequest,
+    clearChat,
+    isLoggedIn,
+    sessionReady,
+    sessionUserId,
+  ]);
+
   const resumeConversation = useCallback(
     (options: { conversationId: string; messages: MoonieChatMessage[] }) => {
       setConversationId(options.conversationId);
@@ -379,6 +487,7 @@ export function useMoonieChat({
   );
 
   const startNewConversation = useCallback(() => {
+    abandonInFlightRequest();
     if (isGuestDemo) {
       if (conversationId && messages.length > 0) {
         persistActiveGuestConversation(messages, conversationId);
@@ -399,6 +508,7 @@ export function useMoonieChat({
       return;
     }
 
+    markMoonieNewChatIntent(sessionUserId);
     skipLatestRestoreRef.current = true;
     dismissedConversationRef.current =
       conversationId ?? initialConversationId ?? null;
@@ -407,7 +517,10 @@ export function useMoonieChat({
     userSelectedConversationRef.current = null;
     syncedConversationRef.current = undefined;
     setIsRestoring(false);
-    syncMoonieDeskUrl();
+    syncMoonieDeskUrl(undefined, { newChat: true, history: "push" });
+    if (typeof window !== "undefined") {
+      window.dispatchEvent(new Event("moonverse:desk-fresh"));
+    }
     clearChat();
   }, [
     clearChat,
@@ -418,6 +531,8 @@ export function useMoonieChat({
     messages,
     persistActiveGuestConversation,
     refreshGuestConversations,
+    abandonInFlightRequest,
+    sessionUserId,
     setConversationId,
     setMessages,
     syncMoonieDeskUrl,
@@ -521,52 +636,37 @@ export function useMoonieChat({
 
   const resumeConversationFromSidebar = useCallback(
     (options: { conversationId: string; messages: MoonieChatMessage[] }) => {
+      clearMoonieNewChatIntent(sessionUserId);
       skipLatestRestoreRef.current = false;
       dismissedConversationRef.current = null;
       hydratedConversationRef.current = options.conversationId;
       hydratingConversationRef.current = null;
       userSelectedConversationRef.current = options.conversationId;
       syncedConversationRef.current = options.conversationId;
+      conversationIdRef.current = options.conversationId;
       setIsRestoring(false);
       resumeConversation(options);
       if (deskRouteEnabled) {
-        syncMoonieDeskUrl(options.conversationId);
+        syncMoonieDeskUrl(options.conversationId, { history: "push" });
       }
     },
-    [deskRouteEnabled, resumeConversation, syncMoonieDeskUrl]
+    [deskRouteEnabled, resumeConversation, sessionUserId, syncMoonieDeskUrl]
   );
 
   useEffect(() => {
     if (!deskRouteEnabled) return;
-
-    function handlePopState() {
-      userSelectedConversationRef.current = null;
-      hydratedConversationRef.current = null;
-      hydratingConversationRef.current = null;
-      syncedConversationRef.current = undefined;
-      dismissedConversationRef.current = null;
-      skipLatestRestoreRef.current = false;
-
-      const targetId = readMoonieDeskConversationId(
-        new URLSearchParams(window.location.search)
-      );
-      const alreadyVisible =
-        Boolean(targetId) &&
-        conversationIdRef.current === targetId &&
-        messagesRef.current.length > 0;
-      setIsRestoring(Boolean(targetId) && !alreadyVisible);
-    }
-
-    window.addEventListener("popstate", handlePopState);
-    return () => window.removeEventListener("popstate", handlePopState);
-  }, [deskRouteEnabled]);
-
-  useEffect(() => {
-    if (!deskRouteEnabled || initialConversationId) {
+    if (!sessionReady) return;
+    if (
+      !shouldRestoreLatestMoonieConversation({
+        hasDurableNewChatIntent: hasNewChatIntent(),
+        initialConversationId,
+        conversationId,
+        messageCount: messages.length,
+      })
+    ) {
       return;
     }
     if (skipLatestRestoreRef.current) return;
-    if (messages.length > 0 || conversationId) return;
     if (hydratingLatestRef.current) return;
 
     hydratingLatestRef.current = true;
@@ -576,6 +676,14 @@ export function useMoonieChat({
     void loadLatestMoonieConversationAction().then((loaded) => {
       if (cancelled) return;
       hydratingLatestRef.current = false;
+
+      if (
+        skipLatestRestoreRef.current ||
+        hasNewChatIntent()
+      ) {
+        setIsRestoring(false);
+        return;
+      }
 
       if (loaded.success) {
         resumeConversation({
@@ -599,15 +707,94 @@ export function useMoonieChat({
     initialConversationId,
     messages.length,
     resumeConversation,
+    sessionReady,
+    sessionUserId,
+    hasNewChatIntent,
     syncMoonieDeskUrl,
   ]);
 
   useEffect(() => {
-    if (!deskRouteEnabled || !initialConversationId) {
+    if (!deskRouteEnabled) return;
+    if (
+      initialConversationId &&
+      userSelectedConversationRef.current === initialConversationId
+    ) {
+      return;
+    }
+    if (
+      initialConversationId &&
+      userSelectedConversationRef.current &&
+      userSelectedConversationRef.current !== initialConversationId
+    ) {
+      userSelectedConversationRef.current = null;
+      hydratedConversationRef.current = null;
+      hydratingConversationRef.current = null;
+      syncedConversationRef.current = undefined;
+      dismissedConversationRef.current = null;
+      skipLatestRestoreRef.current = false;
+    }
+  }, [deskRouteEnabled, initialConversationId]);
+
+  useEffect(() => {
+    if (!deskRouteEnabled || !sessionReady) return;
+    if (!hasNewChatIntent()) return;
+    const urlId =
+      typeof window !== "undefined"
+        ? readMoonieDeskConversationId(
+            new URLSearchParams(window.location.search)
+          )
+        : undefined;
+    if (urlId || initialConversationId) {
+      clearMoonieNewChatIntent(sessionUserId);
+      return;
+    }
+    if (pendingRequestRef.current || loadingRef.current) return;
+    if (messagesRef.current.length > 0) return;
+
+    skipLatestRestoreRef.current = true;
+    dismissedConversationRef.current =
+      conversationId ?? initialConversationId ?? null;
+    userSelectedConversationRef.current = null;
+    hydratedConversationRef.current = null;
+    hydratingConversationRef.current = null;
+    syncedConversationRef.current = undefined;
+    queueMicrotask(() => {
+      if (pendingRequestRef.current || messagesRef.current.length > 0) return;
+      clearChat();
+      setIsRestoring(false);
+    });
+  }, [
+    clearChat,
+    conversationId,
+    deskRouteEnabled,
+    deskNewChat,
+    hasNewChatIntent,
+    initialConversationId,
+    sessionReady,
+    sessionUserId,
+  ]);
+
+  useEffect(() => {
+    if (!deskRouteEnabled || !initialConversationId || !sessionReady) {
       return;
     }
 
+    if (deskNewChat && !initialConversationId) {
+      return;
+    }
+
+    clearMoonieNewChatIntent(sessionUserId);
     const targetId = initialConversationId;
+
+    if (pendingRequestRef.current) {
+      const pendingConversationId = pendingRequestRef.current.conversationId;
+      if (
+        pendingConversationId != null &&
+        pendingConversationId === targetId
+      ) {
+        return;
+      }
+    }
 
     if (dismissedConversationRef.current === targetId) {
       return;
@@ -635,11 +822,17 @@ export function useMoonieChat({
     hydratingConversationRef.current = targetId;
     hydratedConversationRef.current = targetId;
     let cancelled = false;
+    setIsRestoring(true);
 
     void loadMoonieConversationAction(targetId).then((loaded) => {
       if (cancelled) return;
 
       hydratingConversationRef.current = null;
+
+      if (!targetId && (skipLatestRestoreRef.current || hasNewChatIntent())) {
+        setIsRestoring(false);
+        return;
+      }
 
       if (loaded.success) {
         resumeConversation({
@@ -651,9 +844,15 @@ export function useMoonieChat({
       }
 
       hydratedConversationRef.current = null;
-      dismissedConversationRef.current = targetId;
+      if (loaded.error === "Conversation not found.") {
+        dismissedConversationRef.current = targetId;
+      }
       setIsRestoring(false);
-      syncMoonieDeskUrl();
+      if (hasNewChatIntent()) {
+        syncMoonieDeskUrl(undefined, { newChat: true });
+      } else {
+        syncMoonieDeskUrl();
+      }
     });
 
     return () => {
@@ -668,37 +867,166 @@ export function useMoonieChat({
     initialConversationId,
     messages.length,
     resumeConversation,
+    hasNewChatIntent,
+    sessionReady,
+    sessionUserId,
     syncMoonieDeskUrl,
+    deskNewChat,
   ]);
 
   useEffect(() => {
     if (!deskRouteEnabled) return;
+    if (
+      typeof window !== "undefined" &&
+      window.location.pathname !== "/moonie"
+    ) {
+      return;
+    }
+    if (deskNewChat && sessionUserId) {
+      markMoonieNewChatIntent(sessionUserId);
+    }
+    if (hasNewChatIntent()) {
+      skipLatestRestoreRef.current = true;
+    }
+  }, [deskNewChat, deskRouteEnabled, hasNewChatIntent, sessionUserId]);
+
+  const applyExplicitFreshDesk = useCallback(() => {
+    if (!deskRouteEnabled) return;
+    if (typeof window === "undefined" || window.location.pathname !== "/moonie") {
+      return;
+    }
+    const currentHref = `${window.location.pathname}${window.location.search}`;
+    if (!deskHrefIsExplicitNewChat(currentHref)) return;
+
+    const priorConversationId = conversationIdRef.current;
+    markMoonieNewChatIntent(sessionUserId);
+    skipLatestRestoreRef.current = true;
+    syncedConversationRef.current = undefined;
+    hydratedConversationRef.current = null;
+    hydratingConversationRef.current = null;
+    userSelectedConversationRef.current = null;
+    if (priorConversationId) {
+      dismissedConversationRef.current = priorConversationId;
+    }
+
+    if (pendingRequestRef.current) {
+      abandonInFlightRequest();
+    }
+    clearChat();
+    setIsRestoring(false);
+  }, [
+    abandonInFlightRequest,
+    clearChat,
+    deskRouteEnabled,
+    sessionUserId,
+  ]);
+
+  useEffect(() => {
+    if (!deskRouteEnabled) return;
+    const onDeskFresh = () => {
+      applyExplicitFreshDesk();
+    };
+    window.addEventListener("moonverse:desk-fresh", onDeskFresh);
+    return () => window.removeEventListener("moonverse:desk-fresh", onDeskFresh);
+  }, [applyExplicitFreshDesk, deskRouteEnabled]);
+
+  const explicitNewChatRouteRef = useRef(false);
+  useEffect(() => {
+    if (!deskRouteEnabled || !sessionReady) return;
+    if (
+      typeof window !== "undefined" &&
+      window.location.pathname !== "/moonie"
+    ) {
+      return;
+    }
+    const isExplicitNewChat =
+      deskNewChat &&
+      !initialConversationId &&
+      deskHrefIsExplicitNewChat(
+        `${window.location.pathname}${window.location.search}`
+      );
+    const wasExplicitNewChat = explicitNewChatRouteRef.current;
+    explicitNewChatRouteRef.current = isExplicitNewChat;
+    if (isExplicitNewChat && !wasExplicitNewChat) {
+      applyExplicitFreshDesk();
+    }
+  }, [
+    applyExplicitFreshDesk,
+    deskNewChat,
+    deskRouteEnabled,
+    initialConversationId,
+    sessionReady,
+  ]);
+
+  useEffect(() => {
+    if (!deskRouteEnabled) return;
+    if (
+      typeof window !== "undefined" &&
+      window.location.pathname !== "/moonie"
+    ) {
+      return;
+    }
+
+    const currentHref =
+      typeof window !== "undefined"
+        ? `${window.location.pathname}${window.location.search}`
+        : "";
+    if (deskHrefIsExplicitNewChat(currentHref)) {
+      syncedConversationRef.current = undefined;
+      if (conversationId != null) {
+        return;
+      }
+      if (hasNewChatIntent()) {
+        syncMoonieDeskUrl(undefined, { newChat: true });
+      }
+      return;
+    }
 
     const nextConversationId = conversationId ?? undefined;
-    if (syncedConversationRef.current === nextConversationId) return;
 
     if (!nextConversationId) {
+      const urlId =
+        typeof window !== "undefined"
+          ? readMoonieDeskConversationId(
+              new URLSearchParams(window.location.search)
+            )
+          : undefined;
+      if (urlId) return;
+      if (hasNewChatIntent()) {
+        syncedConversationRef.current = undefined;
+        syncMoonieDeskUrl(undefined, { newChat: true });
+        return;
+      }
+      if (syncedConversationRef.current === nextConversationId) return;
       if (syncedConversationRef.current === undefined) return;
       syncedConversationRef.current = undefined;
       syncMoonieDeskUrl();
       return;
     }
 
+    if (syncedConversationRef.current === nextConversationId) return;
     syncedConversationRef.current = nextConversationId;
     syncMoonieDeskUrl(nextConversationId);
-  }, [conversationId, deskRouteEnabled, syncMoonieDeskUrl]);
+  }, [conversationId, deskRouteEnabled, hasNewChatIntent, syncMoonieDeskUrl]);
 
   const handleSubmit = useCallback(
     async (message?: string, options: SubmitOptions = {}) => {
-      if ((!isLoggedIn && !isGuestDemo) || loadingRef.current) return;
+      if (
+        (!isLoggedIn && !isGuestDemo) ||
+        mooniePendingLoadingVisible(
+          pendingRequestRef.current,
+          conversationIdRef.current
+        )
+      ) {
+        return;
+      }
 
       const trimmed = (message ?? "").trim();
       if (!trimmed) return;
 
       if (
         isGuestDemo &&
-        guestTurnsRemaining != null &&
-        guestTurnsRemaining <= 0
+        (guestTurnsRemaining === null || guestTurnsRemaining <= 0)
       ) {
         return;
       }
@@ -718,13 +1046,14 @@ export function useMoonieChat({
         userAttachment,
       };
       const snapUserAttachmentMeta = toPersistedUserAttachment(userAttachment);
-      const exclude = [
-        ...new Set([
+      const exclude = buildMoonieExcludeNovelIds({
+        explicitExcludedNovelIds: [
           ...excludedRef.current,
-          ...priorRecommendedIds(messagesRef.current),
           ...(options.excludeNovelIds ?? []),
-        ]),
-      ];
+        ],
+        priorRecommendedNovelIds: priorRecommendedIds(messagesRef.current),
+        seekingUnseen: isUnseenRecommendationRequest(trimmed),
+      });
 
       const priorMessages = isGuestDemo
         ? buildGuestPriorMessages(messagesRef.current)
@@ -742,10 +1071,30 @@ export function useMoonieChat({
       }
 
       loadingRef.current = true;
+      const requestEpoch = requestEpochRef.current;
+      const requestId = userMessage.id;
+      if (
+        deskRouteEnabled &&
+        !conversationIdRef.current &&
+        hasNewChatIntent()
+      ) {
+        clearMoonieNewChatIntent(sessionUserId);
+      }
+      const pending: MooniePendingRequest = {
+        requestId,
+        conversationId: activeGuestConversationId,
+      };
+      pendingRequestRef.current = pending;
+      setPendingRequest(pending);
+      const modeAtSend = spoilerModeRef.current;
+      if (isGuestDemo) {
+        setQuotaRemaining(null);
+      } else {
+        setGuestTurnsRemaining(null);
+      }
       setMessages((current) => [...current, userMessage]);
       setInput("");
       setLoadingPhase(loadingPhaseForMessage(trimmed));
-      setIsLoading(true);
       if (isGuestDemo) {
         setGuestTurnsRemaining((current) =>
           current == null ? current : Math.max(0, current - 1)
@@ -775,10 +1124,12 @@ export function useMoonieChat({
           body: JSON.stringify(
             buildMoonieRecommendRequestBody({
               message: trimmed,
+              clientTurnId: isGuestDemo ? undefined : userMessage.id,
               conversationId: activeGuestConversationId,
               priorMessages: isGuestDemo ? priorMessages : undefined,
               similarToNovelId: options.similarToNovelId,
               excludeNovelIds: exclude,
+              confirmLookupNovelId: options.confirmLookupNovelId,
               useTaste: options.useTaste ?? (wantsSavedTaste ? true : undefined),
               contextNovelId: contextNovelIdRef.current,
               contextNovelTitle: contextNovelTitleRef.current,
@@ -799,53 +1150,64 @@ export function useMoonieChat({
         const data = (await response.json()) as
           | MoonieRecommendResponse
           | MoonieRecommendErrorResponse;
+        const outcome = processMoonieRecommendResponse({
+          responseOk: response.ok,
+          data,
+          requestId,
+          requestEpoch,
+          requestEpochRef: requestEpochRef.current,
+          pending: pendingRequestRef.current,
+          activeConversationId: conversationIdRef.current,
+          activeGuestConversationId,
+          isGuestDemo,
+          deskRouteEnabled,
+        });
 
-        if (!response.ok || "error" in data) {
-          const errorData = data as MoonieRecommendErrorResponse;
-          if (errorData.rateLimited) {
-            if (isGuestDemo) {
-              setGuestTurnsRemaining(0);
-            } else {
-              setQuotaRemaining(
-                typeof errorData.quotaRemaining === "number"
-                  ? errorData.quotaRemaining
-                  : 0
-              );
-            }
-          }
-          setMessages((current) => [
-            ...current,
-            {
-              id: createMessageId(),
-              role: "assistant",
-              content: errorData.error ?? "Something went wrong. Please try again.",
-              isError: true,
-              state: errorData.rateLimited ? "rate_limit" : "error",
-            },
-          ]);
-          if (!errorData.rateLimited) {
-            revertGuestTurn();
-          }
+        if (typeof outcome.quotaRemaining === "number") {
+          setQuotaRemaining(outcome.quotaRemaining);
+          setGuestTurnsRemaining(null);
+        }
+        if (typeof outcome.guestTurnsRemaining === "number") {
+          setGuestTurnsRemaining(outcome.guestTurnsRemaining);
+          setQuotaRemaining(null);
+        }
+
+        if (outcome.kind === "ignored") {
+          if (outcome.revertGuestTurn) revertGuestTurn();
+          return;
+        }
+
+        if (outcome.kind === "error") {
+          setMessages((current) => [...current, outcome.errorMessage!]);
+          if (outcome.revertGuestTurn) revertGuestTurn();
           return;
         }
 
         const success = data as MoonieRecommendResponse;
-        if (success.conversationId) {
-          setConversationId(success.conversationId);
-          conversationIdRef.current = success.conversationId;
+        if (outcome.conversationId) {
+          if (outcome.clearNewChatIntent) {
+            clearMoonieNewChatIntent(sessionUserId);
+          }
+          setConversationId(outcome.conversationId);
+          conversationIdRef.current = outcome.conversationId;
         }
-        if (typeof success.quotaRemaining === "number") {
-          setQuotaRemaining(success.quotaRemaining);
-        }
-        if (typeof success.guestTurnsRemaining === "number") {
-          setGuestTurnsRemaining(success.guestTurnsRemaining);
+        if (
+          success.spoilerMode &&
+          shouldSyncClientSpoilerModeFromResponse({
+            reply: success.reply,
+            serverMode: success.spoilerMode,
+            modeAtSend,
+            modeNow: spoilerModeRef.current,
+          })
+        ) {
+          spoilerModeRef.current = success.spoilerMode;
+          writeStoredSpoilerMode(success.spoilerMode);
         }
 
-        const assistantMessage = buildAssistantMessage(success);
-        setMessages((current) => [...current, assistantMessage]);
+        setMessages((current) => [...current, outcome.assistantMessage!]);
         if (isGuestDemo && activeGuestConversationId) {
           persistActiveGuestConversation(
-            [...messagesRef.current, userMessage, assistantMessage],
+            [...messagesRef.current, userMessage, outcome.assistantMessage!],
             activeGuestConversationId
           );
         }
@@ -853,6 +1215,18 @@ export function useMoonieChat({
           setRememberPreferenceOffer(success.rememberPreferenceOffer);
         }
       } catch {
+        const requestAbandoned = requestEpoch !== requestEpochRef.current;
+        const canApply = shouldApplyMooniePendingResponse({
+          pending: pendingRequestRef.current,
+          requestId,
+          activeConversationId: conversationIdRef.current,
+          responseConversationId: activeGuestConversationId,
+          requestAbandoned,
+        });
+        if (!canApply) {
+          revertGuestTurn();
+          return;
+        }
         revertGuestTurn();
         setMessages((current) => [
           ...current,
@@ -861,21 +1235,29 @@ export function useMoonieChat({
             role: "assistant",
             content:
               "Moonie is having trouble reaching the reading archive. Please try again shortly.",
+              animateEntrance: true,
             isError: true,
             state: "error",
           },
         ]);
       } finally {
-        loadingRef.current = false;
-        setIsLoading(false);
+        if (pendingRequestRef.current?.requestId === requestId) {
+          pendingRequestRef.current = null;
+          loadingRef.current = false;
+          setPendingRequest((current) =>
+            current?.requestId === requestId ? null : current
+          );
+        }
       }
     },
     [
       guestTurnsRemaining,
       isGuestDemo,
       isLoggedIn,
+      deskRouteEnabled,
       persistActiveGuestConversation,
       searchRecentScope,
+      sessionUserId,
       setConversationId,
       setMessages,
     ]
@@ -888,6 +1270,7 @@ export function useMoonieChat({
   }, []);
 
   const updateSpoilerMode = useCallback((mode: MoonieSpoilerMode) => {
+    spoilerModeRef.current = mode;
     writeStoredSpoilerMode(mode);
   }, []);
 
@@ -895,7 +1278,7 @@ export function useMoonieChat({
     messages,
     input,
     setInput,
-    isLoading,
+    isLoading: visibleLoading,
     loadingPhase,
     handleSubmit,
     conversationId,

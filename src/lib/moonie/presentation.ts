@@ -1,5 +1,9 @@
 import type { MoonieChatMessage, MoonieRecommendation } from "@/types/moonie";
-import { isNovelReviewRequest } from "@/lib/moonie/intent";
+import {
+  isLegacyHardConstraintFollowUpQuestion,
+  isMoonieGeneratedFollowUpQuestion,
+  isNovelReviewRequest,
+} from "@/lib/moonie/intent";
 import { slateDiversityLine, tasteUsedLabels } from "@/lib/moonie/desk";
 
 const READING_LINK_REQUEST_RE =
@@ -23,6 +27,18 @@ export type MoonieCardMode =
   | "reviewer_detail"
   | "reviewer_group_detail"
   | "series";
+
+/** Candidate cards are shown only while the lookup session still needs confirmation. */
+export function isUnresolvedLookupSession(
+  session: import("@/types/moonie").MoonieLookupSession | undefined
+): boolean {
+  if (!session?.candidates?.length) return false;
+  return (
+    session.mode === "clarification" ||
+    session.mode === "partial_memory" ||
+    session.mode === "alternatives"
+  );
+}
 
 export type MoonieReplyIntent =
   | "reading_link"
@@ -62,6 +78,7 @@ export function resolveMoonieReplyIntent(
   const analyticsIntent = message.analyticsIntent;
   if (analyticsIntent === "reading_source") return "reading_link";
   if (analyticsIntent === "novel_reviews") return "novel_reviews";
+  if (analyticsIntent === "top_reviews") return "novel_reviews";
   if (analyticsIntent === "find_reviewers") return "find_reviewers";
   if (analyticsIntent === "reviewer_overview") return "reviewer_overview";
   if (analyticsIntent === "find_novel" || analyticsIntent === "novel_overview") {
@@ -245,6 +262,14 @@ export function resolveMoonieCardMode(
     return "reviews";
   }
 
+  if (message.analyticsIntent === "top_reviews" || message.rankedReviews?.length) {
+    return "reviews";
+  }
+
+  if ((message.novelReviewGroups?.length ?? 0) > 0) {
+    return "reviews";
+  }
+
   if (message.analyticsIntent === "novel_series" && message.seriesInfo) {
     return "series";
   }
@@ -346,4 +371,29 @@ export function resolveMoonieQuickPrompts(
     .split(",")
     .map((part) => part.trim().replace(/[.!?…]+$/u, ""))
     .filter(Boolean);
+}
+
+const FOLLOW_UP_ACTION_RE =
+  /^(?:show (?:me|those|them|the earlier|the previous|the last)\b|find (?:me|more|another|novels?|stories?|books?|titles?)\b|compare (?:these|them|the two|those)\b|try:\s*find\b|give me\b|get me\b|send me\b|summari[sz]e\b|same request\b|more like\b|this one\b)/i;
+
+/**
+ * Follow-up chips must be phrased as user actions or answers. Assistant
+ * questions remain visible as text so Moonie does not send its own question
+ * back as the user's next message.
+ */
+export function isActionableMoonieFollowUp(
+  followUp: string | null | undefined
+): boolean {
+  const text = followUp?.trim();
+  if (!text) return false;
+  if (isLegacyHardConstraintFollowUpQuestion(text)) return false;
+  if (isMoonieGeneratedFollowUpQuestion(text)) return false;
+  if (
+    /^(?:want|would|should|could|can|do|does|did|is|are|what|which|who|when|where|why|how|any)\b/i.test(
+      text
+    )
+  ) {
+    return false;
+  }
+  return FOLLOW_UP_ACTION_RE.test(text);
 }

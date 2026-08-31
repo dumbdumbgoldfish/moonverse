@@ -1,4 +1,8 @@
 import {
+  sanitizeReviewExcerpt,
+  sanitizeReviewTitleForMode,
+} from "@/lib/moonie/spoiler-mode";
+import {
   messageReferencesReviewerReviewSession,
   pickReviewerReviewByOrdinal,
   resolveReviewerReviewFollowUpKind,
@@ -81,12 +85,23 @@ export async function buildReviewerReviewFollowUpResponse(options: {
       };
     }
 
-    const excerpt = review.excerpt?.trim() || review.body.slice(0, 180).trim();
+    const excerptSource = review.excerpt?.trim() || review.body.trim();
+    const sanitizedExcerpt = sanitizeReviewExcerpt({
+      title: review.title,
+      body: excerptSource,
+      containsSpoilers: review.containsSpoilers,
+      mode: spoilerMode,
+    });
+    const displayTitle = sanitizeReviewTitleForMode({
+      title: review.title,
+      containsSpoilers: review.containsSpoilers,
+      mode: spoilerMode,
+    });
     return {
       reply: [
-        `**${review.title}**`,
+        `**${displayTitle}**`,
         `Review of **${review.novelTitle}** · ★${review.rating}`,
-        excerpt ? excerpt : null,
+        sanitizedExcerpt ? sanitizedExcerpt : null,
         `[Read full review](/reviews/${review.id})`,
       ]
         .filter(Boolean)

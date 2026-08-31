@@ -38,4 +38,15 @@ describe("Moonie preference extraction", () => {
     assert.equal(prefs.excludedTags.includes("harem"), true);
     assert.equal(prefs.excludedTags.includes("romance"), true);
   });
+
+  it("removes romance when the user asks to remove it mid-conversation", () => {
+    const prefs = mergeConversationPreferences([
+      { role: "user", content: "Recommend fantasy and romance" },
+      { role: "assistant", content: "Picks" },
+      { role: "user", content: "remove romance" },
+    ]);
+    assert.equal(prefs.genres.includes("romance"), false);
+    assert.equal(prefs.excludedTags.includes("romance"), true);
+    assert.equal(prefs.genres.includes("fantasy"), true);
+  });
 });

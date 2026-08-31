@@ -4,7 +4,10 @@ import {
 } from "@prisma/client";
 import { db } from "@/lib/db";
 import { normalizeConfidence } from "@/lib/moonie/guardrails";
-import { isAcceptedCompareCatalogueMatch } from "@/lib/moonie/compare-acceptance";
+import {
+  compareQueryAlignsWithLookup,
+  isAcceptedCompareCatalogueMatch,
+} from "@/lib/moonie/compare-acceptance";
 import { matchPercent } from "@/lib/moonie/ranking";
 import { buildCatalogueFieldProvenance } from "@/lib/moonie/provenance";
 import {
@@ -24,7 +27,13 @@ import type {
   MoonieSourceStatus,
   MoonieSpoilerMode,
 } from "@/types/moonie";
-import { sanitizeReviewExcerpt } from "@/lib/moonie/spoiler-mode";
+import type { NovelFactualField } from "@/lib/moonie/intent";
+import {
+  sanitizeCommunityInsightForMode,
+  sanitizeReviewExcerpt,
+  sanitizeReviewTitleForMode,
+} from "@/lib/moonie/spoiler-mode";
+import { constraintEligiblePublicationStatus } from "@/lib/moonie/metadata-eligibility";
 import { moonieDisplayCoverUrl } from "@/lib/review-utils";
 import {
   isPromotableReadingLinkHealth,
@@ -196,9 +205,14 @@ export async function buildCommunityInsight(
           mode: spoilerMode,
         });
         if (!excerpt) return null;
+        const safeTitle = sanitizeReviewTitleForMode({
+          title: review.title,
+          containsSpoilers: review.containsSpoilers,
+          mode: spoilerMode,
+        });
         return {
           rating: review.rating,
-          text: `${review.title} ${excerpt}`,
+          text: `${safeTitle} ${excerpt}`,
         };
       })
       .filter((row): row is { rating: number; text: string } => row != null)
@@ -231,7 +245,11 @@ export async function buildCommunityInsight(
         if (!excerpt) return null;
         return {
           id: review.id,
-          title: review.title,
+          title: sanitizeReviewTitleForMode({
+            title: review.title,
+            containsSpoilers: review.containsSpoilers,
+            mode: spoilerMode,
+          }),
           excerpt,
           rating: review.rating,
           reviewerName:
@@ -249,6 +267,34 @@ export async function buildCommunityInsight(
     mixed: themeConsensus?.mixed ?? [],
     divisive: themeConsensus?.divisive ?? [],
   };
+}
+
+/** Re-sanitize stored recommendation community blocks under the active spoiler mode. */
+export async function refreshRecommendationsForSpoilerMode(
+  recommendations: MoonieRecommendation[],
+  spoilerMode: MoonieSpoilerMode
+): Promise<MoonieRecommendation[]> {
+  if (spoilerMode === "full") return recommendations;
+
+  return Promise.all(
+    recommendations.map(async (rec) => {
+      if (!rec.community) return rec;
+      try {
+        const community = await buildCommunityInsight(rec.novelId, spoilerMode);
+        if (community) {
+          return { ...rec, community };
+        }
+      } catch {
+        // Fall through to stored-community sanitization when refresh fails.
+      }
+      return {
+        ...rec,
+        community: sanitizeCommunityInsightForMode(rec.community, spoilerMode, {
+          unverifiedStoredFallback: true,
+        }),
+      };
+    })
+  );
 }
 
 function candidateToRecommendation(
@@ -278,7 +324,12 @@ function candidateToRecommendation(
     confidence,
     matchPercent: lookup?.matchPercent ?? matchPercent(candidate.score),
     scoreBreakdown: candidate.scoreBreakdown,
-    publicationStatus: candidate.publicationStatus,
+    publicationStatus: constraintEligiblePublicationStatus(
+      candidate.metadataSource,
+      candidate.publicationStatus,
+      candidate.genres,
+      candidate.tags
+    ),
     averageRating: candidate.averageRating,
     reviewCount: candidate.reviewCount,
     reviewId: candidate.topReviewId ?? undefined,
@@ -335,7 +386,10 @@ export async function searchCatalogueByTitle(
     limit: 5,
   });
 
-  return candidates.find((c) => c.id === top.novelId) ?? candidates[0] ?? null;
+  const exact = candidates.find((c) => c.id === top.novelId);
+  if (exact) return exact;
+  const [byId] = await fetchNovelCandidatesByIds([top.novelId]);
+  return byId ?? null;
 }
 
 export async function resolveCatalogueTitleForCompare(
@@ -348,6 +402,8 @@ export async function resolveCatalogueTitleForCompare(
   const scored = await scoreCatalogueCandidates({
     query,
     userId,
+    preferRawTitleQuery: true,
+    explicitTitleLookup: true,
     limit: 5,
   });
 
@@ -355,25 +411,11 @@ export async function resolveCatalogueTitleForCompare(
   if (!top || !isAcceptedCompareCatalogueMatch(top)) {
     return null;
   }
+  if (!compareQueryAlignsWithLookup(query, top)) {
+    return null;
+  }
 
-  const candidates = await findCandidateNovels({
-    prefs: {
-      genres: [],
-      tags: [],
-      excludedTags: [],
-      status: null,
-      mood: [],
-      language: null,
-      length: null,
-    },
-    userId,
-    queryText: top.canonicalTitle,
-    strictGenreFilter: false,
-    limit: 5,
-  });
-
-  const candidate =
-    candidates.find((item) => item.id === top.novelId) ?? candidates[0] ?? null;
+  const [candidate] = await fetchNovelCandidatesByIds([top.novelId]);
   if (!candidate) {
     return null;
   }
@@ -434,7 +476,12 @@ export async function buildNovelBundle(options: {
     title: candidate.title,
     author: candidate.author,
     coverUrl: moonieDisplayCoverUrl(candidate.coverUrl, lookup?.coverUrl),
-    publicationStatus: candidate.publicationStatus,
+    publicationStatus: constraintEligiblePublicationStatus(
+      candidate.metadataSource,
+      candidate.publicationStatus,
+      candidate.genres,
+      candidate.tags
+    ),
     originalLanguage: candidate.originalLanguage,
     genres: candidate.genres,
     tags: candidate.tags.slice(0, 8),
@@ -495,12 +542,68 @@ function formatReadingLinkEmphasis(overview: MoonieNovelOverview): string {
   return parts.join(" ");
 }
 
+export function formatNovelFactualFieldReply(
+  overview: MoonieNovelOverview,
+  field: NovelFactualField
+): string {
+  const title = overview.title;
+
+  switch (field) {
+    case "author":
+      return overview.author
+        ? `**${title}** is listed with author **${overview.author}** in the MoonVerse catalogue.`
+        : `MoonVerse does not list an author for **${title}**.`;
+    case "genre":
+      if (overview.genres.length === 0) {
+        return `MoonVerse does not list genres for **${title}**.`;
+      }
+      return `**${title}** is catalogued under ${overview.genres.join(", ")}.`;
+    case "tags":
+      if (overview.tags.length === 0) {
+        return `MoonVerse does not list tags for **${title}**.`;
+      }
+      return `**${title}** is tagged with ${overview.tags.join(", ")}.`;
+    case "status":
+      if (overview.publicationStatus) {
+        return `**${title}** is listed as **${overview.publicationStatus}** in the MoonVerse catalogue.`;
+      }
+      return `MoonVerse does not list a publication status for **${title}**.`;
+    case "rating":
+      const community = overview.community;
+      if (!community || community.averageRating == null) {
+        return `MoonVerse does not have an average rating for **${title}** yet.`;
+      }
+      return `**${title}** has a **${community.averageRating.toFixed(1)}/5** average rating on MoonVerse across ${community.reviewCount} review${community.reviewCount === 1 ? "" : "s"}.`;
+    case "review_count":
+      return formatNovelBundleReply({
+        overview,
+        emphasizeReviews: true,
+      });
+    case "reading_link":
+      return formatNovelBundleReply({
+        overview,
+        emphasizeReadingLink: true,
+      });
+    case "review_link":
+      return `You can read MoonVerse reviews for **${title}** at /novels/${overview.novelId}.`;
+  }
+}
+
 export function formatNovelBundleReply(options: {
   overview: MoonieNovelOverview;
   emphasizeReadingLink?: boolean;
   emphasizeReviews?: boolean;
+  emphasizeStatus?: boolean;
 }): string {
   const { overview } = options;
+
+  if (options.emphasizeStatus) {
+    const title = overview.title;
+    if (overview.publicationStatus) {
+      return `${title} is listed as **${overview.publicationStatus}** in the MoonVerse catalogue.`;
+    }
+    return `MoonVerse does not list a publication status for **${title}**.`;
+  }
 
   if (options.emphasizeReviews) {
     const title = overview.title;

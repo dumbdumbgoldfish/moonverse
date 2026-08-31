@@ -1,35 +1,72 @@
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
 import {
+  compareDiscoveryCtaLabel,
   compareDiscoveryHref,
+  MOONIE_DESK_CHIPS,
   previousUserContent,
   slateDiversityLine,
   tasteUsedLabels,
 } from "./desk";
+import { MOONIE_QUICK_PROMPTS } from "./constants";
 
 describe("compareDiscoveryHref", () => {
-  it("builds a works search from genre, tags, and the original prompt", () => {
+  it("exports only current-turn Search facets, not conversational text", () => {
     const href = compareDiscoveryHref(
-      {
-        genres: ["GL"],
-        tags: ["slow-burn"],
-        excludedTags: ["harem"],
-        status: "completed",
-        mood: [],
-        language: null,
-      },
-      "cozy romance"
+      "Recommend fantasy novels with slow burn"
     );
     assert.equal(
       href,
-      "/search?genre=gl&tags=slow-burn&q=cozy+romance&type=works"
+      "/search?genre=fantasy&tags=slow-burn&type=works"
     );
   });
 
-  it("falls back to a keyword search", () => {
+  it("uses literal text only for a direct non-conversational Search query", () => {
     assert.equal(
-      compareDiscoveryHref(undefined, "revenge fantasy"),
-      "/search?q=revenge+fantasy"
+      compareDiscoveryHref("Radiant Horizon"),
+      "/search?q=Radiant%20Horizon"
+    );
+  });
+
+  it("does not offer misleading Search links for similarity or unsupported constraints", () => {
+    assert.equal(
+      compareDiscoveryHref("Recommend novels similar to Radiant Horizon"),
+      null
+    );
+    assert.equal(
+      compareDiscoveryHref("More like this novel, refined to my taste."),
+      null
+    );
+    assert.equal(
+      compareDiscoveryHref("Recommend completed fantasy novels"),
+      null
+    );
+    assert.equal(
+      compareDiscoveryHref("Recommend fantasy novels without harem"),
+      null
+    );
+  });
+
+  it("does not turn live descriptive prompt builders into literal Search queries", () => {
+    const descriptivePrompts = [
+      MOONIE_DESK_CHIPS[0].prompt,
+      MOONIE_QUICK_PROMPTS[0],
+      MOONIE_QUICK_PROMPTS[1],
+    ];
+
+    for (const prompt of descriptivePrompts) {
+      assert.equal(compareDiscoveryHref(prompt), null, prompt);
+    }
+  });
+
+  it("labels title searches and facet browsing according to their URLs", () => {
+    assert.equal(
+      compareDiscoveryCtaLabel("/search?q=Radiant%20Horizon"),
+      "Search this title"
+    );
+    assert.equal(
+      compareDiscoveryCtaLabel("/search?genre=fantasy&type=works"),
+      "Open these filters in Search"
     );
   });
 });

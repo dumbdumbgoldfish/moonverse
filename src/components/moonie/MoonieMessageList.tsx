@@ -6,6 +6,7 @@ import {
 } from "@/components/moonie/MoonieChatAvatar";
 import {
   MoonieDeskEmpty,
+  MoonieGuestRateLimit,
   MoonieNoMatch,
   MoonieRateLimit,
   MoonieChatError,
@@ -13,6 +14,7 @@ import {
 import { MoonieWidgetEmptyState } from "@/components/moonie/MoonieWidgetEmptyState";
 import { MoonieLuxuryCard } from "@/components/moonie/MoonieLuxuryCard";
 import { MoonieReviewResults } from "@/components/moonie/MoonieReviewResults";
+import { MoonieRankedReviews } from "@/components/moonie/MoonieRankedReviews";
 import { MoonieReviewerResults } from "@/components/moonie/MoonieReviewerResults";
 import { MoonieReviewerDetail } from "@/components/moonie/MoonieReviewerDetail";
 import { MoonieReviewerGroupDetail } from "@/components/moonie/MoonieReviewerGroupDetail";
@@ -30,14 +32,18 @@ import { CatalogLink } from "@/components/ui/CatalogLink";
 import { MoonieQuickStartChips } from "@/components/moonie/MoonieQuickStartChips";
 import { previousUserContent } from "@/lib/moonie/desk";
 import {
+  isActionableMoonieFollowUp,
   moonieDisplayContent,
   resolveMoonieCardMode,
+  resolveMoonieQuickPrompts,
   resolveMoonieReplyIntent,
   hasResultDiagnostics,
+  isUnresolvedLookupSession,
 } from "@/lib/moonie/presentation";
 import {
   MOONIE_CHAT_ATTACHMENT_INDENT,
   MOONIE_CHAT_CARD_STACK,
+  MOONIE_COMPARE_ATTACHMENT_STACK,
 } from "@/components/moonie/moonie-chat-bubble-styles";
 import { cn } from "@/lib/utils";
 import type { MoonieChatMessage, MoonieLoadingPhase } from "@/types/moonie";
@@ -49,9 +55,12 @@ interface MoonieMessageListProps {
   isLoggedIn?: boolean;
   onNotForMe?: (novelId: string) => void;
   onMoreLikeThis?: (novelId: string) => void;
-  onSelectPrompt?: (prompt: string) => void;
+  onSelectPrompt?: (prompt: string, novelId?: string) => void;
   widgetEmpty?: boolean;
   quotaRemaining?: number | null;
+  isGuestDemo?: boolean;
+  guestTurnsRemaining?: number | null;
+  guestDemoCap?: number;
   registerMessageRef?: (messageId: string, node: HTMLElement | null) => void;
 }
 
@@ -65,6 +74,9 @@ export function MoonieMessageList({
   onSelectPrompt,
   widgetEmpty,
   quotaRemaining,
+  isGuestDemo = false,
+  guestTurnsRemaining,
+  guestDemoCap,
   registerMessageRef,
 }: MoonieMessageListProps) {
   const density = widgetEmpty ? "widget" : "desk";
@@ -91,7 +103,7 @@ export function MoonieMessageList({
   }
 
   if (widgetEmpty && !hasMessages) {
-    return <MoonieWidgetEmptyState {...widgetPromptProps} />;
+    return <MoonieWidgetEmptyState />;
   }
 
   return (
@@ -131,17 +143,38 @@ export function MoonieMessageList({
             message.responseKind !== "chat"
           );
 
-        const showLookupCandidates =
-          Boolean(message.lookupSession?.candidates.length) &&
-          (message.recommendations?.length ?? 0) === 0;
+        const showLookupCandidates = isUnresolvedLookupSession(
+          message.lookupSession
+        );
         const showCompare = (message.compare?.rows.length ?? 0) > 0;
         const showRecommendations =
           (message.recommendations?.length ?? 0) > 0 &&
           message.responseKind !== "chat";
+        const actionableFollowUp =
+          message.role === "assistant" &&
+          isActionableMoonieFollowUp(message.followUpQuestion);
+        const quickPrompts = resolveMoonieQuickPrompts(message);
+        const showFollowUp =
+          Boolean(message.role === "assistant" && message.followUpQuestion) &&
+          quickPrompts.length === 0;
+        const followUpConsumed =
+          actionableFollowUp &&
+          messages
+            .slice(index + 1)
+            .some(
+              (later) =>
+                later.role === "user" &&
+                later.content.trim() === message.followUpQuestion?.trim()
+            );
         const showAttachments =
           showLookupCandidates ||
           showCompare ||
-          (cardMode === "reviews" && Boolean(message.novelOverview)) ||
+          (cardMode === "reviews" &&
+            Boolean(
+              message.novelOverview ||
+                (message.novelReviewGroups?.length ?? 0) > 0 ||
+                (message.rankedReviews?.length ?? 0) > 0
+            )) ||
           (cardMode === "reviewers" && Boolean(message.reviewerResults?.length)) ||
           (cardMode === "reviewer_detail" && Boolean(message.reviewerOverview)) ||
           (cardMode === "reviewer_group_detail" &&
@@ -155,8 +188,8 @@ export function MoonieMessageList({
             cardMode !== "reviewer_group_detail" &&
             cardMode !== "series") ||
           showDiagnostics ||
-          Boolean(message.followUpQuestion && onSelectPrompt) ||
-          Boolean(message.quickPrompts?.length && onSelectPrompt) ||
+          showFollowUp ||
+          Boolean(quickPrompts.length && onSelectPrompt) ||
           showCommunityInMessage ||
           message.state === "no_results";
 
@@ -164,7 +197,14 @@ export function MoonieMessageList({
         <li
           key={message.id}
           ref={(node) => registerMessageRef?.(message.id, node)}
-          className={cn(widgetEmpty ? "min-w-0 max-w-full space-y-2" : "min-w-0 max-w-full space-y-3")}
+          className={cn(
+            widgetEmpty
+              ? "min-w-0 max-w-full space-y-2"
+              : "min-w-0 max-w-full space-y-3",
+            message.role === "assistant" &&
+              message.animateEntrance &&
+              "mv-moonie-reply-enter"
+          )}
         >
           <div
             className={cn(
@@ -183,10 +223,19 @@ export function MoonieMessageList({
             {message.isError ? (
               <div className="min-w-0 flex-1">
                 {message.state === "rate_limit" ? (
-                  <MoonieRateLimit
-                    compact={widgetEmpty}
-                    quotaRemaining={quotaRemaining}
-                  />
+                  message.quotaAudience === "guest" ||
+                  (isGuestDemo && message.quotaAudience !== "member") ? (
+                    <MoonieGuestRateLimit
+                      compact={widgetEmpty}
+                      remaining={guestTurnsRemaining}
+                      cap={guestDemoCap ?? 3}
+                    />
+                  ) : (
+                    <MoonieRateLimit
+                      compact={widgetEmpty}
+                      quotaRemaining={quotaRemaining}
+                    />
+                  )
                 ) : (
                   <MoonieChatError message={message.content} />
                 )}
@@ -217,15 +266,52 @@ export function MoonieMessageList({
               />
             ) : null}
 
-            {showCompare ? (
-              widgetEmpty ? (
-                <MoonieCompareWidgetSummary rows={message.compare!.rows} />
-              ) : (
-                <MoonieComparePanel
-                  rows={message.compare!.rows}
-                  conclusion={message.compare!.conclusion}
-                />
-              )
+            {showCompare ||
+            (message.recommendations &&
+              message.recommendations.length > 0 &&
+              message.responseKind === "compare" &&
+              !widgetEmpty) ? (
+              <div className={MOONIE_COMPARE_ATTACHMENT_STACK}>
+                {showCompare ? (
+                  widgetEmpty ? (
+                    <MoonieCompareWidgetSummary rows={message.compare!.rows} />
+                  ) : (
+                    <MoonieComparePanel
+                      rows={message.compare!.rows}
+                      conclusion={message.compare!.conclusion}
+                    />
+                  )
+                ) : null}
+
+                {message.recommendations &&
+                message.recommendations.length > 0 &&
+                message.responseKind === "compare" &&
+                !widgetEmpty ? (
+                  <div className={MOONIE_CHAT_CARD_STACK}>
+                    {message.recommendations.map((rec) => (
+                      <MoonieLuxuryCard
+                        key={`${message.id}-${rec.novelId}`}
+                        recommendation={{
+                          ...rec,
+                          sourceStatus: rec.sourceStatus ?? "none",
+                        }}
+                        isLoggedIn={isLoggedIn}
+                        onNotForMe={onNotForMe}
+                        onMoreLikeThis={onMoreLikeThis}
+                        density={density}
+                        mode="recommendation"
+                      />
+                    ))}
+                  </div>
+                ) : null}
+              </div>
+            ) : null}
+
+            {cardMode === "reviews" && message.rankedReviews?.length ? (
+              <MoonieRankedReviews
+                reviews={message.rankedReviews}
+                density={density}
+              />
             ) : null}
 
             {cardMode === "reviews" && message.novelOverview ? (
@@ -234,6 +320,16 @@ export function MoonieMessageList({
                 density={density}
               />
             ) : null}
+
+            {cardMode === "reviews" && message.novelReviewGroups?.length
+              ? message.novelReviewGroups.map((group) => (
+                  <MoonieReviewResults
+                    key={group.novelId}
+                    overview={group.overview}
+                    density={density}
+                  />
+                ))
+              : null}
 
             {cardMode === "reviewers" && message.reviewerResults?.length ? (
               <MoonieReviewerResults
@@ -265,28 +361,6 @@ export function MoonieMessageList({
 
             {message.recommendations &&
               message.recommendations.length > 0 &&
-              message.responseKind === "compare" &&
-              !widgetEmpty && (
-                <div className={MOONIE_CHAT_CARD_STACK}>
-                  {message.recommendations.map((rec) => (
-                    <MoonieLuxuryCard
-                      key={`${message.id}-${rec.novelId}`}
-                      recommendation={{
-                        ...rec,
-                        sourceStatus: rec.sourceStatus ?? "none",
-                      }}
-                      isLoggedIn={isLoggedIn}
-                      onNotForMe={onNotForMe}
-                      onMoreLikeThis={onMoreLikeThis}
-                      density={density}
-                      mode="recommendation"
-                    />
-                  ))}
-                </div>
-              )}
-
-            {message.recommendations &&
-              message.recommendations.length > 0 &&
               message.responseKind !== "chat" &&
               message.responseKind !== "compare" &&
               cardMode !== "reviews" &&
@@ -295,7 +369,7 @@ export function MoonieMessageList({
           cardMode !== "reviewer_group_detail" &&
           cardMode !== "series" && (
               <div className={MOONIE_CHAT_CARD_STACK}>
-                {message.recommendations.slice(0, 2).map((rec) => (
+                {message.recommendations.map((rec) => (
                   <MoonieLuxuryCard
                     key={`${message.id}-${rec.novelId}`}
                     recommendation={{
@@ -310,11 +384,6 @@ export function MoonieMessageList({
                     mode={cardMode}
                   />
                 ))}
-                {message.recommendations.length > 2 ? (
-                  <CatalogLink href="/moonie" size="compact">
-                    Open full desk
-                  </CatalogLink>
-                ) : null}
               </div>
             )}
 
@@ -326,21 +395,27 @@ export function MoonieMessageList({
               />
             ) : null}
 
-            {message.quickPrompts?.length && onSelectPrompt ? (
+            {quickPrompts.length && onSelectPrompt ? (
               <MoonieQuickStartChips
-                prompts={message.quickPrompts}
+                prompts={quickPrompts}
                 onSelect={onSelectPrompt}
               />
             ) : null}
 
-            {message.followUpQuestion && onSelectPrompt ? (
-              <CatalogLink
-                onClick={() => onSelectPrompt(message.followUpQuestion!)}
-                size="compact"
-                className="!h-auto min-h-9 w-full min-w-0 max-w-full !whitespace-normal break-words !leading-snug"
-              >
-                {message.followUpQuestion}
-              </CatalogLink>
+            {showFollowUp && !followUpConsumed && message.followUpQuestion ? (
+              actionableFollowUp && onSelectPrompt ? (
+                <CatalogLink
+                  onClick={() => onSelectPrompt(message.followUpQuestion!)}
+                  size="compact"
+                  className="!h-auto min-h-9 w-full min-w-0 max-w-full !whitespace-normal break-words !leading-snug"
+                >
+                  {message.followUpQuestion}
+                </CatalogLink>
+              ) : (
+                <p className="w-full min-w-0 max-w-full break-words text-xs leading-relaxed text-slate-600">
+                  {message.followUpQuestion}
+                </p>
+              )
             ) : null}
 
             {showCommunityInMessage ? (
@@ -350,7 +425,12 @@ export function MoonieMessageList({
               </p>
             ) : null}
 
-            {message.state === "no_results" ? <MoonieNoMatch /> : null}
+            {message.state === "no_results" ? (
+              <MoonieNoMatch
+                reason={message.content}
+                emptyReason={message.emptyReason}
+              />
+            ) : null}
           </div>
           ) : null}
         </li>

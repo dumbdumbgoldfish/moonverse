@@ -5,7 +5,7 @@ import {
   normalizeLookupQueryText,
   isBareReadingLinkRequest,
 } from "@/lib/moonie/intent";
-import { isAcceptedCompareCatalogueMatch } from "@/lib/moonie/compare-acceptance";
+import { isAcceptedLookupCatalogueMatch } from "@/lib/moonie/lookup-acceptance";
 import { parseSearchQuery } from "@/lib/search";
 import {
   computeMatchConfidence,
@@ -164,15 +164,37 @@ export async function fetchNovelCandidatesByIds(
     include: aliasNovelInclude,
   });
 
+  const reviewStats = await db.review.groupBy({
+    by: ["novelId"],
+    where: {
+      novelId: { in: ids },
+      moderationStatus: "OK",
+    },
+    _count: { _all: true },
+    _avg: { rating: true },
+  });
+  const statsByNovelId = new Map(
+    reviewStats.map((row) => [
+      row.novelId,
+      {
+        reviewCount: row._count._all,
+        averageRating: row._avg.rating ?? null,
+      },
+    ])
+  );
+
   return novels.map((novel) => {
     const genres = novel.genres.map((g) => g.name);
     const tags = novel.tags.map((t) => t.name);
     const moods = novel.tags
       .filter((tag) => tag.kind === "MOOD")
       .map((t) => t.name);
-    const reviewCount = novel.reviews.length;
+    const stats = statsByNovelId.get(novel.id);
+    const reviewCount = stats?.reviewCount ?? 0;
     const averageRating =
-      reviewCount > 0 ? novel.reviews[0]!.rating : null;
+      stats?.averageRating ??
+      (novel.reviews[0] ? novel.reviews[0].rating : null);
+    const topReviewId = novel.reviews[0]?.id ?? null;
 
     return {
       id: novel.id,
@@ -183,12 +205,14 @@ export async function fetchNovelCandidatesByIds(
       originalLanguage: novel.originalLanguage,
       publicationStatus: novel.publicationStatus,
       lengthBand: novel.lengthBand ?? null,
+      chapterCount: novel.chapterCount ?? null,
+      metadataSource: novel.metadataSource ?? null,
       genres,
       tags,
       moods,
       reviewCount,
       averageRating,
-      topReviewId: novel.reviews[0]?.id ?? null,
+      topReviewId: topReviewId,
       score: 0.55,
       scoreBreakdown: {
         semantic: 0,
@@ -413,7 +437,7 @@ export async function identifyNovels(
   }
 
   if (options.explicitTitleLookup && !forcedNovelId) {
-    const accepted = candidates.filter(isAcceptedCompareCatalogueMatch);
+    const accepted = candidates.filter(isAcceptedLookupCatalogueMatch);
     if (accepted.length === 0) {
       return {
         mode: "no_match",
@@ -522,6 +546,69 @@ export async function identifyNovels(
     };
   }
 
+  if (top.confidence === "low") {
+    if (candidates.length > 1) {
+      const shortlist = candidates.slice(0, 5);
+      return {
+        mode: "clarification",
+        candidates: shortlist,
+        session: withLookupSession(
+          {
+            mode: "clarification",
+            query,
+            candidates: shortlist,
+            rejectedNovelIds: options.excludeNovelIds ?? [],
+          },
+          options
+        ),
+        reply: `I found several possible matches for “${query}”. Which one do you mean?`,
+        followUpQuestion: shortlist[0]
+          ? `This one — ${shortlist[0].title}`
+          : null,
+      };
+    }
+    return {
+      mode: "no_match",
+      candidates: [],
+      session: withLookupSession(
+        {
+          mode: "exact",
+          query,
+          candidates: [],
+          rejectedNovelIds: options.excludeNovelIds ?? [],
+        },
+        options
+      ),
+      reply: `I could not find a verified match for “${query}” in the MoonVerse catalogue. Try the full title, an alternate spelling, or browse the catalogue.`,
+      followUpQuestion:
+        "Can you share another clue — author, genre, or a longer title fragment?",
+      consumesQuota: false,
+    };
+  }
+
+  if (
+    options.explicitTitleLookup &&
+    !isAcceptedLookupCatalogueMatch(top)
+  ) {
+    return {
+      mode: "no_match",
+      candidates: [],
+      session: withLookupSession(
+        {
+          mode: "exact",
+          query,
+          candidates: [],
+          rejectedNovelIds: options.excludeNovelIds ?? [],
+        },
+        options
+      ),
+      reply: `I couldn't verify "${query}" in the MoonVerse catalogue.`,
+      followUpQuestion:
+        "Try the full title, an alternate spelling, or browse the catalogue.",
+      consumesQuota: false,
+    };
+  }
+
   const bundle = await buildNovelBundle({
     novelId: top.novelId,
     userId: options.userId,
@@ -605,6 +692,10 @@ export async function confirmLookupCandidate(options: {
       ...options.session,
       mode: "confirmed",
       confirmedNovelId: options.novelId,
+      candidates: candidate ? [candidate] : [],
+      pendingIntent: options.emphasizeReviews
+        ? "NOVEL_REVIEWS"
+        : options.session.pendingIntent,
     },
     recommendation: bundle.recommendation,
     overview: bundle.overview,

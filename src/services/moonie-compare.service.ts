@@ -1,9 +1,13 @@
 import {
+  enumerateCompareTitleParses,
   extractCompareTitles,
+  extractOrdinalCompareTitlesFromRecommendations,
   extractTitlesFromMultiline,
   isCompareTheseMessage,
+  preferCompareTitleParse,
 } from "@/lib/moonie/intent";
 import { spoilerConstraintForOpenAI } from "@/lib/moonie/spoiler-mode";
+import { constraintEligiblePublicationStatus } from "@/lib/moonie/metadata-eligibility";
 import {
   buildNovelBundle,
   resolveCatalogueTitleForCompare,
@@ -27,14 +31,15 @@ function tagSignals(tags: string[], pattern: RegExp): string[] {
 }
 
 function buildCompareRow(
-  bundle: Awaited<ReturnType<typeof buildNovelBundle>>
+  bundle: Awaited<ReturnType<typeof buildNovelBundle>>,
+  eligibleStatus: string | null
 ): MoonieCompareRow | null {
   if (!bundle.recommendation || !bundle.overview) return null;
   const rec = bundle.recommendation;
   const tags = bundle.overview.tags;
   const missing: string[] = [];
 
-  if (!rec.publicationStatus) missing.push("completion status");
+  if (!eligibleStatus) missing.push("completion status");
   if (rec.averageRating == null) missing.push("community rating");
   if ((rec.reviewCount ?? 0) === 0) missing.push("MoonVerse reviews");
   if (rec.sourceStatus === "none") missing.push("verified reading source");
@@ -51,7 +56,7 @@ function buildCompareRow(
     novelId: rec.novelId,
     title: rec.title,
     author: rec.author ?? null,
-    publicationStatus: rec.publicationStatus ?? null,
+    publicationStatus: eligibleStatus,
     genres: rec.genres,
     tags: tags.slice(0, 8),
     averageRating: rec.averageRating ?? null,
@@ -81,17 +86,17 @@ function compareConclusion(rows: MoonieCompareRow[]): string {
     byRating[0].averageRating !== byRating[1].averageRating
   ) {
     parts.push(
-      `Choose **${byRating[0].title}** if you want the higher MoonVerse rating (${byRating[0].averageRating?.toFixed(1)}/5 across ${byRating[0].reviewCount} reviews).`
+      `Choose ${byRating[0].title} if you want the higher MoonVerse rating (${byRating[0].averageRating?.toFixed(1)}/5 across ${byRating[0].reviewCount} reviews).`
     );
     parts.push(
-      `Choose **${byRating[1].title}** if you prefer the alternative tone/tags (${byRating[1].genres.slice(0, 2).join(", ") || "see tags above"}).`
+      `Choose ${byRating[1].title} if you prefer the alternative tone/tags (${byRating[1].genres.slice(0, 2).join(", ") || "see tags above"}).`
     );
   }
 
   const darker = rows.filter((row) => row.toneSignals.length > 0);
   if (darker.length === 1) {
     parts.push(
-      `For a darker tone (from MoonVerse tags), **${darker[0].title}** is the stronger match (${darker[0].toneSignals.join(", ")}).`
+      `For a darker tone (from MoonVerse tags), ${darker[0].title} is the stronger match (${darker[0].toneSignals.join(", ")}).`
     );
   }
 
@@ -103,7 +108,7 @@ function compareConclusion(rows: MoonieCompareRow[]): string {
     lessRomance[0].count === 0
   ) {
     parts.push(
-      `For lower romance signals in tags, **${lessRomance[0].row.title}** has fewer romance-tagged signals.`
+      `For lower romance signals in tags, ${lessRomance[0].row.title} has fewer romance-tagged signals.`
     );
   }
 
@@ -114,7 +119,7 @@ function compareConclusion(rows: MoonieCompareRow[]): string {
     const other = rows.find((row) => row.novelId !== completed[0].novelId);
     if (other && other.publicationStatus?.toLowerCase() !== "completed") {
       parts.push(
-        `Choose **${completed[0].title}** if you want a completed catalogue status.`
+        `Choose ${completed[0].title} if you want a completed catalogue status.`
       );
     }
   }
@@ -126,46 +131,31 @@ function compareConclusion(rows: MoonieCompareRow[]): string {
   return parts.join(" ");
 }
 
-export async function buildNovelComparison(options: {
-  message: string;
+async function resolveCompareTitlesToRows(options: {
+  titles: string[];
   userId?: string;
   spoilerMode?: MoonieSpoilerMode;
-  titleHints?: string[];
-  priorUserMessage?: string | null;
-  activeNovelTitle?: string | null;
-}): Promise<MoonieCompareResult> {
-  let titles =
-    options.titleHints && options.titleHints.length >= 2
-      ? options.titleHints.slice(0, FILE_ATTACHMENT_MAX_TITLES)
-      : extractCompareTitles(options.message, options.activeNovelTitle);
-
-  if (titles.length < 2 && isCompareTheseMessage(options.message)) {
-    if (options.priorUserMessage) {
-      titles = extractTitlesFromMultiline(options.priorUserMessage);
-    }
-    if (titles.length < 2) {
-      titles = extractTitlesFromMultiline(options.message);
-    }
-  }
-
-  if (titles.length < 2) {
-    return {
-      rows: [],
-      recommendations: [],
-      reply:
-        "Name two or three novels to compare, for example: Compare Lord of the Mysteries and Reverend Insanity.",
-      unresolvedTitles: titles,
-    };
-  }
-
+}): Promise<{
+  rows: MoonieCompareRow[];
+  recommendations: NonNullable<
+    Awaited<ReturnType<typeof buildNovelBundle>>["recommendation"]
+  >[];
+  unresolvedTitles: string[];
+}> {
   const rows: MoonieCompareRow[] = [];
-  const recommendations = [];
+  const recommendations: NonNullable<
+    Awaited<ReturnType<typeof buildNovelBundle>>["recommendation"]
+  >[] = [];
   const unresolvedTitles: string[] = [];
+  const seen = new Set<string>();
 
-  for (const title of titles) {
+  for (const title of options.titles) {
     const resolved = await resolveCatalogueTitleForCompare(title, options.userId);
     if (!resolved) {
       unresolvedTitles.push(title);
+      continue;
+    }
+    if (seen.has(resolved.candidate.id)) {
       continue;
     }
 
@@ -177,38 +167,231 @@ export async function buildNovelComparison(options: {
       lookupCandidate: resolved.lookup,
     });
 
-    const row = buildCompareRow(bundle);
+    const eligibleStatus = constraintEligiblePublicationStatus(
+      resolved.candidate.metadataSource,
+      resolved.candidate.publicationStatus,
+      resolved.candidate.genres,
+      resolved.candidate.tags
+    );
+    const row = buildCompareRow(bundle, eligibleStatus);
     if (row) {
+      seen.add(row.novelId);
       rows.push(row);
-      if (bundle.recommendation) recommendations.push(bundle.recommendation);
+      if (bundle.recommendation) {
+        recommendations.push({
+          ...bundle.recommendation,
+          publicationStatus: eligibleStatus,
+        });
+      }
     } else {
       unresolvedTitles.push(title);
     }
   }
 
-  if (rows.length < 2) {
-    const verifiedCount = rows.length;
-    const unresolvedList = unresolvedTitles.map((title) => `"${title}"`).join(", ");
-    let reply: string;
+  return { rows, recommendations, unresolvedTitles };
+}
 
-    if (verifiedCount === 1 && unresolvedTitles.length > 0) {
-      reply = `I could only verify 1 of the titles in your file, so I can't make a reliable comparison yet.${
+async function loadCompareRowsByIds(options: {
+  novelIds: string[];
+  userId?: string;
+  spoilerMode?: MoonieSpoilerMode;
+}): Promise<{
+  rows: MoonieCompareRow[];
+  recommendations: NonNullable<
+    Awaited<ReturnType<typeof buildNovelBundle>>["recommendation"]
+  >[];
+}> {
+  const rows: MoonieCompareRow[] = [];
+  const recommendations: NonNullable<
+    Awaited<ReturnType<typeof buildNovelBundle>>["recommendation"]
+  >[] = [];
+  const seen = new Set<string>();
+
+  for (const novelId of options.novelIds) {
+    if (seen.has(novelId)) continue;
+    const bundle = await buildNovelBundle({
+      novelId,
+      userId: options.userId,
+      reason: "Verified catalogue entry kept from the pending comparison.",
+      spoilerMode: options.spoilerMode,
+    });
+    if (!bundle.recommendation) continue;
+    const row = buildCompareRow(
+      bundle,
+      bundle.recommendation.publicationStatus ?? null
+    );
+    if (!row) continue;
+    seen.add(row.novelId);
+    rows.push(row);
+    recommendations.push(bundle.recommendation);
+  }
+
+  return { rows, recommendations };
+}
+
+function compareClarificationReply(options: {
+  rows: MoonieCompareRow[];
+  unresolvedTitles: string[];
+  fromFile: boolean;
+}): string {
+  const verifiedCount = options.rows.length;
+  const unresolvedList = options.unresolvedTitles
+    .map((title) => `"${title}"`)
+    .join(", ");
+  const kept = options.rows[0]?.title;
+
+  if (verifiedCount === 1 && options.unresolvedTitles.length > 0) {
+    if (options.fromFile) {
+      return `I could only verify 1 of the titles in your file, so I can't make a reliable comparison yet.${
         unresolvedList ? ` I couldn't verify: ${unresolvedList}.` : ""
       } Try the full official title for the missing entries.`;
-    } else if (verifiedCount === 0 && unresolvedTitles.length > 0) {
-      reply = `I couldn't verify any of the titles in your file (${unresolvedList}), so I can't make a reliable comparison yet. Try the full official title.`;
-    } else {
-      const missing = unresolvedTitles.length
-        ? unresolvedList
-        : "those titles";
-      reply = `I could not verify at least two catalogue matches for ${missing}. Try the full official title.`;
     }
+    return `I verified ${kept}. I couldn't verify ${unresolvedList}. Name the other title to compare — I will keep ${kept} and will not substitute a different novel.`;
+  }
 
+  if (verifiedCount === 1) {
+    return `I verified ${kept}. Name one more catalogue title to compare with it.`;
+  }
+
+  if (verifiedCount === 0 && options.unresolvedTitles.length > 0) {
+    if (options.fromFile) {
+      return `I couldn't verify any of the titles in your file (${unresolvedList}), so I can't make a reliable comparison yet. Try the full official title.`;
+    }
+    return `I couldn't verify ${unresolvedList}. Name two or three catalogue titles to compare, for example: Compare Lord of the Mysteries and Reverend Insanity.`;
+  }
+
+  const missing = options.unresolvedTitles.length
+    ? unresolvedList
+    : "those titles";
+  return `I could not verify at least two catalogue matches for ${missing}. Try the full official title.`;
+}
+
+export async function buildNovelComparison(options: {
+  message: string;
+  userId?: string;
+  spoilerMode?: MoonieSpoilerMode;
+  titleHints?: string[];
+  priorUserMessage?: string | null;
+  activeNovelTitle?: string | null;
+  priorRecommendations?: Array<{ title: string }>;
+  priorResolvedNovelIds?: string[];
+}): Promise<MoonieCompareResult> {
+  const fromFile = Boolean(
+    options.titleHints && options.titleHints.length >= 2
+  );
+  const ordinalTitles = options.priorRecommendations
+    ? extractOrdinalCompareTitlesFromRecommendations(
+        options.message,
+        options.priorRecommendations
+      )
+    : [];
+
+  let lockedTitles: string[] | null =
+    ordinalTitles.length >= 2
+      ? ordinalTitles
+      : fromFile
+        ? options.titleHints!.slice(0, FILE_ATTACHMENT_MAX_TITLES)
+        : null;
+
+  if (!lockedTitles && isCompareTheseMessage(options.message)) {
+    const fromPrior = options.priorUserMessage
+      ? extractTitlesFromMultiline(options.priorUserMessage)
+      : [];
+    const fromMessage = extractTitlesFromMultiline(options.message);
+    lockedTitles =
+      fromPrior.length >= 2
+        ? fromPrior
+        : fromMessage.length >= 2
+          ? fromMessage
+          : null;
+  }
+
+  const titleParses = lockedTitles
+    ? [lockedTitles]
+    : enumerateCompareTitleParses(
+        options.message,
+        options.activeNovelTitle
+      );
+
+  if (titleParses.length === 0) {
+    return {
+      rows: [],
+      recommendations: [],
+      reply:
+        "Name two or three novels to compare, for example: Compare Lord of the Mysteries and Reverend Insanity.",
+      unresolvedTitles: [],
+    };
+  }
+
+  let best: Awaited<ReturnType<typeof resolveCompareTitlesToRows>> | null = null;
+
+  for (const titles of titleParses) {
+    const resolved = await resolveCompareTitlesToRows({
+      titles,
+      userId: options.userId,
+      spoilerMode: options.spoilerMode,
+    });
+    if (
+      !best ||
+      preferCompareTitleParse(
+        {
+          resolvedCount: resolved.rows.length,
+          titleCount: titles.length,
+        },
+        {
+          resolvedCount: best.rows.length,
+          titleCount:
+            best.rows.length + best.unresolvedTitles.length || titles.length,
+        }
+      ) < 0
+    ) {
+      best = resolved;
+    }
+    if (resolved.rows.length >= 2 && resolved.unresolvedTitles.length === 0) {
+      break;
+    }
+  }
+
+  const merged = best ?? {
+    rows: [],
+    recommendations: [],
+    unresolvedTitles: extractCompareTitles(
+      options.message,
+      options.activeNovelTitle
+    ),
+  };
+
+  if (merged.rows.length < 2 && (options.priorResolvedNovelIds?.length ?? 0) > 0) {
+    const prior = await loadCompareRowsByIds({
+      novelIds: options.priorResolvedNovelIds!,
+      userId: options.userId,
+      spoilerMode: options.spoilerMode,
+    });
+    const seen = new Set(merged.rows.map((row) => row.novelId));
+    for (let index = 0; index < prior.rows.length; index += 1) {
+      const row = prior.rows[index]!;
+      if (seen.has(row.novelId)) continue;
+      merged.rows.unshift(row);
+      const rec = prior.recommendations[index];
+      if (rec) merged.recommendations.unshift(rec);
+      seen.add(row.novelId);
+    }
+  }
+
+  const rows = merged.rows;
+  const recommendations = merged.recommendations;
+  const unresolvedTitles = merged.unresolvedTitles;
+
+  if (rows.length < 2) {
     return {
       rows,
       recommendations,
       unresolvedTitles,
-      reply,
+      reply: compareClarificationReply({
+        rows,
+        unresolvedTitles,
+        fromFile,
+      }),
     };
   }
 
@@ -218,7 +401,7 @@ export async function buildNovelComparison(options: {
         row.averageRating != null
           ? `${row.averageRating.toFixed(1)}/5 · ${row.reviewCount} reviews`
           : `${row.reviewCount} reviews`;
-      return `**${row.title}**${row.author ? ` by ${row.author}` : ""} — ${row.publicationStatus ?? "status unknown"} — ${rating}`;
+      return `${row.title}${row.author ? ` by ${row.author}` : ""} — ${row.publicationStatus ?? "status unknown"} — ${rating}`;
     })
     .join("\n");
 
@@ -253,7 +436,7 @@ export async function answerCompareFollowUp(options: {
     if (ranked[0].toneSignals.length === 0) {
       return "Neither title has darkness/grim tags on MoonVerse, so I cannot rank them as darker from verified tag data.";
     }
-    return `From MoonVerse tags, **${ranked[0].title}** has stronger dark-tone signals (${ranked[0].toneSignals.join(", ")}). ${spoilerConstraintForOpenAI(options.spoilerMode ?? "none")}`;
+    return `From MoonVerse tags, ${ranked[0].title} has stronger dark-tone signals (${ranked[0].toneSignals.join(", ")}). ${spoilerConstraintForOpenAI(options.spoilerMode ?? "none")}`;
   }
 
   if (/\b(less romance|lower romance|no romance|romance)\b/.test(lower)) {
@@ -266,7 +449,7 @@ export async function answerCompareFollowUp(options: {
     ) {
       return "Romance level looks similar from available MoonVerse tags — neither stands out clearly.";
     }
-    return `**${ranked[0].title}** has fewer romance-related tags (${ranked[0].romanceSignals.join(", ") || "none listed"}).`;
+    return `${ranked[0].title} has fewer romance-related tags (${ranked[0].romanceSignals.join(", ") || "none listed"}).`;
   }
 
   return null;

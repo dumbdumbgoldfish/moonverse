@@ -11,6 +11,9 @@ import { MoonieMessageList } from "@/components/moonie/MoonieMessageList";
 import { useMoonieChatHeaderState } from "@/components/moonie/MoonieChatAvatar";
 import { useMoonieChatScroll } from "@/hooks/use-moonie-chat-scroll";
 import { CatalogLink } from "@/components/ui/CatalogLink";
+import { buildMoonieDeskHref } from "@/lib/moonie/conversation-url";
+import { moonieLoggedInEntryHref } from "@/lib/moonie/open-moonie";
+import { cn } from "@/lib/utils";
 import type { MoonieChatMessage } from "@/types/moonie";
 
 interface MoonieChatPanelProps {
@@ -22,11 +25,15 @@ interface MoonieChatPanelProps {
   loadingPhase?: import("@/types/moonie").MoonieLoadingPhase;
   input: string;
   onInputChange: (value: string) => void;
-  onSubmit: (message: string) => void;
+  onSubmit: (
+    message: string,
+    options?: { confirmLookupNovelId?: string }
+  ) => void;
   onNotForMe?: (novelId: string) => void;
   onMoreLikeThis?: (novelId: string) => void;
   loginCallbackUrl?: string;
   quotaRemaining?: number | null;
+  conversationId?: string;
 }
 
 export function MoonieChatPanel({
@@ -43,6 +50,7 @@ export function MoonieChatPanel({
   onMoreLikeThis,
   loginCallbackUrl = "/",
   quotaRemaining,
+  conversationId,
 }: MoonieChatPanelProps) {
   const panelRef = useRef<HTMLDivElement>(null);
   const onCloseRef = useRef(onClose);
@@ -52,7 +60,13 @@ export function MoonieChatPanel({
   });
   const { hasError, hasRecommendations, isRateLimited, status } =
     useMoonieChatHeaderState(messages, isLoading, false);
-  const { scrollRef, registerMessageRef, showJumpToBottom, scrollToBottom } =
+  const {
+    scrollRef,
+    contentRef,
+    registerMessageRef,
+    showJumpToBottom,
+    scrollToBottom,
+  } =
     useMoonieChatScroll(messages, isLoading);
 
   useEffect(() => {
@@ -87,6 +101,8 @@ export function MoonieChatPanel({
     };
   }, [open]);
 
+  const widgetWelcomeOnly = messages.length === 0 && !isLoading;
+
   if (!open) return null;
 
   return (
@@ -119,32 +135,42 @@ export function MoonieChatPanel({
         onClose={onClose}
       />
 
-      <div
-        ref={scrollRef}
-        className="relative flex min-h-0 flex-1 flex-col overflow-y-auto bg-[#FFFBFF] text-[#1A1224]"
-      >
-        <div className="mt-auto w-full min-h-0 shrink-0">
-          <MoonieMessageList
-            messages={messages}
-            isLoading={isLoading}
-            loadingPhase={loadingPhase}
-            isLoggedIn={isLoggedIn}
-            onNotForMe={onNotForMe}
-            onMoreLikeThis={onMoreLikeThis}
-            onSelectPrompt={onSubmit}
-            widgetEmpty
-            quotaRemaining={quotaRemaining}
-            registerMessageRef={registerMessageRef}
-          />
+      <div className="relative min-h-0 flex-1">
+        <div
+          ref={scrollRef}
+          className="flex h-full min-h-0 flex-col overflow-y-auto bg-[#FFFBFF] text-[#1A1224]"
+        >
+          <div
+            ref={contentRef}
+            className={cn(
+              "min-h-0 w-full shrink-0",
+              !widgetWelcomeOnly && "mt-auto"
+            )}
+          >
+            <MoonieMessageList
+              messages={messages}
+              isLoading={isLoading}
+              loadingPhase={loadingPhase}
+              isLoggedIn={isLoggedIn}
+              onNotForMe={onNotForMe}
+              onMoreLikeThis={onMoreLikeThis}
+              onSelectPrompt={(prompt, novelId) =>
+                onSubmit(prompt, novelId ? { confirmLookupNovelId: novelId } : undefined)
+              }
+              widgetEmpty
+              quotaRemaining={quotaRemaining}
+              registerMessageRef={registerMessageRef}
+            />
+          </div>
         </div>
         {showJumpToBottom ? (
           <button
             type="button"
+            aria-label="Scroll to latest message"
             onClick={() => scrollToBottom()}
-            className="absolute bottom-3 left-1/2 z-10 flex -translate-x-1/2 items-center gap-1 rounded-full border border-violet-200 bg-white px-3 py-1.5 text-xs font-semibold text-[#4C2A67] shadow-md transition hover:bg-violet-50"
+            className="absolute bottom-3 left-1/2 z-10 flex size-11 -translate-x-1/2 items-center justify-center rounded-full border border-violet-200 bg-white text-[#4C2A67] shadow-md transition hover:bg-violet-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-violet-400 focus-visible:ring-offset-2"
           >
-            <ChevronDown className="size-3.5" aria-hidden />
-            New message
+            <ChevronDown className="size-5" aria-hidden />
           </button>
         ) : null}
       </div>
@@ -164,13 +190,16 @@ export function MoonieChatPanel({
                 }
                 onSubmit(trimmed);
               }}
-              disabled={isLoading}
-              sendDisabled={!input.trim()}
+              sendDisabled={!input.trim() || isLoading}
               placeholder="Ask Moonie"
             />
             <div className="mt-1.5 flex justify-center">
               <Link
-                href="/moonie"
+                href={
+                  conversationId
+                    ? buildMoonieDeskHref({ conversationId })
+                    : moonieLoggedInEntryHref()
+                }
                 className="text-[11px] font-medium text-[#6E46C7]/70 underline-offset-2 transition hover:text-[#4C2A67] hover:underline"
               >
                 Open full desk

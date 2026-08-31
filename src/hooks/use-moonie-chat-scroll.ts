@@ -19,6 +19,46 @@ interface UseMoonieChatScrollOptions {
   restoreScroll?: boolean;
 }
 
+export function resolveMoonieFollowState(options: {
+  wasFollowing: boolean;
+  isNearBottom: boolean;
+  hasUserScrollIntent: boolean;
+}): boolean {
+  if (options.isNearBottom) return true;
+  if (options.hasUserScrollIntent) return false;
+  return options.wasFollowing;
+}
+
+export function resolveMoonieRestoreScrollTop(options: {
+  messageCount: number;
+  savedScrollTop: number | null;
+  scrollHeight: number;
+  clientHeight: number;
+}): number | null {
+  if (options.messageCount === 0) return null;
+  const maxScrollTop = Math.max(
+    0,
+    options.scrollHeight - options.clientHeight
+  );
+  return options.savedScrollTop == null
+    ? maxScrollTop
+    : Math.min(Math.max(0, options.savedScrollTop), maxScrollTop);
+}
+
+export function shouldDeferMoonieFollow(options: {
+  restoreScroll: boolean;
+  conversationId?: string;
+  restoredConversationId: string | null;
+  isFollowing: boolean;
+}): boolean {
+  return Boolean(
+    options.restoreScroll &&
+      options.conversationId &&
+      options.restoredConversationId !== options.conversationId &&
+      !options.isFollowing
+  );
+}
+
 export function useMoonieChatScroll(
   messages: MoonieScrollMessage[],
   isLoading: boolean,
@@ -26,12 +66,28 @@ export function useMoonieChatScroll(
 ) {
   const { conversationId, restoreScroll = false } = options;
   const scrollRef = useRef<HTMLDivElement>(null);
+  const contentRef = useRef<HTMLDivElement>(null);
   const messageRefs = useRef(new Map<string, HTMLElement>());
   const stickToBottomRef = useRef(true);
-  const [showJumpToBottom, setShowJumpToBottom] = useState(false);
+  const [jumpState, setJumpState] = useState<{
+    conversationId: string | null;
+    visible: boolean;
+  }>({
+    conversationId: conversationId ?? null,
+    visible: false,
+  });
+  const showJumpToBottom =
+    jumpState.conversationId === (conversationId ?? null) && jumpState.visible;
   const prevCountRef = useRef(messages.length);
   const prevLoadingRef = useRef(isLoading);
   const scrollRafRef = useRef<number | null>(null);
+  const scrollInnerRafRef = useRef<number | null>(null);
+  const restoreRafRef = useRef<number | null>(null);
+  const restoreInnerRafRef = useRef<number | null>(null);
+  const userIntentRafRef = useRef<number | null>(null);
+  const userScrollIntentRef = useRef(false);
+  const restoreGenerationRef = useRef(0);
+  const activeConversationRef = useRef(conversationId);
   const restoredConversationRef = useRef<string | null>(null);
   const scrollSaveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
@@ -43,26 +99,61 @@ export function useMoonieChatScroll(
     return distance <= NEAR_BOTTOM_THRESHOLD_PX;
   }, []);
 
+  const updateJumpVisibility = useCallback(
+    (visible: boolean) => {
+      const nextConversationId = conversationId ?? null;
+      setJumpState((current) =>
+        current.conversationId === nextConversationId &&
+        current.visible === visible
+          ? current
+          : { conversationId: nextConversationId, visible }
+      );
+    },
+    [conversationId]
+  );
+
+  const cancelPendingRestore = useCallback(() => {
+    restoreGenerationRef.current += 1;
+    if (restoreRafRef.current != null) {
+      cancelAnimationFrame(restoreRafRef.current);
+      restoreRafRef.current = null;
+    }
+    if (restoreInnerRafRef.current != null) {
+      cancelAnimationFrame(restoreInnerRafRef.current);
+      restoreInnerRafRef.current = null;
+    }
+  }, []);
+
   const stickToBottom = useCallback((behavior: ScrollBehavior = "auto") => {
     if (scrollRafRef.current != null) {
       cancelAnimationFrame(scrollRafRef.current);
     }
+    if (scrollInnerRafRef.current != null) {
+      cancelAnimationFrame(scrollInnerRafRef.current);
+    }
 
     scrollRafRef.current = requestAnimationFrame(() => {
       scrollRafRef.current = null;
-      const container = scrollRef.current;
-      if (!container || !stickToBottomRef.current) return;
-      container.scrollTo({ top: container.scrollHeight, behavior });
-      setShowJumpToBottom(false);
+      scrollInnerRafRef.current = requestAnimationFrame(() => {
+        scrollInnerRafRef.current = null;
+        const container = scrollRef.current;
+        if (!container || !stickToBottomRef.current) return;
+        container.scrollTo({ top: container.scrollHeight, behavior });
+        updateJumpVisibility(false);
+      });
     });
-  }, []);
+  }, [updateJumpVisibility]);
 
   const scrollToBottom = useCallback(
-    (behavior: ScrollBehavior = "smooth") => {
+    (behavior: ScrollBehavior = "auto") => {
+      cancelPendingRestore();
+      if (conversationId) {
+        restoredConversationRef.current = conversationId;
+      }
       stickToBottomRef.current = true;
       stickToBottom(behavior);
     },
-    [stickToBottom]
+    [cancelPendingRestore, conversationId, stickToBottom]
   );
 
   const scrollToMessage = useCallback(
@@ -106,10 +197,53 @@ export function useMoonieChatScroll(
     const container = scrollRef.current;
     if (!container) return;
 
+    const handleUserScrollIntent = () => {
+      cancelPendingRestore();
+      if (conversationId) {
+        restoredConversationRef.current = conversationId;
+      }
+      userScrollIntentRef.current = true;
+      if (userIntentRafRef.current != null) {
+        cancelAnimationFrame(userIntentRafRef.current);
+      }
+      userIntentRafRef.current = requestAnimationFrame(() => {
+        userIntentRafRef.current = null;
+        userScrollIntentRef.current = false;
+      });
+    };
+
+    const handlePointerMove = (event: PointerEvent) => {
+      if (event.buttons > 0) handleUserScrollIntent();
+    };
+
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if (
+        event.key === "ArrowUp" ||
+        event.key === "ArrowDown" ||
+        event.key === "PageUp" ||
+        event.key === "PageDown" ||
+        event.key === "Home" ||
+        event.key === "End" ||
+        event.key === " "
+      ) {
+        handleUserScrollIntent();
+      }
+    };
+
     const handleScroll = () => {
       const near = isNearBottom();
-      stickToBottomRef.current = near;
-      setShowJumpToBottom(!near);
+      const hasUserScrollIntent = userScrollIntentRef.current;
+      userScrollIntentRef.current = false;
+      if (userIntentRafRef.current != null) {
+        cancelAnimationFrame(userIntentRafRef.current);
+        userIntentRafRef.current = null;
+      }
+      stickToBottomRef.current = resolveMoonieFollowState({
+        wasFollowing: stickToBottomRef.current,
+        isNearBottom: near,
+        hasUserScrollIntent,
+      });
+      updateJumpVisibility(!near);
 
       if (!conversationId) return;
       if (scrollSaveTimerRef.current) {
@@ -121,43 +255,117 @@ export function useMoonieChatScroll(
     };
 
     container.addEventListener("scroll", handleScroll, { passive: true });
+    container.addEventListener("wheel", handleUserScrollIntent, {
+      passive: true,
+    });
+    container.addEventListener("touchstart", handleUserScrollIntent, {
+      passive: true,
+    });
+    container.addEventListener("touchmove", handleUserScrollIntent, {
+      passive: true,
+    });
+    container.addEventListener("pointerdown", handleUserScrollIntent, {
+      passive: true,
+    });
+    container.addEventListener("pointermove", handlePointerMove, {
+      passive: true,
+    });
+    container.addEventListener("keydown", handleKeyDown);
     return () => {
       container.removeEventListener("scroll", handleScroll);
+      container.removeEventListener("wheel", handleUserScrollIntent);
+      container.removeEventListener("touchstart", handleUserScrollIntent);
+      container.removeEventListener("touchmove", handleUserScrollIntent);
+      container.removeEventListener("pointerdown", handleUserScrollIntent);
+      container.removeEventListener("pointermove", handlePointerMove);
+      container.removeEventListener("keydown", handleKeyDown);
+      if (userIntentRafRef.current != null) {
+        cancelAnimationFrame(userIntentRafRef.current);
+        userIntentRafRef.current = null;
+      }
       if (scrollSaveTimerRef.current) {
         clearTimeout(scrollSaveTimerRef.current);
       }
     };
-  }, [conversationId, isNearBottom]);
+  }, [
+    cancelPendingRestore,
+    conversationId,
+    isNearBottom,
+    updateJumpVisibility,
+  ]);
 
   useEffect(() => {
-    if (!restoreScroll || !conversationId || messages.length === 0) return;
+    activeConversationRef.current = conversationId;
+    cancelPendingRestore();
+    if (scrollRafRef.current != null) {
+      cancelAnimationFrame(scrollRafRef.current);
+      scrollRafRef.current = null;
+    }
+    if (scrollInnerRafRef.current != null) {
+      cancelAnimationFrame(scrollInnerRafRef.current);
+      scrollInnerRafRef.current = null;
+    }
+    restoredConversationRef.current = null;
+    prevCountRef.current = 0;
+    stickToBottomRef.current = true;
+  }, [cancelPendingRestore, conversationId]);
+
+  useEffect(() => {
+    if (!restoreScroll || !conversationId) return;
     if (restoredConversationRef.current === conversationId) return;
+
+    if (messages.length === 0) return;
 
     const container = scrollRef.current;
     if (!container) return;
 
+    cancelPendingRestore();
+    const generation = restoreGenerationRef.current;
+    const scheduledConversationId = conversationId;
     const savedScrollTop = readMoonieDeskScrollTop(conversationId);
-    restoredConversationRef.current = conversationId;
 
-    requestAnimationFrame(() => {
-      requestAnimationFrame(() => {
-        const target =
-          savedScrollTop != null && savedScrollTop > 0
-            ? savedScrollTop
-            : container.scrollHeight;
-        container.scrollTop = target;
-        const near =
-          container.scrollHeight - target - container.clientHeight <=
-          NEAR_BOTTOM_THRESHOLD_PX;
-        stickToBottomRef.current = near;
-        setShowJumpToBottom(!near && messages.length > 0);
+    const restore = () => {
+      if (
+        restoreGenerationRef.current !== generation ||
+        activeConversationRef.current !== scheduledConversationId ||
+        scrollRef.current !== container
+      ) {
+        return;
+      }
+      const target = resolveMoonieRestoreScrollTop({
+        messageCount: messages.length,
+        savedScrollTop,
+        scrollHeight: container.scrollHeight,
+        clientHeight: container.clientHeight,
+      });
+      if (target == null) return;
+      const maxScrollTop = Math.max(
+        0,
+        container.scrollHeight - container.clientHeight
+      );
+      container.scrollTop = target;
+      const near = maxScrollTop - container.scrollTop <= NEAR_BOTTOM_THRESHOLD_PX;
+      restoredConversationRef.current = scheduledConversationId;
+      stickToBottomRef.current = near;
+      updateJumpVisibility(!near);
+    };
+
+    restoreRafRef.current = requestAnimationFrame(() => {
+      restoreRafRef.current = null;
+      restoreInnerRafRef.current = requestAnimationFrame(() => {
+        restoreInnerRafRef.current = null;
+        restore();
       });
     });
-  }, [conversationId, messages.length, restoreScroll]);
 
-  useEffect(() => {
-    stickToBottomRef.current = true;
-  }, [conversationId]);
+    return cancelPendingRestore;
+  }, [
+    cancelPendingRestore,
+    conversationId,
+    messages.length,
+    restoreScroll,
+    updateJumpVisibility,
+  ]);
 
   useEffect(() => {
     const prevCount = prevCountRef.current;
@@ -169,30 +377,51 @@ export function useMoonieChatScroll(
     const last = messages[messages.length - 1];
     if (!last) return;
 
-    if (
-      restoreScroll &&
-      conversationId &&
-      restoredConversationRef.current !== conversationId
-    ) {
+    if (last.role === "user") {
+      cancelPendingRestore();
+      if (conversationId) {
+        restoredConversationRef.current = conversationId;
+      }
+      stickToBottomRef.current = true;
+      stickToBottom("auto");
       return;
     }
 
-    if (last.role === "user") {
-      stickToBottomRef.current = true;
-      stickToBottom("smooth");
+    if (shouldDeferMoonieFollow({
+      restoreScroll,
+      conversationId,
+      restoredConversationId: restoredConversationRef.current,
+      isFollowing: stickToBottomRef.current,
+    })) {
       return;
     }
 
     if (stickToBottomRef.current) {
       stickToBottom("auto");
     } else {
-      setShowJumpToBottom(true);
+      updateJumpVisibility(true);
     }
-  }, [conversationId, messages, restoreScroll, stickToBottom]);
+  }, [
+    cancelPendingRestore,
+    conversationId,
+    messages,
+    restoreScroll,
+    stickToBottom,
+    updateJumpVisibility,
+  ]);
 
   useEffect(() => {
     const wasLoading = prevLoadingRef.current;
     prevLoadingRef.current = isLoading;
+
+    if (shouldDeferMoonieFollow({
+      restoreScroll,
+      conversationId,
+      restoredConversationId: restoredConversationRef.current,
+      isFollowing: stickToBottomRef.current,
+    })) {
+      return;
+    }
 
     if (isLoading && stickToBottomRef.current) {
       stickToBottom("auto");
@@ -202,58 +431,47 @@ export function useMoonieChatScroll(
     if (wasLoading && !isLoading && stickToBottomRef.current) {
       stickToBottom("auto");
     }
-  }, [isLoading, stickToBottom]);
+  }, [conversationId, isLoading, restoreScroll, stickToBottom]);
 
   const scheduleResizeFollow = useCallback(() => {
-    if (scrollRafRef.current != null) {
-      cancelAnimationFrame(scrollRafRef.current);
+    const container = scrollRef.current;
+    if (!container) return;
+
+    if (shouldDeferMoonieFollow({
+      restoreScroll,
+      conversationId,
+      restoredConversationId: restoredConversationRef.current,
+      isFollowing: stickToBottomRef.current,
+    })) {
+      return;
     }
 
-    scrollRafRef.current = requestAnimationFrame(() => {
-      scrollRafRef.current = null;
-      const container = scrollRef.current;
-      if (!container) return;
+    if (stickToBottomRef.current) {
+      stickToBottom("auto");
+      return;
+    }
 
-      if (
-        restoreScroll &&
-        conversationId &&
-        restoredConversationRef.current !== conversationId
-      ) {
-        return;
-      }
-
-      if (stickToBottomRef.current) {
-        container.scrollTo({
-          top: container.scrollHeight,
-          behavior: "auto",
-        });
-        setShowJumpToBottom(false);
-        return;
-      }
-
-      const distance =
-        container.scrollHeight - container.scrollTop - container.clientHeight;
-      setShowJumpToBottom(distance > NEAR_BOTTOM_THRESHOLD_PX);
-    });
-  }, [conversationId, restoreScroll]);
+    const distance =
+      container.scrollHeight - container.scrollTop - container.clientHeight;
+    updateJumpVisibility(distance > NEAR_BOTTOM_THRESHOLD_PX);
+  }, [
+    conversationId,
+    restoreScroll,
+    stickToBottom,
+    updateJumpVisibility,
+  ]);
 
   useEffect(() => {
     const container = scrollRef.current;
-    if (!container || typeof ResizeObserver === "undefined") return;
+    const content = contentRef.current;
+    if (!container || !content || typeof ResizeObserver === "undefined") return;
 
     const observer = new ResizeObserver(() => {
-      const content = container.firstElementChild;
-      if (content) {
-        observer.observe(content);
-      }
       scheduleResizeFollow();
     });
 
     observer.observe(container);
-    const content = container.firstElementChild;
-    if (content) {
-      observer.observe(content);
-    }
+    observer.observe(content);
 
     return () => {
       observer.disconnect();
@@ -265,14 +483,22 @@ export function useMoonieChatScroll(
       if (scrollRafRef.current != null) {
         cancelAnimationFrame(scrollRafRef.current);
       }
+      if (scrollInnerRafRef.current != null) {
+        cancelAnimationFrame(scrollInnerRafRef.current);
+      }
+      if (userIntentRafRef.current != null) {
+        cancelAnimationFrame(userIntentRafRef.current);
+      }
+      cancelPendingRestore();
       if (scrollSaveTimerRef.current) {
         clearTimeout(scrollSaveTimerRef.current);
       }
     };
-  }, []);
+  }, [cancelPendingRestore]);
 
   return {
     scrollRef,
+    contentRef,
     registerMessageRef,
     showJumpToBottom,
     scrollToBottom,

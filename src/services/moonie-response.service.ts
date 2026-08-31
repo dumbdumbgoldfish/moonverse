@@ -10,7 +10,12 @@ import {
   isAllowedFileAttachment,
   parseNovelTitlesFromFileContent,
 } from "@/lib/moonie/file-attachment";
-import { buildConversationContext } from "@/lib/moonie/conversation-context";
+import {
+  buildConversationContext,
+  collectAllConversationRecommendationsForReplay,
+  collectConversationExcludedNovelIds,
+  resolveSimilarNovelTargetId,
+} from "@/lib/moonie/conversation-context";
 import {
   classifyMoonieIntents,
   isBareReadingLinkRequest,
@@ -18,21 +23,33 @@ import {
   isBareCommunityConsensusRequestWithoutNovel,
   isCommunityPeopleQuery,
   isCompareTheseMessage,
+  isConstraintRelaxationRequest,
+  isHardConstraintFollowUpMessage,
   isConversationalOnly,
+  extractReviewNovelQuery,
+  extractNovelQuery,
+  isMoreLikeThisActionMessage,
   isMoonieGeneratedFollowUpQuestion,
+  isHighestRatedSelectionRequest,
+  isTopBestAmongShownRequest,
+  isTopBestCatalogueSelectionRequest,
   isReviewFollowUpMessage,
   isNovelContextFollowUpMessage,
   messageReferencesActiveNovel,
   isConfirmCandidateMessage,
+  isDirectTitleLookupMessage,
   isPartialMemoryQuery,
+  isRecommendationReplayRequest,
   isRejectCandidateMessage,
   isShowAlternativesMessage,
   isVagueContinuationRequest,
   isRecommendationDiscoveryMessage,
+  isBrowseClarifyFirstRequest,
   normalizeLookupConfirmationMessage,
   prefsLookEmpty,
   primaryRetrievalIntent,
   resolveLookupTitleQuery,
+  resolveNovelFactualFieldQuestion,
   resolveOrdinalIndex,
   shouldSkipTasteExtraction,
   type MoonieIntent,
@@ -49,6 +66,10 @@ import {
 import {
   DEFAULT_SPOILER_MODE,
   normalizeSpoilerMode,
+  parseSpoilerModeFromMessage,
+  isSpoilerModeOnlyMessage,
+  isSpoilerModeNegationMessage,
+  SPOILER_MODE_LABELS,
   shouldOfferSpoilerModeSwitch,
 } from "@/lib/moonie/spoiler-mode";
 import {
@@ -61,6 +82,33 @@ import {
   validateImageAttachment,
   visionExtractionUserMessage,
 } from "@/services/moonie-vision.service";
+import {
+  buildConstraintRelaxationClarification,
+  buildCurrentTurnHardConstraints,
+  constraintRelaxationPending,
+  hasHardInclusionConstraints,
+  parseRequestedRecommendationCount,
+  resolveConstraintRelaxationAnswer,
+} from "@/lib/moonie/hard-constraints";
+import {
+  resolveCatalogueTask,
+  resolveReviewRankingMetric,
+} from "@/lib/moonie/catalogue-task";
+import { resolveShelfRecommendationAnchors } from "@/lib/moonie/shelf-context";
+import { db } from "@/lib/db";
+import { resolveKnownGenreFromMessage } from "@/lib/moonie/preferences";
+import { latestPendingClarification } from "@/lib/moonie/pending-clarification";
+import { buildMostReviewedNovelResponse, buildHighestRatedNovelsResponse } from "@/services/moonie-catalogue-stats.service";
+import {
+  buildTopReviewsRankingClarification,
+  buildTopReviewsResponse,
+} from "@/services/moonie-top-reviews.service";
+import {
+  buildForYouShelfReviewClarification,
+  buildSalonReviewPreferenceClarification,
+  buildSalonReviewRecommendResponse,
+  hasUsableSalonReviewPreference,
+} from "@/services/moonie-salon-reviews.service";
 import {
   buildGroundedRecommendations,
   polishExplanationsWithOpenAI,
@@ -83,6 +131,8 @@ import {
 import {
   buildNovelBundle,
   formatNovelBundleReply,
+  formatNovelFactualFieldReply,
+  refreshRecommendationsForSpoilerMode,
 } from "@/services/moonie-novel-lookup.service";
 import { buildMoonieReviewerOverviewResponse, buildMoonieReviewerResponse } from "@/services/moonie-reviewer.service";
 import { buildReviewerReviewFollowUpResponse } from "@/services/moonie-reviewer-review.service";
@@ -96,7 +146,32 @@ import {
   isVerifiedSeriesDiscoveryRequest,
 } from "@/lib/moonie/series-intent";
 import { resolveReviewerReviewFollowUpKind } from "@/lib/moonie/reviewer-review-intent";
+import {
+  buildAmbiguousPluralNovelReviewClarification,
+  isAmbiguousPluralNovelReviewReference,
+  isPluralNovelReviewReference,
+  resolveLatestDisplayedNovelBatch,
+} from "@/lib/moonie/review-reference";
+import {
+  resolveNovelDiscoverySort,
+} from "@/lib/moonie/discovery-sort";
+import {
+  resolveNovelScopedReviewRequest,
+} from "@/lib/moonie/novel-review-intent";
+import {
+  buildBatchNovelReviewsResponse,
+  buildSingleNovelReviewsFromConfirmation,
+} from "@/services/moonie-novel-reviews.service";
+import {
+  buildNovelReviewsListResponse,
+  buildNovelScopedReviewsResponse,
+  resolveNovelForScopedReviewRequest,
+} from "@/services/moonie-novel-scoped-reviews.service";
 import { isMoonieDeskChipPrompt } from "@/lib/moonie/desk";
+import {
+  parseSimilarityRequest,
+  similarityPreferenceSource,
+} from "@/lib/moonie/similarity-request";
 import { isReviewerAuthoredReviewsMessage } from "@/lib/moonie/reviewer-intent";
 import type {
   MooniePersonalizationSettings,
@@ -108,8 +183,10 @@ import {
 } from "@/lib/moonie/personalization";
 import type { MoonieRecentSearchEntry } from "@/services/hybrid-retrieval.service";
 import type {
+  MoonieCompareResult,
   MoonieInterpretedPreferences,
   MoonieLookupSession,
+  MooniePendingClarification,
   MoonieRecommendResponse,
   MoonieResponseKind,
   MoonieSpoilerMode,
@@ -130,6 +207,9 @@ export interface MoonieRequestContext {
   contextNovelTitle?: string | null;
   similarToNovelId?: string;
   excludeNovelIds?: string[];
+  previouslyShownNovelIds?: string[];
+  hasExplicitExclusions?: boolean;
+  seekingUnseen?: boolean;
   useTaste?: boolean;
   attachmentType?: "image" | "file" | null;
   imageData?: string | null;
@@ -144,6 +224,23 @@ export interface MoonieRequestContext {
   sessionPreferences?: MoonieSessionPreferences | null;
   recentSearches?: MoonieRecentSearchEntry[];
   rememberPreferenceOffer?: Partial<MoonieInterpretedPreferences> | null;
+  /** Structured lookup confirmation from candidate UI (preferred over title text). */
+  confirmLookupNovelId?: string | null;
+}
+
+function pendingCompareClarification(
+  comparison: MoonieCompareResult
+): MooniePendingClarification | undefined {
+  if (comparison.rows.length >= 2) return undefined;
+  return {
+    kind: "compare_titles",
+    ...(comparison.unresolvedTitles?.length
+      ? { unresolvedTitles: comparison.unresolvedTitles }
+      : {}),
+    ...(comparison.rows.length
+      ? { resolvedNovelIds: comparison.rows.map((row) => row.novelId) }
+      : {}),
+  };
 }
 
 function conversationalReply(
@@ -153,6 +250,23 @@ function conversationalReply(
   messages: Array<{ role: string; content: string }>
 ): string {
   return buildConversationalReply(intents, message, isLoggedIn, messages);
+}
+
+function latestRecommendationHardConstraints(
+  messages: Array<{ role: string; content: string }>
+) {
+  for (let index = messages.length - 1; index >= 0; index -= 1) {
+    const message = messages[index];
+    if (
+      message?.role !== "user" ||
+      isConstraintRelaxationRequest(message.content)
+    ) {
+      continue;
+    }
+    const hard = buildCurrentTurnHardConstraints(message.content);
+    if (hasHardInclusionConstraints(hard)) return hard;
+  }
+  return null;
 }
 
 function responseKindForIntent(
@@ -182,22 +296,37 @@ function identificationToResponse(
   options?: {
     emphasizeReadingLink?: boolean;
     emphasizeReviews?: boolean;
+    emphasizeStatus?: boolean;
+    factualField?: import("@/lib/moonie/intent").NovelFactualField | null;
     interpretedPreferences?: MoonieInterpretedPreferences;
     spoilerMode?: MoonieSpoilerMode;
   }
 ): MoonieRecommendResponse {
   if (result.mode === "high_confidence" && result.recommendation && result.overview) {
     let reply = result.reply;
-    if (options?.emphasizeReadingLink || options?.emphasizeReviews) {
+    if (options?.factualField) {
+      reply = formatNovelFactualFieldReply(
+        result.overview,
+        options.factualField
+      );
+    } else if (
+      options?.emphasizeReadingLink ||
+      options?.emphasizeReviews ||
+      options?.emphasizeStatus
+    ) {
       reply = formatNovelBundleReply({
         overview: result.overview,
         emphasizeReadingLink: options.emphasizeReadingLink,
         emphasizeReviews: options.emphasizeReviews,
+        emphasizeStatus: options.emphasizeStatus,
       });
     }
     return {
       reply,
-      recommendations: [result.recommendation],
+      recommendations:
+        options?.emphasizeReviews && !options?.emphasizeReadingLink
+          ? []
+          : [result.recommendation],
       novelOverview: result.overview,
       lookupSession: result.session,
       responseKind: "novel_bundle",
@@ -234,6 +363,150 @@ function identificationToResponse(
     spoilerMode: options?.spoilerMode,
     consumesQuota: result.consumesQuota ?? false,
   };
+}
+
+async function identificationToResponseWithReviews(
+  result: Awaited<ReturnType<typeof identifyNovels>>,
+  options?: {
+    emphasizeReadingLink?: boolean;
+    emphasizeReviews?: boolean;
+    emphasizeStatus?: boolean;
+    factualField?: import("@/lib/moonie/intent").NovelFactualField | null;
+    interpretedPreferences?: MoonieInterpretedPreferences;
+    spoilerMode?: MoonieSpoilerMode;
+  }
+): Promise<MoonieRecommendResponse> {
+  if (
+    options?.emphasizeReviews &&
+    result.mode === "high_confidence" &&
+    result.overview
+  ) {
+    const list = await buildNovelReviewsListResponse({
+      novelId: result.overview.novelId,
+      title: result.overview.title,
+      overview: result.overview,
+      spoilerMode: options.spoilerMode ?? DEFAULT_SPOILER_MODE,
+      lookupSession: {
+        ...result.session,
+        mode: "confirmed",
+        confirmedNovelId: result.overview.novelId,
+        pendingIntent: "NOVEL_REVIEWS",
+      },
+    });
+    return {
+      ...list,
+      followUpQuestion: result.followUpQuestion,
+      interpretedPreferences: options.interpretedPreferences,
+    };
+  }
+
+  return identificationToResponse(result, options);
+}
+
+async function handleScopedNovelReviewRequest(
+  ctx: MoonieRequestContext,
+  conversationContext: ReturnType<typeof buildConversationContext>,
+  spoilerMode: MoonieSpoilerMode
+): Promise<MoonieRecommendResponse | null> {
+  const scoped = resolveNovelScopedReviewRequest(ctx.message);
+  if (!scoped) return null;
+
+  let novelId: string | null = null;
+  let title: string | null = null;
+  let overview: import("@/types/moonie").MoonieNovelOverview | null = null;
+  let lookupSession: import("@/types/moonie").MoonieLookupSession | undefined;
+
+  if (scoped.usesActiveNovelContext && conversationContext.activeNovelId) {
+    const bundle = await buildNovelBundle({
+      novelId: conversationContext.activeNovelId,
+      userId: ctx.userId,
+      spoilerMode,
+    });
+    if (!bundle.overview) {
+      return {
+        reply: "I couldn't load review data for the active novel on MoonVerse.",
+        recommendations: [],
+        responseKind: "chat",
+        consumesQuota: true,
+        spoilerMode,
+      };
+    }
+    novelId = bundle.overview.novelId;
+    title = bundle.overview.title;
+    overview = bundle.overview;
+    lookupSession = conversationContext.lookupSession ?? undefined;
+  } else if (scoped.novelQuery) {
+    const resolved = await resolveNovelForScopedReviewRequest({
+      novelQuery: scoped.novelQuery,
+      userId: ctx.userId,
+      spoilerMode,
+    });
+    if (resolved.kind === "clarification" || resolved.kind === "no_match") {
+      return resolved.response;
+    }
+    novelId = resolved.novelId;
+    title = resolved.title;
+    overview = resolved.overview;
+    lookupSession = resolved.lookupSession;
+  } else {
+    return {
+      reply: "Which novel should I check reviews for? Name the title or ask after a recommendation card.",
+      recommendations: [],
+      responseKind: "chat",
+      consumesQuota: false,
+      spoilerMode,
+    };
+  }
+
+  const metric = scoped.metric ?? "review_recent";
+
+  if (scoped.kind === "who_reviewed") {
+    return buildNovelScopedReviewsResponse({
+      novelId: novelId!,
+      title: title!,
+      overview,
+      metric,
+      count: scoped.count,
+      spoilerMode,
+      whoReviewed: true,
+      lookupSession,
+    });
+  }
+
+  if (scoped.kind === "spoiler_free_list" || scoped.spoilerFreeOnly) {
+    return buildNovelScopedReviewsResponse({
+      novelId: novelId!,
+      title: title!,
+      overview,
+      metric,
+      count: scoped.count,
+      spoilerMode,
+      spoilerFreeOnly: true,
+      lookupSession,
+    });
+  }
+
+  if (scoped.kind === "ranked") {
+    return buildNovelScopedReviewsResponse({
+      novelId: novelId!,
+      title: title!,
+      overview,
+      metric,
+      count: scoped.count,
+      spoilerMode,
+      lookupSession,
+    });
+  }
+
+  return buildNovelScopedReviewsResponse({
+    novelId: novelId!,
+    title: title!,
+    overview,
+    metric,
+    count: scoped.count,
+    spoilerMode,
+    lookupSession,
+  });
 }
 
 function resolveLookupSessionEmphasis(
@@ -310,6 +583,18 @@ async function handleLookupCorrection(
   options?: { emphasizeReadingLink?: boolean; emphasizeReviews?: boolean }
 ): Promise<MoonieRecommendResponse | null> {
   const message = normalizeLookupConfirmationMessage(ctx.message);
+  const wantsReviews =
+    options?.emphasizeReviews || session.pendingIntent === "NOVEL_REVIEWS";
+
+  const resolveConfirmedNovelId = (): string | null => {
+    if (ctx.confirmLookupNovelId) {
+      const direct = session.candidates.find(
+        (candidate) => candidate.novelId === ctx.confirmLookupNovelId
+      );
+      if (direct) return direct.novelId;
+    }
+    return parseConfirmNovelId(message, session);
+  };
 
   if (isRejectCandidateMessage(message)) {
     const rejectedId = parseRejectNovelId(message, session);
@@ -346,6 +631,26 @@ async function handleLookupCorrection(
   if (ordinal != null && session.candidates.length > 0) {
     const pick = lookupCandidateByOrdinal(session, ordinal);
     if (pick) {
+      if (wantsReviews) {
+        if (
+          session.mode === "confirmed" &&
+          session.confirmedNovelId === pick.novelId
+        ) {
+          return buildSingleNovelReviewsFromConfirmation({
+            novelId: pick.novelId,
+            userId: ctx.userId,
+            spoilerMode,
+            lookupSession: session,
+            consumesQuota: false,
+          });
+        }
+        return buildSingleNovelReviewsFromConfirmation({
+          novelId: pick.novelId,
+          userId: ctx.userId,
+          spoilerMode,
+          lookupSession: session,
+        });
+      }
       const result = await confirmLookupCandidate({
         novelId: pick.novelId,
         userId: ctx.userId,
@@ -354,7 +659,7 @@ async function handleLookupCorrection(
         emphasizeReadingLink: options?.emphasizeReadingLink,
         emphasizeReviews: options?.emphasizeReviews,
       });
-      return identificationToResponse(result, {
+      return identificationToResponseWithReviews(result, {
         emphasizeReadingLink: options?.emphasizeReadingLink,
         emphasizeReviews: options?.emphasizeReviews,
         interpretedPreferences: prefs,
@@ -363,9 +668,29 @@ async function handleLookupCorrection(
     }
   }
 
-  if (isConfirmCandidateMessage(message)) {
-    const novelId = parseConfirmNovelId(message, session);
+  if (isConfirmCandidateMessage(message) || ctx.confirmLookupNovelId) {
+    const novelId = resolveConfirmedNovelId();
     if (novelId) {
+      if (wantsReviews) {
+        if (
+          session.mode === "confirmed" &&
+          session.confirmedNovelId === novelId
+        ) {
+          return buildSingleNovelReviewsFromConfirmation({
+            novelId,
+            userId: ctx.userId,
+            spoilerMode,
+            lookupSession: session,
+            consumesQuota: false,
+          });
+        }
+        return buildSingleNovelReviewsFromConfirmation({
+          novelId,
+          userId: ctx.userId,
+          spoilerMode,
+          lookupSession: session,
+        });
+      }
       const result = await confirmLookupCandidate({
         novelId,
         userId: ctx.userId,
@@ -374,7 +699,7 @@ async function handleLookupCorrection(
         emphasizeReadingLink: options?.emphasizeReadingLink,
         emphasizeReviews: options?.emphasizeReviews,
       });
-      return identificationToResponse(result, {
+      return identificationToResponseWithReviews(result, {
         emphasizeReadingLink: options?.emphasizeReadingLink,
         emphasizeReviews: options?.emphasizeReviews,
         interpretedPreferences: prefs,
@@ -389,7 +714,7 @@ async function handleLookupCorrection(
 export async function handleMoonieRequest(
   ctx: MoonieRequestContext
 ): Promise<MoonieRecommendResponse> {
-  const spoilerMode = normalizeSpoilerMode(
+  let spoilerMode = normalizeSpoilerMode(
     ctx.spoilerMode ?? DEFAULT_SPOILER_MODE
   );
 
@@ -399,12 +724,86 @@ export async function handleMoonieRequest(
     currentMessage: ctx.message,
   });
 
+  const priorRecommendationCards =
+    collectAllConversationRecommendationsForReplay(ctx.messages);
+  const conversationExcludedIds = collectConversationExcludedNovelIds(
+    ctx.messages,
+    priorRecommendationCards
+  );
+  if (conversationExcludedIds.length > 0) {
+    ctx.excludeNovelIds = [
+      ...new Set([...(ctx.excludeNovelIds ?? []), ...conversationExcludedIds]),
+    ];
+    ctx.hasExplicitExclusions = true;
+  }
+
   const priorConversationPrefs = mergeConversationPreferences(
     ctx.messages.map((entry) => ({
       role: entry.role,
       content: entry.content,
     }))
   );
+
+  if (isSpoilerModeNegationMessage(ctx.message)) {
+    return {
+      reply: `I'll keep spoiler shield at **${SPOILER_MODE_LABELS[spoilerMode]}** unless you choose a different mode from the eye icon.`,
+      recommendations: [],
+      interpretedPreferences: priorConversationPrefs,
+      responseKind: "chat",
+      consumesQuota: false,
+      spoilerMode,
+      analyticsIntent: "CHAT",
+    };
+  }
+
+  const spoilerModeCommand = parseSpoilerModeFromMessage(ctx.message);
+  if (isSpoilerModeOnlyMessage(ctx.message) && spoilerModeCommand) {
+    return {
+      reply: `Spoiler shield set to **${SPOILER_MODE_LABELS[spoilerModeCommand]}** for your next Moonie replies. You can also tap the eye icon in the composer.`,
+      recommendations: [],
+      interpretedPreferences: priorConversationPrefs,
+      responseKind: "chat",
+      consumesQuota: false,
+      spoilerMode: spoilerModeCommand,
+      analyticsIntent: "CHAT",
+    };
+  }
+  if (spoilerModeCommand) {
+    spoilerMode = spoilerModeCommand;
+  }
+
+  if (isRecommendationReplayRequest(ctx.message)) {
+    const rawReplayRecommendations =
+      collectAllConversationRecommendationsForReplay(ctx.messages);
+    if (rawReplayRecommendations.length === 0) {
+      return {
+        reply:
+          "There are no earlier recommendations in this conversation to show again.",
+        recommendations: [],
+        interpretedPreferences: priorConversationPrefs,
+        responseKind: "chat",
+        consumesQuota: false,
+        spoilerMode,
+        analyticsIntent: "REFINE",
+      };
+    }
+    const replayRecommendations = await refreshRecommendationsForSpoilerMode(
+      rawReplayRecommendations,
+      spoilerMode
+    );
+    return {
+      reply: `Here are all ${replayRecommendations.length} verified recommendation${
+        replayRecommendations.length === 1 ? "" : "s"
+      } from this request again.`,
+      recommendations: replayRecommendations,
+      interpretedPreferences: priorConversationPrefs,
+      responseKind: "recommendations",
+      consumesQuota: false,
+      spoilerMode,
+      analyticsIntent: "REFINE",
+      followUpQuestion: null,
+    };
+  }
 
   const intents = classifyMoonieIntents(ctx.message, {
     hasPriorRecommendations: conversationContext.priorRecommendations.length > 0,
@@ -419,6 +818,7 @@ export async function handleMoonieRequest(
     hasConversationPrefs: !prefsLookEmpty(priorConversationPrefs),
     attachmentType: ctx.attachmentType,
     pendingLookupIntent: conversationContext.lookupSession?.pendingIntent ?? null,
+    pendingClarification: conversationContext.pendingClarification,
     recentMessages: ctx.messages.map((entry) => ({
       role: entry.role,
       content: entry.content,
@@ -470,6 +870,9 @@ export async function handleMoonieRequest(
 
   const primary = primaryRetrievalIntent(intents);
   const messagePrefs = extractPreferencesFromMessage(ctx.message);
+  const currentRequestPrefs = extracted
+    ? mergeStructuredPreferences(messagePrefs, extracted)
+    : messagePrefs;
 
   const attach = (
     response: MoonieRecommendResponse,
@@ -481,14 +884,402 @@ export async function handleMoonieRequest(
       response.analyticsConfidenceTier ??
       resolveResponseConfidenceTier(response) ??
       null,
-    analyticsIntent: resolveAnalyticsIntent({
-      intents,
-      primary: intentOverride ?? primary,
-      responseKind: response.responseKind,
-    }),
+    analyticsIntent:
+      response.analyticsIntent ??
+      resolveAnalyticsIntent({
+        intents,
+        primary: intentOverride ?? primary,
+        responseKind: response.responseKind,
+      }),
     rememberPreferenceOffer:
       response.rememberPreferenceOffer ?? ctx.rememberPreferenceOffer ?? null,
   });
+
+  const pendingClarification =
+    conversationContext.pendingClarification ??
+    latestPendingClarification(ctx.messages);
+
+  if (pendingClarification?.kind === "review_preference") {
+    const answeredPrefs = extractPreferencesFromMessage(ctx.message);
+    if (
+      hasUsableSalonReviewPreference(answeredPrefs) ||
+      answeredPrefs.mood.length > 0
+    ) {
+      return attach(
+        await buildSalonReviewRecommendResponse({
+          prefs: {
+            ...answeredPrefs,
+            genres: [
+              ...new Set([...answeredPrefs.genres, ...prefs.genres]),
+            ],
+            tags: [...new Set([...answeredPrefs.tags, ...prefs.tags])],
+            mood: [...new Set([...answeredPrefs.mood, ...prefs.mood])],
+          },
+          spoilerMode,
+          count: pendingClarification.count,
+        }),
+        "SALON_REVIEWS"
+      );
+    }
+    if (
+      !isDirectTitleLookupMessage(ctx.message) &&
+      !resolveCatalogueTask(ctx.message)
+    ) {
+      return attach(
+        buildSalonReviewPreferenceClarification({
+          count: pendingClarification.count,
+        }),
+        "SALON_REVIEWS"
+      );
+    }
+  }
+
+  if (pendingClarification?.kind === "review_ranking") {
+    const metric = resolveReviewRankingMetric(ctx.message);
+    if (metric) {
+      const amongIds = pendingClarification.amongThese
+        ? conversationContext.priorRecommendations.map((rec) => rec.novelId)
+        : undefined;
+      return attach(
+        await buildTopReviewsResponse({
+          count: pendingClarification.count,
+          metric,
+          amongNovelIds: amongIds,
+          amongThese: pendingClarification.amongThese,
+          spoilerMode,
+        }),
+        "TOP_REVIEWS"
+      );
+    }
+    if (
+      !isDirectTitleLookupMessage(ctx.message) &&
+      !resolveCatalogueTask(ctx.message)
+    ) {
+      return attach(
+        buildTopReviewsRankingClarification({
+          count: pendingClarification.count,
+          amongThese: pendingClarification.amongThese,
+        }),
+        "TOP_REVIEWS"
+      );
+    }
+  }
+
+  if (
+    pendingClarification?.kind === "constraint_relaxation" &&
+    !(
+      isDirectTitleLookupMessage(ctx.message) &&
+      !resolveKnownGenreFromMessage(ctx.message)
+    )
+  ) {
+    const resolution = resolveConstraintRelaxationAnswer(
+      ctx.message,
+      pendingClarification
+    );
+    if (resolution.kind === "clarify_genre_or_status") {
+      return attach(
+        {
+          reply: resolution.reply,
+          recommendations: [],
+          quickPrompts: resolution.quickPrompts,
+          pendingClarification: constraintRelaxationPending(
+            resolution.hard,
+            "genre_or_status",
+            resolution.genre
+          ),
+          interpretedPreferences: currentRequestPrefs,
+          responseKind: "chat",
+          consumesQuota: false,
+        },
+        "REFINE"
+      );
+    }
+    if (resolution.kind === "clarify_again") {
+      return attach(
+        {
+          reply: resolution.reply,
+          recommendations: [],
+          quickPrompts: resolution.quickPrompts,
+          pendingClarification: constraintRelaxationPending(
+            pendingClarification.hard,
+            pendingClarification.phase,
+            pendingClarification.offeredGenre
+          ),
+          interpretedPreferences: currentRequestPrefs,
+          responseKind: "chat",
+          consumesQuota: false,
+        },
+        "REFINE"
+      );
+    }
+
+    let relaxed = await buildGroundedRecommendations({
+      prefs,
+      requestPrefs: currentRequestPrefs,
+      userId: ctx.userId,
+      queryText: ctx.message,
+      excludeNovelIds: ctx.excludeNovelIds,
+      previouslyShownNovelIds: ctx.previouslyShownNovelIds,
+      hasExplicitExclusions: ctx.hasExplicitExclusions,
+      seekingUnseen: ctx.seekingUnseen,
+      similarToNovelId: ctx.similarToNovelId,
+      strictGenreFilter: resolution.hard.genres.length > 0,
+      hardConstraints: resolution.hard,
+      personalization: ctx.personalization,
+      recentSearches: ctx.recentSearches,
+      spoilerMode,
+    });
+    relaxed = await polishExplanationsWithOpenAI(
+      ctx.message,
+      relaxed,
+      spoilerMode,
+      resolution.hard
+    );
+    return attach(
+      {
+        ...relaxed,
+        responseKind:
+          relaxed.recommendations.length > 0 ? "recommendations" : "chat",
+        state:
+          relaxed.recommendations.length === 0 ? "no_results" : relaxed.state,
+        consumesQuota: true,
+      },
+      "REFINE"
+    );
+  }
+
+  const scopedReviewResponse = await handleScopedNovelReviewRequest(
+    ctx,
+    conversationContext,
+    spoilerMode
+  );
+  if (scopedReviewResponse) {
+    return attach(scopedReviewResponse, "NOVEL_REVIEWS");
+  }
+
+  const catalogueTask = resolveCatalogueTask(ctx.message);
+  if (isBrowseClarifyFirstRequest(ctx.message)) {
+    const coldStart = buildColdStartReply();
+    return attach({
+      reply: coldStart.reply,
+      quickPrompts: coldStart.quickPrompts,
+      recommendations: [],
+      responseKind: "chat",
+      consumesQuota: false,
+    });
+  }
+  if (catalogueTask?.kind === "for_you_shelf_reviews") {
+    const shelfPrefs = extractPreferencesFromMessage(ctx.message, {
+      ...priorConversationPrefs,
+      genres: [
+        ...priorConversationPrefs.genres,
+        ...(ctx.tastePrefs?.genres ?? []),
+      ],
+      tags: [...priorConversationPrefs.tags, ...(ctx.tastePrefs?.tags ?? [])],
+      mood: [...priorConversationPrefs.mood, ...(ctx.tastePrefs?.mood ?? [])],
+      excludedTags: [
+        ...priorConversationPrefs.excludedTags,
+        ...(ctx.tastePrefs?.excludedTags ?? []),
+      ],
+    });
+    if (hasUsableSalonReviewPreference(shelfPrefs) || ctx.hasTasteHistory) {
+      return attach(
+        await buildSalonReviewRecommendResponse({
+          prefs: shelfPrefs,
+          spoilerMode,
+          count: catalogueTask.count,
+        }),
+        "SALON_REVIEWS"
+      );
+    }
+    return attach(
+      buildForYouShelfReviewClarification({ count: catalogueTask.count }),
+      "SALON_REVIEWS"
+    );
+  }
+  if (catalogueTask?.kind === "salon_reviews") {
+    const salonPrefs = extractPreferencesFromMessage(ctx.message, {
+      ...priorConversationPrefs,
+      genres: [
+        ...priorConversationPrefs.genres,
+        ...(ctx.tastePrefs?.genres ?? []),
+      ],
+      tags: [...priorConversationPrefs.tags, ...(ctx.tastePrefs?.tags ?? [])],
+      mood: [...priorConversationPrefs.mood, ...(ctx.tastePrefs?.mood ?? [])],
+      excludedTags: [
+        ...priorConversationPrefs.excludedTags,
+        ...(ctx.tastePrefs?.excludedTags ?? []),
+      ],
+    });
+    if (hasUsableSalonReviewPreference(salonPrefs)) {
+      return attach(
+        await buildSalonReviewRecommendResponse({
+          prefs: salonPrefs,
+          spoilerMode,
+          count: catalogueTask.count,
+        }),
+        "SALON_REVIEWS"
+      );
+    }
+    return attach(
+      buildSalonReviewPreferenceClarification({
+        count: catalogueTask.count,
+      }),
+      "SALON_REVIEWS"
+    );
+  }
+  if (catalogueTask?.kind === "top_reviews") {
+    return attach(
+      buildTopReviewsRankingClarification({
+        count: catalogueTask.count,
+        amongThese: catalogueTask.amongThese,
+      }),
+      "TOP_REVIEWS"
+    );
+  }
+  if (catalogueTask?.kind === "most_reviewed_novel") {
+    const amongIds = catalogueTask.amongThese
+      ? conversationContext.priorRecommendations.map((rec) => rec.novelId)
+      : undefined;
+    return attach(
+      await buildMostReviewedNovelResponse({
+        amongNovelIds: amongIds,
+        amongThese: catalogueTask.amongThese,
+        spoilerMode,
+      }),
+      "CATALOGUE_STAT"
+    );
+  }
+  if (catalogueTask?.kind === "highest_rated_novels") {
+    const amongIds = catalogueTask.amongThese
+      ? conversationContext.priorRecommendations.map((rec) => rec.novelId)
+      : undefined;
+    return attach(
+      await buildHighestRatedNovelsResponse({
+        amongNovelIds: amongIds,
+        amongThese: catalogueTask.amongThese,
+        count: catalogueTask.count,
+        spoilerMode,
+      }),
+      "CATALOGUE_STAT"
+    );
+  }
+
+  if (
+    isTopBestAmongShownRequest(ctx.message) &&
+    conversationContext.priorRecommendations.length > 0
+  ) {
+    const pool = conversationContext.priorRecommendations;
+    const byRating = isHighestRatedSelectionRequest(ctx.message);
+    const sorted = [...pool].sort((a, b) => {
+      if (byRating) {
+        return (b.averageRating ?? 0) - (a.averageRating ?? 0);
+      }
+      return (b.matchPercent ?? 0) - (a.matchPercent ?? 0);
+    });
+    const pick = sorted[0]!;
+    const basis = byRating
+      ? "highest MoonVerse community rating among the recommendations already shown in this thread"
+      : "strongest preference match among the recommendations already shown in this thread";
+    const [sanitizedPick] = await refreshRecommendationsForSpoilerMode(
+      [pick],
+      spoilerMode
+    );
+    return attach(
+      {
+        reply: `Among the cards already in this thread, **${sanitizedPick.title}** is the ${byRating ? "highest-rated" : "best preference match"} (${basis}).`,
+        recommendations: [sanitizedPick],
+        responseKind: "recommendations",
+        consumesQuota: false,
+        spoilerMode,
+      },
+      "RECOMMEND"
+    );
+  }
+
+  if (isTopBestCatalogueSelectionRequest(ctx.message)) {
+    const hardConstraints = buildCurrentTurnHardConstraints(
+      ctx.message,
+      extracted
+    );
+    let catalogueBest = await buildGroundedRecommendations({
+      prefs,
+      requestPrefs: currentRequestPrefs,
+      userId: ctx.userId,
+      queryText: ctx.message,
+      excludeNovelIds: ctx.excludeNovelIds,
+      previouslyShownNovelIds: ctx.previouslyShownNovelIds,
+      hasExplicitExclusions: ctx.hasExplicitExclusions,
+      seekingUnseen: ctx.seekingUnseen,
+      similarToNovelId: ctx.similarToNovelId,
+      strictGenreFilter:
+        messagePrefs.genres.length > 0 ||
+        Boolean(extracted?.genres && extracted.genres.length > 0),
+      take: 1,
+      hardConstraints,
+      sortBy: isHighestRatedSelectionRequest(ctx.message) ? "rating" : "hybrid",
+      personalization: ctx.personalization,
+      recentSearches: ctx.recentSearches,
+      spoilerMode,
+    });
+    catalogueBest = await polishExplanationsWithOpenAI(
+      ctx.message,
+      catalogueBest,
+      spoilerMode,
+      hardConstraints
+    );
+    if (catalogueBest.recommendations.length > 0) {
+      const byRating = isHighestRatedSelectionRequest(ctx.message);
+      const [sanitizedPick] = await refreshRecommendationsForSpoilerMode(
+        [catalogueBest.recommendations[0]!],
+        spoilerMode
+      );
+      catalogueBest.recommendations = [sanitizedPick];
+      catalogueBest.reply = byRating
+        ? `From the current verified candidate shortlist, **${sanitizedPick.title}** has the strongest MoonVerse community rating I can verify for this request. This is not a claim about every catalogue title MoonVerse indexes.`
+        : `From the current verified candidate shortlist, **${sanitizedPick.title}** is the strongest preference match I can verify for this request. This is not a claim about every catalogue title MoonVerse indexes.`;
+    }
+    return attach(
+      {
+        ...catalogueBest,
+        responseKind:
+          catalogueBest.recommendations.length > 0
+            ? "recommendations"
+            : "chat",
+        state:
+          catalogueBest.recommendations.length === 0
+            ? "no_results"
+            : catalogueBest.state,
+        consumesQuota: true,
+      },
+      "RECOMMEND"
+    );
+  }
+
+  if (isConstraintRelaxationRequest(ctx.message)) {
+    const priorHard = latestRecommendationHardConstraints(ctx.messages);
+    const clarification = priorHard
+      ? buildConstraintRelaxationClarification(priorHard)
+      : {
+          reply:
+            "Which constraint should I relax? Restate the criteria you want to keep so I do not discard the wrong preference.",
+          quickPrompts: [],
+        };
+    return attach(
+      {
+        reply: clarification.reply,
+        recommendations: [],
+        interpretedPreferences: currentRequestPrefs,
+        quickPrompts: clarification.quickPrompts,
+        pendingClarification: priorHard
+          ? constraintRelaxationPending(priorHard)
+          : undefined,
+        responseKind: "chat",
+        consumesQuota: false,
+      },
+      "REFINE"
+    );
+  }
 
   let parsedFileTitles: string[] | undefined;
   if (ctx.attachmentType === "file") {
@@ -578,14 +1369,68 @@ export async function handleMoonieRequest(
     !conversationContext.activeReviewerId &&
     !conversationContext.reviewerReviewSession;
 
-  if (isBareReviewRequestWithoutNovel(ctx.message) && lacksStructuredContext) {
+  if (
+    isBareReviewRequestWithoutNovel(ctx.message) ||
+    (intents.includes("NOVEL_REVIEWS") &&
+      !extractReviewNovelQuery(ctx.message) &&
+      !isReviewFollowUpMessage(ctx.message) &&
+      !isPluralNovelReviewReference(ctx.message) &&
+      !isAmbiguousPluralNovelReviewReference(ctx.message))
+  ) {
     return attach({
       reply: "Which novel would you like to see reviews for?",
       recommendations: [],
       responseKind: "chat",
       consumesQuota: false,
       spoilerMode,
-    });
+    }, "NOVEL_REVIEWS");
+  }
+
+  if (isAmbiguousPluralNovelReviewReference(ctx.message)) {
+    const batch = resolveLatestDisplayedNovelBatch(ctx.messages);
+    return attach({
+      reply: buildAmbiguousPluralNovelReviewClarification(batch),
+      recommendations: [],
+      responseKind: "chat",
+      consumesQuota: false,
+      spoilerMode,
+    }, "NOVEL_REVIEWS");
+  }
+
+  if (isPluralNovelReviewReference(ctx.message)) {
+    const batch = resolveLatestDisplayedNovelBatch(ctx.messages);
+    if (batch.length === 0) {
+      return attach({
+        reply:
+          "Which novel(s) would you like reviews for? Name the titles or ask after I show recommendation cards.",
+        recommendations: [],
+        responseKind: "chat",
+        consumesQuota: false,
+        spoilerMode,
+      }, "NOVEL_REVIEWS");
+    }
+    return attach(
+      await buildBatchNovelReviewsResponse({
+        novelIds: batch.map((rec) => rec.novelId),
+        userId: ctx.userId,
+        spoilerMode,
+      }),
+      "NOVEL_REVIEWS"
+    );
+  }
+
+  if (
+    /^what\s+is\s+this\s+novel\s+about\s*[?.!]*$/i.test(ctx.message.trim()) &&
+    !conversationContext.activeNovelId
+  ) {
+    return attach({
+      reply:
+        "Which novel should I summarize? Name the title, or ask after a recommendation card so I know which one you mean.",
+      recommendations: [],
+      responseKind: "chat",
+      consumesQuota: false,
+      spoilerMode,
+    }, "NOVEL_OVERVIEW");
   }
 
   if (
@@ -634,6 +1479,133 @@ export async function handleMoonieRequest(
     });
   }
 
+  const parsedSimilarity = parseSimilarityRequest(ctx.message);
+
+  const similarNovelTargetId = resolveSimilarNovelTargetId(
+    ctx.similarToNovelId,
+    conversationContext.activeNovelId,
+    {
+      allowContextFallback:
+        !isMoreLikeThisActionMessage(ctx.message) &&
+        primary !== "MORE_LIKE_THIS" &&
+        !parsedSimilarity,
+    }
+  );
+
+  let resolvedSimilaritySeedId = similarNovelTargetId;
+  if (!resolvedSimilaritySeedId && parsedSimilarity) {
+    const exactIds = await resolveExactLookupNovelIds(parsedSimilarity.seedTitle);
+    if (exactIds.length === 1) {
+      resolvedSimilaritySeedId = exactIds[0]!;
+    } else if (exactIds.length > 1) {
+      const identification = await identifyNovels({
+        query: parsedSimilarity.seedTitle,
+        userId: ctx.userId,
+        spoilerMode,
+        excludeNovelIds: ctx.excludeNovelIds,
+      });
+      if (identification.mode === "high_confidence" && identification.recommendation) {
+        resolvedSimilaritySeedId = identification.recommendation.novelId;
+      } else {
+        const response = identificationToResponse(identification, { spoilerMode });
+        return attach(
+          {
+            ...response,
+            reply: `Which novel should I base the similarity search on? I read **${parsedSimilarity.seedTitle}** — pick the seed title or type the full catalogue name.`,
+          },
+          "MORE_LIKE_THIS"
+        );
+      }
+    } else {
+      const identification = await identifyNovels({
+        query: parsedSimilarity.seedTitle,
+        userId: ctx.userId,
+        spoilerMode,
+        excludeNovelIds: ctx.excludeNovelIds,
+      });
+      if (identification.mode === "high_confidence" && identification.recommendation) {
+        resolvedSimilaritySeedId = identification.recommendation.novelId;
+      } else if (
+        identification.mode === "clarification" ||
+        identification.mode === "partial_memory"
+      ) {
+        return attach(
+          {
+            ...identificationToResponse(identification, { spoilerMode }),
+            reply: `I couldn't verify **${parsedSimilarity.seedTitle}** as a MoonVerse seed title. Try the full title, an alternate spelling, or browse the catalogue.`,
+          },
+          "MORE_LIKE_THIS"
+        );
+      }
+    }
+  }
+
+  if (
+    primary === "MORE_LIKE_THIS" ||
+    parsedSimilarity ||
+    (isMoreLikeThisActionMessage(ctx.message) && intents.includes("MORE_LIKE_THIS"))
+  ) {
+    if (!resolvedSimilaritySeedId) {
+      return attach(
+        {
+          reply:
+            "Which novel should I base the similarity search on? Click **More like this** on a recommendation card, or name the title.",
+          recommendations: [],
+          responseKind: "chat",
+          consumesQuota: false,
+          spoilerMode,
+        },
+        "MORE_LIKE_THIS"
+      );
+    }
+
+    const similarityConstraintMessage = parsedSimilarity
+      ? [ctx.message, similarityPreferenceSource(parsedSimilarity)]
+          .filter(Boolean)
+          .join(" ")
+      : ctx.message;
+    const similarityHardConstraints = buildCurrentTurnHardConstraints(
+      similarityConstraintMessage,
+      extracted
+    );
+
+    let result = await buildGroundedRecommendations({
+      prefs,
+      requestPrefs: currentRequestPrefs,
+      userId: ctx.userId,
+      queryText: similarityConstraintMessage,
+      excludeNovelIds: [
+        ...new Set([
+          ...(ctx.excludeNovelIds ?? []),
+          resolvedSimilaritySeedId,
+        ]),
+      ],
+      previouslyShownNovelIds: ctx.previouslyShownNovelIds,
+      hasExplicitExclusions: ctx.hasExplicitExclusions,
+      seekingUnseen: ctx.seekingUnseen,
+      similarToNovelId: resolvedSimilaritySeedId,
+      strictGenreFilter: false,
+      hardConstraints: similarityHardConstraints,
+      personalization: ctx.personalization,
+      recentSearches: ctx.recentSearches,
+      spoilerMode,
+    });
+    result = await polishExplanationsWithOpenAI(
+      ctx.message,
+      result,
+      spoilerMode,
+      similarityHardConstraints
+    );
+    return attach({
+      ...result,
+      responseKind: "recommendations",
+      consumesQuota: true,
+      rememberPreferenceOffer: shouldOfferRememberPreference(ctx.message, extracted)
+        ? extracted
+        : null,
+    }, "MORE_LIKE_THIS");
+  }
+
   if (
     intents.includes("NOVEL_SERIES") ||
     (conversationContext.activeNovelId && isSeriesFollowUpMessage(ctx.message)) ||
@@ -664,6 +1636,10 @@ export async function handleMoonieRequest(
       recommendations: [],
       responseKind: "chat",
       consumesQuota: false,
+      pendingClarification:
+        pendingClarification?.kind === "compare_titles"
+          ? pendingClarification
+          : undefined,
     });
   }
 
@@ -875,6 +1851,10 @@ export async function handleMoonieRequest(
         titleHints: titles,
         priorUserMessage: conversationContext.lastUserMessage,
         activeNovelTitle: conversationContext.activeNovelTitle,
+        priorResolvedNovelIds:
+          pendingClarification?.kind === "compare_titles"
+            ? pendingClarification.resolvedNovelIds
+            : undefined,
       });
 
       return attach({
@@ -882,9 +1862,9 @@ export async function handleMoonieRequest(
         recommendations: comparison.recommendations,
         compare: comparison,
         responseKind: "compare",
-        state: comparison.rows.length < 2 ? "no_results" : undefined,
-        consumesQuota: true,
+        consumesQuota: comparison.rows.length >= 2,
         spoilerMode,
+        pendingClarification: pendingCompareClarification(comparison),
       });
     }
 
@@ -923,6 +1903,11 @@ export async function handleMoonieRequest(
       titleHints: parsedFileTitles,
       priorUserMessage: conversationContext.lastUserMessage,
       activeNovelTitle: conversationContext.activeNovelTitle,
+      priorRecommendations: conversationContext.priorRecommendations,
+      priorResolvedNovelIds:
+        pendingClarification?.kind === "compare_titles"
+          ? pendingClarification.resolvedNovelIds
+          : undefined,
     });
 
     return attach({
@@ -930,9 +1915,9 @@ export async function handleMoonieRequest(
       recommendations: comparison.recommendations,
       compare: comparison,
       responseKind: "compare",
-      state: comparison.rows.length < 2 ? "no_results" : undefined,
-      consumesQuota: true,
+      consumesQuota: comparison.rows.length >= 2,
       spoilerMode,
+      pendingClarification: pendingCompareClarification(comparison),
     });
   }
 
@@ -970,11 +1955,18 @@ export async function handleMoonieRequest(
     novelContextFollowUp ||
     messageReferencesActiveNovel(ctx.message);
   const wantsNovelLookup =
+    !isMoreLikeThisActionMessage(ctx.message) &&
+    !isTopBestCatalogueSelectionRequest(ctx.message) &&
     !isCommunityPeopleQuery(ctx.message) &&
+    !isHardConstraintFollowUpMessage(ctx.message) &&
+    primary !== "RECOMMEND" &&
+    primary !== "REFINE" &&
     (primary === "FIND_NOVEL" ||
       primary === "FIND_READING_SOURCE" ||
       primary === "NOVEL_OVERVIEW" ||
-      primary === "NOVEL_REVIEWS" ||
+      (primary === "NOVEL_REVIEWS" &&
+        (extractReviewNovelQuery(ctx.message) ||
+          isReviewFollowUpMessage(ctx.message))) ||
       (conversationContext.activeNovelId &&
         (usesActiveNovelContext ||
           /\b(it|this|that|completed|romance|worth|slow.?burn|angst)\b/i.test(
@@ -982,7 +1974,13 @@ export async function handleMoonieRequest(
           ))));
 
   if (wantsNovelLookup) {
-    const extractedTitle = resolveLookupTitleQuery(ctx.message, intents);
+    const novelContextOnly =
+      isNovelContextFollowUpMessage(ctx.message) &&
+      !extractReviewNovelQuery(ctx.message) &&
+      !extractNovelQuery(ctx.message);
+    const extractedTitle = novelContextOnly
+      ? null
+      : resolveLookupTitleQuery(ctx.message, intents);
     const titleQuery =
       extractedTitle ??
       (conversationContext.activeNovelId && usesActiveNovelContext
@@ -1016,6 +2014,28 @@ export async function handleMoonieRequest(
         conversationContext.priorRecommendations.some(
           (rec) => rec.novelId === conversationContext.activeNovelId
         ));
+    const unambiguousReadingTarget =
+      Boolean(ctx.contextNovelId) ||
+      conversationContext.lookupSession?.mode === "confirmed" ||
+      Boolean(conversationContext.lookupSession?.confirmedNovelId) ||
+      (conversationContext.priorRecommendations.length === 1 &&
+        conversationContext.priorCompareRows.length < 2);
+
+    if (
+      wantsReadingLink &&
+      isBareReadingLinkRequest(ctx.message) &&
+      !extractedTitle &&
+      !unambiguousReadingTarget
+    ) {
+      return attach({
+        reply:
+          "Which novel do you want a reading link for? Tell me the title and I'll verify it in the MoonVerse catalogue.",
+        recommendations: [],
+        responseKind: "chat",
+        consumesQuota: false,
+        spoilerMode,
+      });
+    }
 
     if (
       conversationContext.activeNovelId &&
@@ -1029,18 +2049,35 @@ export async function handleMoonieRequest(
         spoilerMode,
       });
       if (bundle.overview) {
-        let reply = formatNovelBundleReply({
-          overview: bundle.overview,
-          emphasizeReadingLink: wantsReadingLink,
-          emphasizeReviews: wantsReviews,
-        });
-        if (/\bcompleted\b/i.test(ctx.message)) {
-          const status = bundle.overview.publicationStatus ?? "unknown";
-          reply = `${bundle.overview.title} is listed as **${status}** in the MoonVerse catalogue.`;
+        const factualField = resolveNovelFactualFieldQuestion(ctx.message);
+        if (wantsReviews && !wantsReadingLink && !factualField) {
+          return attach(
+            await buildNovelReviewsListResponse({
+              novelId: bundle.overview.novelId,
+              title: bundle.overview.title,
+              overview: bundle.overview,
+              spoilerMode,
+              lookupSession: conversationContext.lookupSession ?? undefined,
+            }),
+            "NOVEL_REVIEWS"
+          );
         }
+        const reply = factualField
+          ? formatNovelFactualFieldReply(bundle.overview, factualField)
+          : formatNovelBundleReply({
+              overview: bundle.overview,
+              emphasizeReadingLink: wantsReadingLink,
+              emphasizeReviews: wantsReviews,
+              emphasizeStatus: /\bcompleted\b/i.test(ctx.message),
+            });
         return attach({
           reply,
-          recommendations: bundle.recommendation ? [bundle.recommendation] : [],
+          recommendations:
+            wantsReviews && !wantsReadingLink
+              ? []
+              : bundle.recommendation
+                ? [bundle.recommendation]
+                : [],
           novelOverview: bundle.overview,
           responseKind: "novel_bundle",
           consumesQuota: true,
@@ -1078,9 +2115,14 @@ export async function handleMoonieRequest(
       })
     );
 
-    const response = identificationToResponse(identification, {
+    const factualField = resolveNovelFactualFieldQuestion(ctx.message);
+    const response = await identificationToResponseWithReviews(identification, {
       emphasizeReadingLink: wantsReadingLink,
       emphasizeReviews: wantsReviews,
+      emphasizeStatus: /^is\s+(?!it\b|this\b|that\b).+\s+(?:completed|complete|ongoing|finished|on\s+hiatus)\b/i.test(
+        ctx.message.trim()
+      ),
+      factualField,
       interpretedPreferences: lookupPrefs,
       spoilerMode,
     });
@@ -1097,30 +2139,15 @@ export async function handleMoonieRequest(
     return attach(response);
   }
 
-  if (primary === "MORE_LIKE_THIS" && conversationContext.activeNovelId) {
-    let result = await buildGroundedRecommendations({
-      prefs,
-      userId: ctx.userId,
-      queryText: ctx.message,
-      excludeNovelIds: ctx.excludeNovelIds,
-      similarToNovelId: conversationContext.activeNovelId,
-      strictGenreFilter: false,
-      personalization: ctx.personalization,
-      recentSearches: ctx.recentSearches,
-      spoilerMode,
-    });
-    result = await polishExplanationsWithOpenAI(ctx.message, result, spoilerMode);
-    return attach({
-      ...result,
-      responseKind: "recommendations",
-      consumesQuota: true,
-      rememberPreferenceOffer: shouldOfferRememberPreference(ctx.message, extracted)
-        ? extracted
-        : null,
-    });
-  }
-
   if (primary === "RECOMMEND" || primary === "REFINE") {
+    const hardConstraints = buildCurrentTurnHardConstraints(
+      ctx.message,
+      extracted
+    );
+    const topBestCatalogue = isTopBestCatalogueSelectionRequest(ctx.message);
+    const requestedTake = topBestCatalogue
+      ? 1
+      : parseRequestedRecommendationCount(ctx.message);
     const cold =
       prefsLookEmpty(prefs) &&
       !ctx.hasTasteHistory &&
@@ -1141,20 +2168,78 @@ export async function handleMoonieRequest(
       });
     }
 
+    let similarToNovelId = ctx.similarToNovelId;
+    let excludeNovelIds = [...(ctx.excludeNovelIds ?? [])];
+    let mergedRequestPrefs = currentRequestPrefs;
+
+    const shelfAnchors = await resolveShelfRecommendationAnchors(
+      ctx.message,
+      resolveExactLookupNovelIds
+    );
+    if (shelfAnchors) {
+      if (shelfAnchors.novelIds.length === 0) {
+        return attach({
+          reply: `I could not verify the nearby shelf titles in the MoonVerse catalogue (${shelfAnchors.unresolvedTitles.join("; ")}). Name one anchor title or browse the shelf filters.`,
+          recommendations: [],
+          responseKind: "chat",
+          consumesQuota: false,
+          spoilerMode,
+        });
+      }
+      similarToNovelId = similarToNovelId ?? shelfAnchors.novelIds[0];
+      excludeNovelIds = [...new Set([...excludeNovelIds, ...shelfAnchors.novelIds])];
+      const anchorNovels = await db.novel.findMany({
+        where: { id: { in: shelfAnchors.novelIds } },
+        include: { genres: true, tags: true },
+      });
+      const shelfGenres = anchorNovels.flatMap((novel) =>
+        novel.genres.map((genre) => genre.name)
+      );
+      const shelfTags = anchorNovels.flatMap((novel) =>
+        novel.tags.map((tag) => tag.name)
+      );
+      mergedRequestPrefs = {
+        ...mergedRequestPrefs,
+        genres: [...new Set([...mergedRequestPrefs.genres, ...shelfGenres])],
+        tags: [...new Set([...mergedRequestPrefs.tags, ...shelfTags])],
+      };
+    }
+
     let result = await buildGroundedRecommendations({
       prefs,
+      requestPrefs: mergedRequestPrefs,
       userId: ctx.userId,
       queryText: ctx.message,
-      excludeNovelIds: ctx.excludeNovelIds,
-      similarToNovelId: ctx.similarToNovelId,
+      excludeNovelIds,
+      previouslyShownNovelIds: ctx.previouslyShownNovelIds,
+      hasExplicitExclusions: ctx.hasExplicitExclusions,
+      seekingUnseen: ctx.seekingUnseen,
+      similarToNovelId,
       strictGenreFilter:
         messagePrefs.genres.length > 0 ||
         Boolean(extracted?.genres && extracted.genres.length > 0),
+      take: requestedTake ?? undefined,
+      hardConstraints,
+      sortBy: resolveNovelDiscoverySort(ctx.message),
       personalization: ctx.personalization,
       recentSearches: ctx.recentSearches,
       spoilerMode,
     });
-    result = await polishExplanationsWithOpenAI(ctx.message, result, spoilerMode);
+    result = await polishExplanationsWithOpenAI(
+      ctx.message,
+      result,
+      spoilerMode,
+      hardConstraints
+    );
+
+    if (topBestCatalogue && result.recommendations.length > 0) {
+      const pick = result.recommendations[0]!;
+      const byRating = isHighestRatedSelectionRequest(ctx.message);
+      result.recommendations = [pick];
+      result.reply = byRating
+        ? `From the current verified candidate shortlist, **${pick.title}** has the strongest MoonVerse community rating I can verify for this request. This is not a claim about every catalogue title MoonVerse indexes.`
+        : `From the current verified candidate shortlist, **${pick.title}** is the strongest preference match I can verify for this request. This is not a claim about every catalogue title MoonVerse indexes.`;
+    }
 
     return attach({
       ...result,
