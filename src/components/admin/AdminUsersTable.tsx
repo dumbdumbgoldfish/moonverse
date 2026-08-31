@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { useTransition } from "react";
+import { useState, useTransition } from "react";
 import {
   deleteUserAction,
   demoteUserAction,
@@ -30,16 +30,31 @@ interface AdminUsersTableProps {
 export function AdminUsersTable({ users, currentAdminId }: AdminUsersTableProps) {
   const router = useRouter();
   const [isPending, startTransition] = useTransition();
+  const [error, setError] = useState<string | null>(null);
 
   const run = (action: () => Promise<{ success: boolean; error?: string }>) => {
+    setError(null);
     startTransition(async () => {
       const result = await action();
-      if (result.success) router.refresh();
+      if (result.success) {
+        router.refresh();
+        return;
+      }
+      setError(result.error ?? "Action failed.");
     });
   };
 
   return (
-    <AdminTableShell minWidth="720px">
+    <>
+      {error ? (
+        <p
+          role="alert"
+          className="mb-3 rounded-lg bg-rose-500/15 px-3 py-2 text-sm text-rose-200"
+        >
+          {error}
+        </p>
+      ) : null}
+      <AdminTableShell minWidth="720px">
       <AdminTableHead>
         <tr>
           <AdminTableTh>User</AdminTableTh>
@@ -130,6 +145,7 @@ export function AdminUsersTable({ users, currentAdminId }: AdminUsersTableProps)
             </AdminTableRow>
           ))}
         </tbody>
-    </AdminTableShell>
+      </AdminTableShell>
+    </>
   );
 }

@@ -18,7 +18,13 @@ import { Badge } from "@/components/ui/badge";
 import { formatDate } from "@/lib/date-utils";
 import type { AdminUserDetail } from "@/services/admin/user-detail.service";
 
-export function AdminUserDetailView({ user }: { user: AdminUserDetail }) {
+export function AdminUserDetailView({
+  user,
+  currentAdminId,
+}: {
+  user: AdminUserDetail;
+  currentAdminId: string;
+}) {
   const [activeTab, setActiveTab] = useState("overview");
 
   const overview = (
@@ -43,7 +49,12 @@ export function AdminUserDetailView({ user }: { user: AdminUserDetail }) {
       </AdminPanel>
       <AdminPanel>
         <AdminSection title="Admin actions">
-          <AdminUserActions userId={user.id} role={user.role} isSuspended={user.isSuspended} />
+          <AdminUserActions
+            userId={user.id}
+            role={user.role}
+            isSuspended={user.isSuspended}
+            isCurrentAdmin={user.id === currentAdminId}
+          />
         </AdminSection>
       </AdminPanel>
     </div>

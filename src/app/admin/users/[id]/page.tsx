@@ -3,6 +3,7 @@ import { notFound } from "next/navigation";
 import { AdminPageHeader } from "@/components/admin/AdminUi";
 import { AdminUserDetailView } from "@/components/admin/AdminUserDetailView";
 import { formatDate } from "@/lib/date-utils";
+import { getSession } from "@/lib/session";
 import { getAdminUserDetail } from "@/services/admin/user-detail.service";
 
 export const metadata = { title: "User · MoonVerse Admin" };
@@ -16,7 +17,10 @@ export default async function AdminUserDetailPage({
   params,
 }: AdminUserDetailPageProps) {
   const { id } = await params;
-  const user = await getAdminUserDetail(id);
+  const [user, session] = await Promise.all([
+    getAdminUserDetail(id),
+    getSession(),
+  ]);
   if (!user) notFound();
 
   return (
@@ -32,7 +36,10 @@ export default async function AdminUserDetailPage({
           All users
         </Link>
       </AdminPageHeader>
-      <AdminUserDetailView user={user} />
+      <AdminUserDetailView
+        user={user}
+        currentAdminId={session!.user!.id}
+      />
     </>
   );
 }
