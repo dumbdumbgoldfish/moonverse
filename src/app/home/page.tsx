@@ -1,15 +1,12 @@
-import { Suspense } from "react";
 import { redirect } from "next/navigation";
 import { DiscoverHome } from "@/components/home/DiscoverHome";
-import { ForYouFeed } from "@/components/home/ForYouFeed";
-import { ReviewsSalonShelvesSkeleton } from "@/components/reviews/salon/ReviewsSalonShelvesView";
+import { ForYouShelvesClient } from "@/components/home/ForYouShelvesClient";
 import { parseHomeFeedTab } from "@/lib/feed";
 import { LITERARY_SALON_STYLE } from "@/lib/literary-salon";
 import { homeHref, parseHomeView } from "@/lib/home-view";
 import { isAdminRole } from "@/lib/admin-redirect";
 import { requireOnboardedUser } from "@/lib/onboarding-guard";
 import { SITE_SHELL_CLASS } from "@/lib/site-shell";
-import { getPersonalizedHomeShelves } from "@/services/home-shelves.service";
 import { getOrCreateDailyPick } from "@/services/moonie-daily.service";
 import { getPreferredGenres } from "@/services/preference.service";
 
@@ -23,11 +20,6 @@ export const metadata = {
 
 interface HomePageProps {
   searchParams: Promise<{ view?: string; feed?: string }>;
-}
-
-async function ForYouShelvesAsync({ userId }: { userId: string }) {
-  const shelves = await getPersonalizedHomeShelves(userId);
-  return <ForYouFeed shelves={shelves} />;
 }
 
 export default async function AuthenticatedHomePage({
@@ -61,9 +53,7 @@ export default async function AuthenticatedHomePage({
       <div className={SITE_SHELL_CLASS}>
         <div className="py-5">
           <DiscoverHome greetingName={greetingName} genres={preferred}>
-            <Suspense fallback={<ReviewsSalonShelvesSkeleton />}>
-              <ForYouShelvesAsync userId={userId} />
-            </Suspense>
+            <ForYouShelvesClient />
           </DiscoverHome>
         </div>
       </div>
