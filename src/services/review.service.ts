@@ -754,7 +754,7 @@ function mapToListItem(review: ReviewWithRelations): ReviewListItem {
     novelId: review.novel.id,
     novelTitle: review.novel.title,
     novelAuthor: review.novel.author ?? "Unknown",
-    coverUrl: resolveCoverUrl(review.novel.coverUrl),
+    coverUrl: resolveCoverUrl(review.novel.coverUrl, { title: review.novel.title }),
     reviewerId: review.user.id,
     reviewerName: review.user.displayName,
     reviewerUsername: review.user.username,
