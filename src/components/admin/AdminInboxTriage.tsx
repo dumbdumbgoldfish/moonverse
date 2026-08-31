@@ -16,6 +16,7 @@ import {
   inboxHideCommentAction,
   inboxHideReviewAction,
   inboxRejectLinkAction,
+  inboxRestoreCommentAction,
   inboxRestoreReviewAction,
   resolveReportWithRemediationAction,
 } from "@/actions/inbox.actions";
@@ -327,6 +328,14 @@ function InboxDetailActions({
         >
           <EyeOff size={14} className="mr-1.5" />
           Hide comment
+        </Button>
+        <Button
+          size="sm"
+          variant="outline"
+          disabled={isPending}
+          onClick={() => onRun(() => inboxRestoreCommentAction(item.commentId))}
+        >
+          Mark OK
         </Button>
         <Link href={`/reviews/${item.reviewId}#comments`} target="_blank" className={INBOX_LINK_CLASS}>
           Open thread

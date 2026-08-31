@@ -85,6 +85,23 @@ export interface InboxFilters {
   kind?: InboxItemKind | "all";
 }
 
+export function paginateAdminInboxItems<T>(
+  items: T[],
+  page = 1,
+  pageSize = 50
+): { items: T[]; page: number; pageSize: number; total: number; totalPages: number } {
+  const safePageSize = Math.max(1, pageSize);
+  const totalPages = Math.max(1, Math.ceil(items.length / safePageSize));
+  const safePage = Math.min(Math.max(1, page), totalPages);
+  return {
+    items: items.slice((safePage - 1) * safePageSize, safePage * safePageSize),
+    page: safePage,
+    pageSize: safePageSize,
+    total: items.length,
+    totalPages,
+  };
+}
+
 export async function getAdminInboxItems(
   filters: InboxFilters = {}
 ): Promise<InboxItem[]> {
@@ -100,7 +117,6 @@ export async function getAdminInboxItems(
     db.review.findMany({
       where: { moderationStatus: ContentModerationStatus.AUTO_FLAGGED },
       orderBy: { createdAt: "desc" },
-      take: 50,
       include: {
         user: { select: { username: true } },
         novel: { select: { title: true } },
@@ -109,7 +125,6 @@ export async function getAdminInboxItems(
     db.comment.findMany({
       where: { moderationStatus: ContentModerationStatus.AUTO_FLAGGED },
       orderBy: { createdAt: "desc" },
-      take: 50,
       include: {
         user: { select: { username: true } },
         review: { select: { id: true } },
@@ -118,7 +133,6 @@ export async function getAdminInboxItems(
     db.readingLink.findMany({
       where: { moderationStatus: { in: ["PENDING", "NEEDS_REVIEW"] } },
       orderBy: { createdAt: "desc" },
-      take: 50,
       include: { novel: { select: { title: true } } },
     }),
     db.readingLink.findMany({
@@ -127,13 +141,11 @@ export async function getAdminInboxItems(
         healthStatus: { in: ["BROKEN", "REDIRECTED", "STALE", "UNKNOWN"] },
       },
       orderBy: { updatedAt: "desc" },
-      take: 30,
       include: { novel: { select: { title: true } } },
     }),
     db.tagSuggestion.findMany({
       where: { status: "PENDING" },
       orderBy: { createdAt: "desc" },
-      take: 50,
       include: {
         suggestedBy: { select: { username: true } },
         novel: { select: { title: true } },
@@ -270,20 +282,60 @@ export async function getAdminInboxItems(
   return filtered.sort((a, b) => b.priority - a.priority || b.ageHours - a.ageHours);
 }
 
+export async function getAdminInboxPage(
+  page = 1,
+  pageSize = 50,
+  filters: InboxFilters = {}
+) {
+  return paginateAdminInboxItems(
+    await getAdminInboxItems(filters),
+    page,
+    pageSize
+  );
+}
+
 export async function getInboxCounts(): Promise<Record<InboxItemKind | "total", number>> {
-  const items = await getAdminInboxItems();
+  const [
+    report,
+    reviewFlagged,
+    commentFlagged,
+    readingLink,
+    readingLinkUnhealthy,
+    tagSuggestion,
+  ] = await Promise.all([
+    db.report.count({ where: { status: ReportStatus.OPEN } }),
+    db.review.count({
+      where: { moderationStatus: ContentModerationStatus.AUTO_FLAGGED },
+    }),
+    db.comment.count({
+      where: { moderationStatus: ContentModerationStatus.AUTO_FLAGGED },
+    }),
+    db.readingLink.count({
+      where: { moderationStatus: { in: ["PENDING", "NEEDS_REVIEW"] } },
+    }),
+    db.readingLink.count({
+      where: {
+        moderationStatus: "APPROVED",
+        healthStatus: { in: ["BROKEN", "REDIRECTED", "STALE", "UNKNOWN"] },
+      },
+    }),
+    db.tagSuggestion.count({ where: { status: "PENDING" } }),
+  ]);
   const counts: Record<InboxItemKind | "total", number> = {
-    total: items.length,
-    report: 0,
-    review_flagged: 0,
-    comment_flagged: 0,
-    reading_link: 0,
-    reading_link_unhealthy: 0,
-    tag_suggestion: 0,
+    total:
+      report +
+      reviewFlagged +
+      commentFlagged +
+      readingLink +
+      readingLinkUnhealthy +
+      tagSuggestion,
+    report,
+    review_flagged: reviewFlagged,
+    comment_flagged: commentFlagged,
+    reading_link: readingLink,
+    reading_link_unhealthy: readingLinkUnhealthy,
+    tag_suggestion: tagSuggestion,
   };
-  for (const item of items) {
-    counts[item.kind] += 1;
-  }
   return counts;
 }
 

@@ -130,6 +130,17 @@ export async function inboxHideCommentAction(
   return result;
 }
 
+export async function inboxRestoreCommentAction(
+  commentId: string
+): Promise<InboxActionResult> {
+  const result = await setCommentModerationStatusAction(
+    commentId,
+    ContentModerationStatus.OK
+  );
+  if (result.success) revalidateInbox();
+  return result;
+}
+
 export async function inboxApproveLinkAction(
   linkId: string
 ): Promise<InboxActionResult> {
