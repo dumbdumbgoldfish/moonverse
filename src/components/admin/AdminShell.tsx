@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import { useState } from "react";
 import { usePathname, useRouter } from "next/navigation";
 import { signOut } from "next-auth/react";
 import type { Session } from "next-auth";
@@ -38,6 +39,8 @@ import {
   ADMIN_TOPBAR_CLASS,
 } from "@/components/admin/admin-styles";
 import { cn } from "@/lib/utils";
+import { ADMIN_PUBLIC_SITE_PATH } from "@/lib/admin-redirect";
+import { signOutAndReload } from "@/lib/logout";
 
 type NavItem = {
   href: string;
@@ -152,7 +155,7 @@ function AdminSidebar({ pathname }: { pathname: string }) {
       </nav>
       <div className="border-t border-white/[0.06] p-3">
         <Link
-          href="/"
+          href={ADMIN_PUBLIC_SITE_PATH}
           className="flex items-center gap-2 rounded-lg px-2.5 py-2 text-[12px] font-medium text-white/88 transition hover:bg-white/[0.05] hover:text-white"
         >
           <ExternalLink size={14} aria-hidden />
@@ -171,6 +174,8 @@ function AdminTopBar({
   session: Session;
 }) {
   const router = useRouter();
+  const [isSigningOut, setIsSigningOut] = useState(false);
+  const [logoutError, setLogoutError] = useState<string | null>(null);
   const current = currentNavItem(pathname);
   const displayName = session.user.name ?? session.user.username ?? "Admin";
 
@@ -226,12 +231,28 @@ function AdminTopBar({
         </div>
         <button
           type="button"
-          onClick={() => void signOut({ callbackUrl: "/login" })}
+          disabled={isSigningOut}
+          onClick={() => {
+            if (isSigningOut) return;
+            setLogoutError(null);
+            setIsSigningOut(true);
+            void signOutAndReload(signOut, "/login").catch(() => {
+              setLogoutError("Sign out failed. Your admin session is still active.");
+              setIsSigningOut(false);
+            });
+          }}
           className="inline-flex items-center gap-1.5 rounded-lg border border-white/10 bg-white/[0.06] px-2.5 py-1.5 text-xs font-medium text-white/95 transition hover:border-[#f9db7e]/35 hover:bg-white/[0.1] hover:text-white"
         >
           <LogOut size={14} aria-hidden />
-          <span className="hidden sm:inline">Sign out</span>
+          <span className="hidden sm:inline">
+            {isSigningOut ? "Signing out…" : "Sign out"}
+          </span>
         </button>
+        {logoutError ? (
+          <p role="alert" className="max-w-52 text-xs text-rose-200">
+            {logoutError}
+          </p>
+        ) : null}
       </div>
     </header>
   );
