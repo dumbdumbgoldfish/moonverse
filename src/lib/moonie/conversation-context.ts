@@ -64,6 +64,14 @@ interface StoredMessage {
   meta?: unknown;
 }
 
+/** Minimum message shape for scanning assistant meta (recommendation replay/history). */
+export type ConversationReplayMessage = {
+  role: string;
+  meta?: unknown;
+  /** Ignored by replay scanners; optional so full stored rows assign cleanly. */
+  content?: string;
+};
+
 interface FocusedNovel {
   novelId: string;
   title: string;
@@ -506,7 +514,7 @@ export function collectSequenceRecommendationsForReplay(
 
 /** Every distinct recommendation card shown in this conversation, in first-seen order. */
 export function collectAllConversationRecommendationsForReplay(
-  messages: StoredMessage[]
+  messages: ConversationReplayMessage[]
 ): MoonieRecommendation[] {
   const seen = new Set<string>();
   const collected: MoonieRecommendation[] = [];
@@ -526,7 +534,7 @@ export function collectAllConversationRecommendationsForReplay(
 
 /** Distinct novel ids from every assistant recommendation batch in the thread. */
 export function collectPriorRecommendedNovelIds(
-  messages: StoredMessage[]
+  messages: ConversationReplayMessage[]
 ): string[] {
   return collectAllConversationRecommendationsForReplay(messages).map(
     (rec) => rec.novelId
