@@ -39,7 +39,7 @@ export function ForYouView({
           Moonie curates novels and reviews based on community ratings and your reading mood.
         </p>
         <div className="mt-4 flex flex-wrap gap-2">
-          <AskMoonieLink href="/moonie" size="sm">
+          <AskMoonieLink size="sm">
             Ask Moonie for more
           </AskMoonieLink>
           <PrimaryCtaLink href="/" variant="outline">

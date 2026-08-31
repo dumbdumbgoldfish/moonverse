@@ -11,6 +11,7 @@ import { genreStrengthLabel } from "@/lib/taste-signature";
 import type { TasteInsightSnapshot } from "@/lib/taste-signature";
 import type { ReadingTasteSnapshot } from "@/services/feed.service";
 import type { TopReviewerPreview } from "@/types/discovery";
+import { moonieLoggedInEntryHref } from "@/lib/moonie/open-moonie";
 import { cn } from "@/lib/utils";
 
 interface LiteraryDiscoveryRailProps {
@@ -228,7 +229,7 @@ function IntelligencePanel({
       ) : null}
 
       <Link
-        href="/moonie"
+        href={moonieLoggedInEntryHref()}
         className="mt-5 inline-flex items-center gap-2 text-[13px] font-semibold leading-relaxed text-[var(--mv-plum)] hover:underline"
       >
         <Sparkles className="size-3.5" aria-hidden />

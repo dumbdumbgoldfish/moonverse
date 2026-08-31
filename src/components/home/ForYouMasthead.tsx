@@ -21,6 +21,7 @@ import {
 import { getGenreIcon } from "@/components/browse/genre-icon";
 import { MoonieCharacter } from "@/components/moonie/MoonieCharacter";
 import { AskMoonieButton } from "@/components/moonie/AskMoonieButton";
+import { moonieLoggedInEntryHref } from "@/lib/moonie/open-moonie";
 import type { PreferredGenreOption } from "@/services/preference.service";
 
 interface ForYouMastheadProps {
@@ -190,7 +191,7 @@ export function ForYouMasthead({ greetingName, genres }: ForYouMastheadProps) {
               Edit preferences
             </Link>
             <AskMoonieButton
-              prompt="Recommend novel reviews that match my For You shelves."
+              href={moonieLoggedInEntryHref()}
               size="md"
               className="min-h-10 px-5 text-[13px] font-bold focus-visible:ring-[#E8C36A]"
             />
