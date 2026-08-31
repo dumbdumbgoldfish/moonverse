@@ -15,7 +15,6 @@ import { BrowseCompareTray } from "@/components/browse/BrowseCompareTray";
 import { BrowseEmptyState } from "@/components/browse/BrowseEmptyState";
 import { GenreHeroCard } from "@/components/browse/GenreHeroCard";
 import {
-  browseMooniePrompt,
   genreBrowseSortToApi,
   type GenreBrowseSort,
 } from "@/lib/browse-sort";
@@ -25,9 +24,13 @@ import { ReviewResultCard } from "@/components/browse/ReviewResultCard";
 import { WorkPreviewDrawer } from "@/components/browse/WorkPreviewDrawer";
 import { WorkResultCard } from "@/components/browse/WorkResultCard";
 import { getGenrePresentation } from "@/lib/genre-presentation";
-import { moonieEntryHref } from "@/lib/moonie/open-moonie";
+import {
+  moonieEntryHref,
+  moonieLoggedInEntryHref,
+} from "@/lib/moonie/open-moonie";
 import { SITE_SHELL_CLASS } from "@/lib/site-shell";
 import { cn } from "@/lib/utils";
+import { useSession } from "next-auth/react";
 import type { BrowseMode, BrowseWorkItem } from "@/types/browse";
 import type { ReviewListItem } from "@/types/review";
 
@@ -94,6 +97,7 @@ export function GenreBrowseView({
   const router = useRouter();
   const pathname = usePathname();
   const searchParams = useSearchParams();
+  const { data: session } = useSession();
   const [, startTransition] = useTransition();
 
   const [mode, setMode] = useState<BrowseMode>(initialMode);
@@ -125,17 +129,9 @@ export function GenreBrowseView({
     [selectedTags, tags]
   );
 
-  const moonieHref = useMemo(
-    () =>
-      moonieEntryHref(
-        browseMooniePrompt({
-          genreLabel: presentation?.label ?? genreSlug,
-          tagNames: selectedTagObjects.map((tag) => tag.name),
-          officialOnly,
-        })
-      ),
-    [genreSlug, officialOnly, presentation?.label, selectedTagObjects]
-  );
+  const moonieHref = session?.user
+    ? moonieLoggedInEntryHref()
+    : moonieEntryHref();
 
   const hasActiveFilters = selectedTags.length > 0 || officialOnly;
   const compareIds = useMemo(

@@ -2,6 +2,7 @@ import Link from "next/link";
 import { BookOpen, Sparkles } from "lucide-react";
 import { MoonieMascot } from "@/components/brand/MoonieMascot";
 import { AskMoonieLink } from "@/components/moonie/AskMoonieButton";
+import { BROWSE_CLARIFY_FIRST_PROMPT } from "@/lib/moonie/entry-prompts";
 import { moonieEntryHref } from "@/lib/moonie/open-moonie";
 import { cn } from "@/lib/utils";
 
@@ -69,9 +70,7 @@ export function BrowseHubHero({ className }: BrowseHubHeroProps) {
             </li>
             <li>
               <AskMoonieLink
-                href={moonieEntryHref(
-                  "I want a web novel recommendation from the MoonVerse catalogue. Ask me one clarifying question, then suggest grounded titles.",
-                )}
+                href={moonieEntryHref(BROWSE_CLARIFY_FIRST_PROMPT)}
                 size="xs"
                 className="min-h-9 px-3 text-xs font-semibold"
               >

@@ -18,6 +18,7 @@ import { SearchInsightBar } from "@/components/search/SearchInsightBar";
 import { SearchResultsBody } from "@/components/search/SearchResultsBody";
 import { SEARCH_SCROLL_PANEL_CLASS, WORKS_REVIEWS_GRID_CLASS } from "@/components/search/search-layout";
 import { useRecentSearches } from "@/hooks/use-recent-searches";
+import { notifySearchLocation, SEARCH_LOCATION_EVENT } from "@/lib/search-location";
 import { SITE_SHELL_CLASS } from "@/lib/site-shell";
 import {
   facetLabel,
@@ -256,6 +257,7 @@ function SearchResultsView({
       const qs = params.toString();
       const href = qs ? `${pathname}?${qs}` : pathname;
       window.history.replaceState(window.history.state, "", href);
+      notifySearchLocation();
     },
     [pathname]
   );
@@ -489,6 +491,20 @@ function SearchResultsView({
   }, [hasMore, loadMore, loading, paging, pagingKind, activeLoaded]);
 
   useEffect(() => {
+    const syncFromLocation = () => {
+      const next = filtersFromSearch(window.location.search);
+      if (filtersEqual(filtersRef.current, next)) return;
+      setFilters(next);
+      startTransition(() => {
+        void load(next, pageSize, false);
+      });
+    };
+    window.addEventListener(SEARCH_LOCATION_EVENT, syncFromLocation);
+    return () =>
+      window.removeEventListener(SEARCH_LOCATION_EVENT, syncFromLocation);
+  }, [load, pageSize]);
+
+  useEffect(() => {
     const onPop = () => {
       const next = filtersFromSearch(window.location.search);
       setFilters(next);
@@ -572,7 +588,13 @@ function SearchResultsView({
                 }}
                 onMinRating={(minRating) => applyFilters({ minRating, page: 1 })}
                 onClear={() =>
-                  applyFilters({ genre: null, tags: [], minRating: 0, page: 1 })
+                  applyFilters({
+                    q: "",
+                    genre: null,
+                    tags: [],
+                    minRating: 0,
+                    page: 1,
+                  })
                 }
               />
             ) : null}
@@ -640,7 +662,13 @@ function SearchResultsView({
             }}
             onMinRating={(minRating) => applyFilters({ minRating, page: 1 })}
             onClear={() =>
-              applyFilters({ genre: null, tags: [], minRating: 0, page: 1 })
+              applyFilters({
+                q: "",
+                genre: null,
+                tags: [],
+                minRating: 0,
+                page: 1,
+              })
             }
           />
 

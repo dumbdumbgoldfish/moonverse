@@ -3,7 +3,6 @@
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import { BookOpen, ExternalLink, Loader2, Star } from "lucide-react";
-import { AskMoonieLink } from "@/components/moonie/AskMoonieButton";
 import {
   Dialog,
   DialogContent,
@@ -13,7 +12,6 @@ import {
 } from "@/components/ui/dialog";
 import { AuthRequiredLink } from "@/components/auth/AuthRequiredLink";
 import { CoverImage } from "@/components/ui/CoverImage";
-import { moonieEntryHref } from "@/lib/moonie/open-moonie";
 import { cn } from "@/lib/utils";
 import type { BrowseWorkItem, BrowseWorkPreview } from "@/types/browse";
 
@@ -28,7 +26,6 @@ export function WorkPreviewDrawer({
   work,
   open,
   onOpenChange,
-  genreLabel,
 }: WorkPreviewDrawerProps) {
   const [preview, setPreview] = useState<BrowseWorkPreview | null>(null);
   const [previewForId, setPreviewForId] = useState<string | null>(null);
@@ -75,10 +72,6 @@ export function WorkPreviewDrawer({
   if (!open || !work) return null;
 
   const display = previewForId === work.novelId && preview ? preview : work;
-
-  const mooniePrompt = `Tell me about "${display.title}" by ${display.author}${
-    genreLabel ? ` in the ${genreLabel} catalogue` : ""
-  }. Why might a reader like or skip it? Stay grounded in MoonVerse catalogue evidence.`;
 
   const ratingLabel =
     display.reviewCount > 0 ? display.averageRating.toFixed(1) : "-";
@@ -237,13 +230,6 @@ export function WorkPreviewDrawer({
               Read on original platform
             </a>
           ) : null}
-          <AskMoonieLink
-            href={moonieEntryHref(mooniePrompt)}
-            size="md"
-            className="min-h-11 w-full font-bold"
-          >
-            Ask Moonie about this title
-          </AskMoonieLink>
         </div>
       </DialogContent>
     </Dialog>

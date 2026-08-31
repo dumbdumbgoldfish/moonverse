@@ -28,10 +28,11 @@ interface SearchPageProps {
 }
 
 async function SearchContent({ searchParams }: SearchPageProps) {
-  const params = await searchParams;
+  const [params, session] = await Promise.all([
+    searchParams,
+    redirectIncompleteOnboarding(),
+  ]);
   const { q, type, tab, sort, genre, tags, tag, rating, page } = params;
-
-  const session = await redirectIncompleteOnboarding();
   const isLoggedIn = !!session?.user?.id;
   const parsedType = parseSearchType(type ?? tab);
   const parsedSort = parseSearchSort(sort);

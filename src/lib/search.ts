@@ -204,16 +204,22 @@ export function parseSearchQuery(rawInput: string): ParsedSearchQuery {
     }
   }
 
-  const { rest: leftover, genreSlug, tagSlugs } = extractCatalogFacets(rest);
+  const extracted = extractCatalogFacets(rest);
+  const leftoverTokens = extracted.rest.split(/\s+/).filter(Boolean);
+  const leftoverLooksLikeTitle =
+    leftoverTokens.length >= 2 &&
+    !/\b(recommend|suggest|show|find|want|something|novels?)\b/i.test(
+      extracted.rest
+    );
 
   return {
     raw: rawInput.trim(),
-    text: leftover,
+    text: leftoverLooksLikeTitle ? rest : extracted.rest,
     quoted,
     handle,
     author,
-    genreSlug,
-    tagSlugs,
+    genreSlug: leftoverLooksLikeTitle ? null : extracted.genreSlug,
+    tagSlugs: leftoverLooksLikeTitle ? [] : extracted.tagSlugs,
   };
 }
 
