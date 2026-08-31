@@ -1,3 +1,4 @@
+import { cache } from "react";
 import { db } from "@/lib/db";
 import { isMissingCoverUrl, resolveCoverUrl } from "@/lib/review-utils";
 import { mapDbReadingLink, resolveNovelReadingLinks } from "@/lib/reading-links";
@@ -320,7 +321,9 @@ export async function createNovel(input: CreateNovelInput) {
   });
 }
 
-export async function getNovelById(id: string): Promise<NovelDetail | null> {
+const getNovelByIdUncached = async (
+  id: string
+): Promise<NovelDetail | null> => {
   const novel = await db.novel.findUnique({
     where: { id },
     include: {
@@ -426,7 +429,9 @@ export async function getNovelById(id: string): Promise<NovelDetail | null> {
     createdAt: novel.createdAt.toISOString(),
     readingLinks,
   };
-}
+};
+
+export const getNovelById = cache(getNovelByIdUncached);
 
 function normalized(value: string | null | undefined): string {
   return value?.trim().toLocaleLowerCase() ?? "";
