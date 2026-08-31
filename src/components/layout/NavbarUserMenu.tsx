@@ -2,7 +2,6 @@
 
 import { useEffect, useId, useRef, useState } from "react";
 import Link from "next/link";
-import { useRouter } from "next/navigation";
 import { signOut } from "next-auth/react";
 import {
   BookMarked,
@@ -18,7 +17,8 @@ import {
 import type { Session } from "next-auth";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { closeMooniePanel } from "@/lib/moonie/panel-open-state";
-import { getInitials } from "@/lib/review-utils";
+import { getInitials } from "@/lib/initials";
+import { signOutAndReload } from "@/lib/logout";
 import { cn } from "@/lib/utils";
 import type { EnrichedNotificationItem } from "@/types/notification";
 
@@ -92,10 +92,11 @@ export function NavbarUserMenu({
   session,
   unreadCount,
 }: NavbarUserMenuProps) {
-  const router = useRouter();
   const menuId = useId();
   const rootRef = useRef<HTMLDivElement>(null);
   const [open, setOpen] = useState(false);
+  const [isSigningOut, setIsSigningOut] = useState(false);
+  const [logoutError, setLogoutError] = useState<string | null>(null);
 
   const displayName = session.user.name ?? session.user.username;
   const username = session.user.username;
@@ -190,18 +191,26 @@ export function NavbarUserMenu({
         type: "action",
         label: "Log Out",
         onSelect: () => {
-          close();
+          if (isSigningOut) return;
+          setLogoutError(null);
+          setIsSigningOut(true);
           void (async () => {
             try {
               closeMooniePanel();
             } catch {
               // sessionStorage can throw in private browsing
             }
-            await signOut({ redirect: false, redirectTo: "/" });
-            router.push("/");
+            try {
+              await signOutAndReload(signOut, "/");
+            } catch {
+              setLogoutError("Log out failed. Your session is still active.");
+              setIsSigningOut(false);
+              setOpen(true);
+            }
           })();
         },
         icon: LogOut,
+        hint: isSigningOut ? "Signing out…" : undefined,
         danger: true,
       },
     ],
@@ -306,6 +315,14 @@ export function NavbarUserMenu({
               </div>
 
               <div className="space-y-1 p-2">
+                {logoutError ? (
+                  <p
+                    role="alert"
+                    className="mx-2 mb-2 rounded-xl bg-rose-50 px-3 py-2 text-xs font-medium text-rose-700"
+                  >
+                    {logoutError}
+                  </p>
+                ) : null}
                 {sections.map((section, sectionIndex) => (
                   <div key={sectionIndex}>
                     {sectionIndex > 0 ? (
