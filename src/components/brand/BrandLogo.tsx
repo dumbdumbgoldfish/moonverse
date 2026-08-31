@@ -61,16 +61,15 @@ function Wordmark({
         <span className="mv-wordmark-moon">Moon</span>
         <span className="mv-wordmark-verse">Verse</span>
       </span>
-      {showTagline ? (
-        <span
-          className={cn(
-            "mv-wordmark-sub uppercase",
-            size === "nav" ? "hidden lg:block" : "block"
-          )}
-        >
-          {TAGLINE}
-        </span>
-      ) : null}
+      <span
+        className={cn(
+          "mv-wordmark-sub uppercase",
+          !showTagline && "hidden",
+          showTagline && (size === "nav" ? "hidden lg:block" : "block")
+        )}
+      >
+        {TAGLINE}
+      </span>
     </span>
   );
 }
