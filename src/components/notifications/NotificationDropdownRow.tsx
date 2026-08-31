@@ -17,7 +17,10 @@ import { FollowButton } from "@/components/users/FollowButton";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { CoverImage } from "@/components/ui/CoverImage";
 import { formatRelativeTime } from "@/lib/date-utils";
-import { getInitials } from "@/lib/review-utils";
+import {
+  isPlatformAnnouncementMessage,
+} from "@/lib/notifications/platform-announcement";
+import { getInitials } from "@/lib/initials";
 import { cn } from "@/lib/utils";
 import type { EnrichedNotificationItem } from "@/types/notification";
 
@@ -134,8 +137,12 @@ export function NotificationDropdownRow({
 }: NotificationDropdownRowProps) {
   const preview = getPreview(notification);
   const followBackTarget = getFollowBackTarget(notification);
-  const link =
-    notification.link && !notification.link.startsWith("/messages")
+  const isPlatformAnnouncement = isPlatformAnnouncementMessage(
+    notification.message
+  );
+  const link = isPlatformAnnouncement
+    ? `/notifications/${notification.id}`
+    : notification.link && !notification.link.startsWith("/messages")
       ? notification.link
       : null;
 

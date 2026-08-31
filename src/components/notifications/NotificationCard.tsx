@@ -18,7 +18,11 @@ import { FollowButton } from "@/components/users/FollowButton";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { CoverImage } from "@/components/ui/CoverImage";
 import { formatRelativeTime } from "@/lib/date-utils";
-import { getInitials } from "@/lib/review-utils";
+import {
+  isPlatformAnnouncementMessage,
+  PLATFORM_ANNOUNCEMENT_HEADLINE,
+} from "@/lib/notifications/platform-announcement";
+import { getInitials } from "@/lib/initials";
 import { cn } from "@/lib/utils";
 import type {
   EnrichedNotificationItem,
@@ -38,6 +42,8 @@ const typeLabels: Record<NotificationType, string> = {
   DIRECT_MESSAGE: "Message",
 };
 
+const platformAnnouncementTypeLabel = "System announcement";
+
 const typeIcons: Record<NotificationType, typeof Heart> = {
   REVIEW_LIKE: Heart,
   COMMENT_ON_REVIEW: MessageCircle,
@@ -56,13 +62,37 @@ interface NotificationCardProps {
   compact?: boolean;
 }
 
-function TypeChip({ type }: { type: NotificationType }) {
+function TypeChip({
+  type,
+  platformAnnouncement,
+}: {
+  type: NotificationType;
+  platformAnnouncement?: boolean;
+}) {
   const Icon = typeIcons[type] ?? Bell;
+  const label = platformAnnouncement
+    ? platformAnnouncementTypeLabel
+    : typeLabels[type];
   return (
-    <span className="inline-flex items-center gap-1 rounded-full bg-violet-50 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-primary ring-1 ring-violet-100">
+    <span
+      className={cn(
+        "inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide ring-1",
+        platformAnnouncement
+          ? "bg-[#4C2A67] text-white ring-[#4C2A67]/30"
+          : "bg-violet-50 text-primary ring-violet-100"
+      )}
+    >
       <Icon className="size-3" aria-hidden />
-      {typeLabels[type]}
+      {label}
     </span>
+  );
+}
+
+function isPlatformAnnouncementRow(row: InboxRow): boolean {
+  return (
+    row.kind === "single" &&
+    row.notification.type === "DIGEST" &&
+    isPlatformAnnouncementMessage(row.notification.message)
   );
 }
 
@@ -100,9 +130,11 @@ function VisualLead({
   }
 
   const notification = row.notification;
+  const platformAnnouncement = isPlatformAnnouncementRow(row);
   const showCover =
     notification.coverUrl &&
-    notification.type !== "NEW_FOLLOWER";
+    notification.type !== "NEW_FOLLOWER" &&
+    !platformAnnouncement;
 
   if (showCover) {
     return (
@@ -126,7 +158,9 @@ function VisualLead({
 
   const name =
     notification.actorDisplayName ??
-    (notification.type === "MOONIE_DAILY_PICK" ? "Moonie" : "MV");
+    (notification.type === "MOONIE_DAILY_PICK" || platformAnnouncement
+      ? "Moonie"
+      : "MV");
 
   return (
     <Avatar className={cn(sizeClass, "shrink-0 ring-2 ring-white shadow-sm")}>
@@ -136,13 +170,15 @@ function VisualLead({
       <AvatarFallback
         className={cn(
           "font-bold text-primary",
-          notification.type === "MOONIE_DAILY_PICK"
-            ? "bg-fuchsia-50"
+          platformAnnouncement || notification.type === "MOONIE_DAILY_PICK"
+            ? "bg-gradient-to-br from-[#4C2A67] to-[#6E46C7] text-white"
             : "bg-violet-100",
           compact ? "text-xs" : "text-sm"
         )}
       >
-        {notification.type === "MOONIE_DAILY_PICK" ? "M" : getInitials(name)}
+        {platformAnnouncement || notification.type === "MOONIE_DAILY_PICK"
+          ? "M"
+          : getInitials(name)}
       </AvatarFallback>
     </Avatar>
   );
@@ -157,8 +193,13 @@ function CardBody({
 }) {
   const isRead = row.kind === "group" ? row.isRead : row.notification.isRead;
   const type = row.kind === "group" ? row.type : row.notification.type;
+  const platformAnnouncement = isPlatformAnnouncementRow(row);
   const headline =
-    row.kind === "group" ? row.headline : row.notification.headline;
+    row.kind === "group"
+      ? row.headline
+      : platformAnnouncement
+        ? PLATFORM_ANNOUNCEMENT_HEADLINE
+        : row.notification.headline;
   const subline =
     row.kind === "group" ? row.subline : row.notification.subline;
   const createdAt =
@@ -167,7 +208,7 @@ function CardBody({
   return (
     <div className="min-w-0 flex-1">
       <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
-        <TypeChip type={type} />
+        <TypeChip type={type} platformAnnouncement={platformAnnouncement} />
         <time
           dateTime={createdAt}
           className="text-xs text-muted-foreground"
@@ -210,7 +251,11 @@ function getFollowBackTarget(
   };
 }
 
-export function NotificationCard({ row, onOpen, compact = false }: NotificationCardProps) {
+export function NotificationCard({
+  row,
+  onOpen,
+  compact = false,
+}: NotificationCardProps) {
   const isRead = row.kind === "group" ? row.isRead : row.notification.isRead;
   const link = row.kind === "group" ? row.link : row.notification.link;
   const ids =
@@ -218,9 +263,15 @@ export function NotificationCard({ row, onOpen, compact = false }: NotificationC
       ? row.ids
       : [row.notification.id];
   const followBackTarget = getFollowBackTarget(row);
+  const platformAnnouncement = isPlatformAnnouncementRow(row);
+  const platformDetailHref =
+    platformAnnouncement && row.kind === "single"
+      ? `/notifications/${row.notification.id}`
+      : null;
 
   const className = cn(
-    "group flex w-full items-center gap-3 rounded-xl border px-3 py-2.5 text-left transition-all sm:px-4",
+    "group w-full rounded-xl border px-3 py-2.5 text-left transition-all sm:px-4",
+    platformAnnouncement ? "flex flex-col gap-0" : "flex items-center gap-3",
     "border-violet-100/80 bg-white shadow-[0_4px_16px_-12px_rgba(26,16,51,0.3)]",
     "hover:border-primary/20 hover:shadow-[0_10px_24px_-18px_rgba(98,70,234,0.24)]",
     "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary",
@@ -236,7 +287,7 @@ export function NotificationCard({ row, onOpen, compact = false }: NotificationC
 
   if (followBackTarget && link && !link.startsWith("/messages")) {
     return (
-      <div className={className}>
+      <div className={cn(className, "flex items-center gap-3")}>
         <Link
           href={link}
           className="flex min-w-0 flex-1 items-center gap-3"
@@ -269,14 +320,26 @@ export function NotificationCard({ row, onOpen, compact = false }: NotificationC
   }
 
   const content = (
-    <>
+    <div className="flex w-full items-center gap-3">
       {mainContent}
       <ChevronRight
         className="ml-1 size-4 shrink-0 text-muted-foreground/45 transition group-hover:text-primary sm:ml-2"
         aria-hidden
       />
-    </>
+    </div>
   );
+
+  if (platformDetailHref) {
+    return (
+      <Link
+        href={platformDetailHref}
+        className={className}
+        onClick={() => onOpen?.(ids)}
+      >
+        {content}
+      </Link>
+    );
+  }
 
   if (link && !link.startsWith("/messages")) {
     return (
@@ -287,6 +350,18 @@ export function NotificationCard({ row, onOpen, compact = false }: NotificationC
       >
         {content}
       </Link>
+    );
+  }
+
+  if (platformAnnouncement) {
+    return (
+      <button
+        type="button"
+        className={className}
+        onClick={() => onOpen?.(ids)}
+      >
+        {content}
+      </button>
     );
   }
 

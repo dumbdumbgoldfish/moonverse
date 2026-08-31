@@ -35,6 +35,15 @@ const INBOX_FILTERS: NotificationInboxFilter[] = [
   "system",
 ];
 
+export function notificationInboxVersion(
+  notifications: EnrichedNotificationItem[],
+  unreadCount: number
+): string {
+  return `${unreadCount}|${notifications
+    .map((notification) => `${notification.id}:${notification.isRead ? "1" : "0"}`)
+    .join(",")}`;
+}
+
 export function parseNotificationInboxFilter(
   value: string | null | undefined
 ): NotificationInboxFilter {

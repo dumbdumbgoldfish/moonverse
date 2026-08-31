@@ -5,6 +5,11 @@ import {
   extractUsernameFromLink,
   parseNotificationMetadata,
 } from "@/lib/notifications/inbox";
+import {
+  isPlatformAnnouncementMessage,
+  parsePlatformAnnouncementMessage,
+  PLATFORM_ANNOUNCEMENT_HEADLINE,
+} from "@/lib/notifications/platform-announcement";
 import { getFollowingIds } from "@/services/follow-queries";
 import type {
   EnrichedNotificationItem,
@@ -78,6 +83,9 @@ function buildHeadline(
   if (type === "MOONIE_DAILY_PICK") {
     return "Moonie's daily pick";
   }
+  if (type === "DIGEST" && isPlatformAnnouncementMessage(message)) {
+    return PLATFORM_ANNOUNCEMENT_HEADLINE;
+  }
   if (type === "REPORT_UPDATE" || type === "DIGEST") {
     return message.split(".")[0] ?? message;
   }
@@ -103,6 +111,10 @@ function buildSubline(
   }
   if (type === "MOONIE_DAILY_PICK") {
     return message.replace(/^Today's pick:\s*/i, "").split(".")[0] ?? null;
+  }
+  if (type === "DIGEST" && isPlatformAnnouncementMessage(message)) {
+    const body = parsePlatformAnnouncementMessage(message);
+    return body.length > 120 ? `${body.slice(0, 117).trim()}…` : body;
   }
   if (type === "NEW_FOLLOWER" && metadata?.actorUsername) {
     return `@${metadata.actorUsername}`;
@@ -364,6 +376,18 @@ export async function markAllNotificationsAsRead(userId: string): Promise<void> 
     where: { userId, isRead: false },
     data: { isRead: true },
   });
+}
+
+export async function getEnrichedNotificationForUser(
+  userId: string,
+  notificationId: string
+): Promise<EnrichedNotificationItem | null> {
+  const notification = await db.notification.findFirst({
+    where: { id: notificationId, userId },
+  });
+  if (!notification) return null;
+  const enriched = await enrichNotifications(userId, [mapNotification(notification)]);
+  return enriched[0] ?? null;
 }
 
 export async function safeGetEnrichedNotificationsByUser(

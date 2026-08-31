@@ -19,6 +19,7 @@ import {
   countUnreadByFilter,
   groupInboxRows,
   notificationMatchesFilter,
+  notificationInboxVersion,
   parseNotificationInboxFilter,
 } from "@/lib/notifications/inbox";
 import { SITE_PAGE_SHELL_CLASS } from "@/lib/site-shell";
@@ -74,7 +75,10 @@ const EMPTY_COPY: Record<
 export function NotificationInbox(props: NotificationInboxProps) {
   return (
     <Suspense fallback={<NotificationInboxFallback />}>
-      <NotificationInboxInner {...props} />
+      <NotificationInboxInner
+        key={notificationInboxVersion(props.notifications, props.unreadCount)}
+        {...props}
+      />
     </Suspense>
   );
 }
