@@ -111,20 +111,21 @@ function DoorCovers({
   return (
     <div
       className="relative h-[8.5rem] overflow-hidden rounded-xl bg-gradient-to-b from-[#2a1840]/8 via-[#f4ecf8] to-[#fff6e8]"
-      aria-hidden
     >
       <div className="relative mx-auto h-full w-full max-w-[18rem]">
         {shown.map((cover, index) => {
           const offset = index - (shown.length - 1) / 2;
           return (
-            <div
+            <Link
               key={cover.novelId}
-              className="absolute top-2.5 aspect-[2/3] w-[4rem] overflow-hidden rounded-lg border-2 border-white shadow-[0_12px_20px_-10px_rgba(26,18,36,0.55)] [&_p]:invisible"
+              href={`/novels/${cover.novelId}`}
+              className="absolute top-2.5 aspect-[2/3] w-[4rem] overflow-hidden rounded-lg border-2 border-white shadow-[0_12px_20px_-10px_rgba(26,18,36,0.55)] transition hover:-translate-y-0.5 hover:shadow-[0_16px_24px_-10px_rgba(26,18,36,0.65)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#C89B4A] [&_p]:invisible"
               style={{
                 left: `calc(50% + ${offset * 1.55}rem)`,
                 transform: `translateX(-50%) rotate(${offset * 7}deg)`,
                 zIndex: index === Math.floor(shown.length / 2) ? 4 : index + 1,
               }}
+              aria-label={`${cover.title} by ${cover.author}`}
             >
               <CoverImage
                 src={cover.coverUrl}
@@ -135,7 +136,7 @@ function DoorCovers({
                 sizes="80px"
                 compactFallback
               />
-            </div>
+            </Link>
           );
         })}
         <div className="pointer-events-none absolute inset-x-6 bottom-0 h-8 rounded-[100%] bg-[radial-gradient(ellipse_at_center,rgba(200,155,74,0.35),transparent_70%)] blur-md" />
@@ -156,14 +157,11 @@ function DoorCard({
   const featuredTitle = door.featuredTitle ?? door.covers[0]?.title;
 
   return (
-    <Link
-      href={door.href}
-      aria-label={`${door.name}. ${shelf}.`}
+    <article
       className={cn(
         "group relative flex h-full flex-col overflow-hidden rounded-2xl bg-[#FFFBFF] p-4",
         "border border-white/70 shadow-[0_22px_50px_-30px_rgba(26,18,36,0.75)]",
         "transition duration-300 hover:-translate-y-1 hover:border-[#C89B4A]/55",
-        "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#C89B4A]",
         "motion-reduce:transform-none motion-reduce:transition-none"
       )}
     >
@@ -179,7 +177,11 @@ function DoorCard({
         aria-hidden
       />
 
-      <div className="relative flex items-start gap-3">
+      <Link
+        href={door.href}
+        aria-label={`${door.name}. ${shelf}.`}
+        className="relative flex items-start gap-3 rounded-lg focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#C89B4A]"
+      >
         <span
           className={cn(
             "flex size-11 shrink-0 items-center justify-center rounded-2xl bg-gradient-to-br text-white shadow-md",
@@ -201,33 +203,38 @@ function DoorCard({
             </span>
           ) : null}
         </div>
-      </div>
+      </Link>
 
       <div className="relative mt-3.5">
         <DoorCovers covers={door.covers} hasTitles={door.titleCount > 0} />
       </div>
 
-      <p className="relative mt-3 line-clamp-2 text-sm leading-relaxed text-slate-600">
-        {door.blurb}
-      </p>
+      <Link
+        href={door.href}
+        className="relative mt-3 flex flex-1 flex-col rounded-lg focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#C89B4A]"
+      >
+        <p className="line-clamp-2 text-sm leading-relaxed text-slate-600">
+          {door.blurb}
+        </p>
 
-      {featuredTitle ? (
-        <p className="relative mt-2.5">
-          <span className="text-[11px] font-bold uppercase tracking-[0.14em] text-violet-600">
-            On the shelf
-          </span>
-          <span className="mt-1 block line-clamp-1 font-serif text-[0.95rem] font-bold text-[#1a1033]">
-            {featuredTitle}
-          </span>
-        </p>
-      ) : (
-        <p className="relative mt-2.5 text-sm text-slate-500">
-          {door.titleCount > 0
-            ? "Open this door to browse live titles on the shelf."
-            : "This door is waiting for catalogue titles."}
-        </p>
-      )}
-    </Link>
+        {featuredTitle ? (
+          <p className="mt-2.5">
+            <span className="text-[11px] font-bold uppercase tracking-[0.14em] text-violet-600">
+              On the shelf
+            </span>
+            <span className="mt-1 block line-clamp-1 font-serif text-[0.95rem] font-bold text-[#1a1033]">
+              {featuredTitle}
+            </span>
+          </p>
+        ) : (
+          <p className="mt-2.5 text-sm text-slate-500">
+            {door.titleCount > 0
+              ? "Open this door to browse live titles on the shelf."
+              : "This door is waiting for catalogue titles."}
+          </p>
+        )}
+      </Link>
+    </article>
   );
 }
 

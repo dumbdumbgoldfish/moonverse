@@ -1,7 +1,6 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import Image from "next/image";
 import Link from "next/link";
 import {
   ChevronLeft,
@@ -11,9 +10,8 @@ import {
 } from "lucide-react";
 import { CatalogLink } from "@/components/ui/CatalogLink";
 import { cn } from "@/lib/utils";
-import { canUseNextImageCover, isMissingCoverUrl, shouldSkipCoverOptimizer } from "@/lib/review-utils";
+import { CoverImage } from "@/components/ui/CoverImage";
 import { FloatingMoon } from "@/components/landing/LandingDecor";
-import { DefaultNovelCover } from "@/components/novels/DefaultNovelCover";
 import type { TrendingNovelPreview } from "@/types/discovery";
 
 interface LandingTrendingProps {
@@ -27,39 +25,21 @@ function TrendingCover({
   novel: TrendingNovelPreview;
   priority: boolean;
 }) {
-  const useDesignedFallback = isMissingCoverUrl(novel.coverUrl);
-
   return (
     <div className="relative aspect-[2/3] w-full overflow-hidden bg-violet-100">
-      {useDesignedFallback ? (
-        <DefaultNovelCover
-          title={novel.title}
-          author={novel.author}
-          genres={novel.primaryGenre ? [novel.primaryGenre] : []}
-          rating={novel.averageRating}
-          reviewCount={novel.reviewCount}
-          themeSeed={novel.novelId}
-          className="absolute inset-0"
-        />
-      ) : canUseNextImageCover(novel.coverUrl) ? (
-        <Image
-          src={novel.coverUrl}
-          alt={`Cover of ${novel.title}`}
-          fill
-          sizes="(max-width: 640px) 210px, 230px"
-          className="object-cover"
-          priority={priority}
-          unoptimized={shouldSkipCoverOptimizer(novel.coverUrl)}
-        />
-      ) : (
-        // eslint-disable-next-line @next/next/no-img-element -- host not in next/image allowlist
-        <img
-          src={novel.coverUrl}
-          alt={`Cover of ${novel.title}`}
-          className="absolute inset-0 h-full w-full object-cover"
-          loading={priority ? "eager" : "lazy"}
-        />
-      )}
+      <CoverImage
+        src={novel.coverUrl}
+        alt={`Cover of ${novel.title}`}
+        title={novel.title}
+        author={novel.author}
+        genres={novel.primaryGenre ? [novel.primaryGenre] : []}
+        rating={novel.averageRating}
+        reviewCount={novel.reviewCount}
+        themeSeed={novel.novelId}
+        sizes="(max-width: 640px) 210px, 230px"
+        priority={priority}
+        compactFallback
+      />
     </div>
   );
 }

@@ -15,8 +15,8 @@ import {
   Starfield,
   TwoToneCurve,
 } from "@/components/landing/LandingDecor";
-import { DefaultNovelCover } from "@/components/novels/DefaultNovelCover";
-import { isMissingCoverUrl, canUseNextImageCover, shouldSkipCoverOptimizer } from "@/lib/review-utils";
+import { CoverImage } from "@/components/ui/CoverImage";
+import { canUseNextImageCover, isMissingCoverUrl } from "@/lib/review-utils";
 import { CatalogLink } from "@/components/ui/CatalogLink";
 import { cn } from "@/lib/utils";
 import type { ReadingListPreview, TrendingNovelPreview } from "@/types/discovery";
@@ -73,36 +73,19 @@ function CoverArt({
   priority: boolean;
   className?: string;
 }) {
-  const useFallback = isMissingCoverUrl(item.coverUrl);
-
   return (
     <div className={cn("relative overflow-hidden bg-[#1e1636]", className)}>
-      {useFallback ? (
-        <DefaultNovelCover
-          title={item.title}
-          author={item.subtitle}
-          themeSeed={item.id}
-          className="absolute inset-0"
-        />
-      ) : canUseNextImageCover(item.coverUrl) ? (
-        <Image
-          src={item.coverUrl}
-          alt=""
-          fill
-          sizes="280px"
-          className="object-cover transition-transform duration-700 group-hover:scale-[1.06] motion-reduce:transition-none motion-reduce:group-hover:scale-100"
-          priority={priority}
-          unoptimized={shouldSkipCoverOptimizer(item.coverUrl)}
-        />
-      ) : (
-        // eslint-disable-next-line @next/next/no-img-element -- host not in next/image allowlist
-        <img
-          src={item.coverUrl}
-          alt=""
-          className="absolute inset-0 h-full w-full object-cover transition-transform duration-700 group-hover:scale-[1.06] motion-reduce:transition-none motion-reduce:group-hover:scale-100"
-          loading={priority ? "eager" : "lazy"}
-        />
-      )}
+      <CoverImage
+        src={item.coverUrl}
+        alt=""
+        title={item.title}
+        author={item.subtitle}
+        themeSeed={item.id}
+        sizes="280px"
+        priority={priority}
+        compactFallback
+        className="transition-transform duration-700 group-hover:scale-[1.06] motion-reduce:transition-none motion-reduce:group-hover:scale-100"
+      />
     </div>
   );
 }

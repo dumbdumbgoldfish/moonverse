@@ -1,6 +1,9 @@
 import { redirect } from "next/navigation";
-import { auth } from "@/lib/auth";
-import { isAdminRole } from "@/lib/admin-redirect";
+import { getSession } from "@/lib/session";
+import {
+  isAdminRole,
+  shouldRenderPublicLanding,
+} from "@/lib/admin-redirect";
 import { MarketingLandingPage } from "@/components/landing/MarketingLandingPage";
 import { hasCompletedOnboarding } from "@/services/preference.service";
 import {
@@ -15,10 +18,15 @@ import {
 
 export const dynamic = "force-dynamic";
 
-export default async function RootPage() {
-  const session = await auth();
+export default async function RootPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ public?: string | string[] }>;
+}) {
+  const showPublicLanding = shouldRenderPublicLanding(await searchParams);
+  const session = await getSession();
 
-  if (session?.user?.id) {
+  if (session?.user?.id && !showPublicLanding) {
     if (isAdminRole(session.user.role)) {
       redirect("/admin");
     }

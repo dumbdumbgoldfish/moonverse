@@ -89,7 +89,7 @@ export function LandingHero({ reviews }: LandingHeroProps) {
   const featured = covers[0];
 
   return (
-    <section id="night" className="mv-land text-white">
+    <section id="night" className="mv-land mv-land-hero-fill text-white">
       <NightAtmosphere intensity="rich" />
       <FloatingMoon
         size={140}
@@ -105,41 +105,41 @@ export function LandingHero({ reviews }: LandingHeroProps) {
         aria-hidden
       />
 
-      <div className="mv-land-shell grid items-center gap-6 lg:grid-cols-[1.05fr_0.95fr] lg:gap-10 xl:gap-14">
+      <div className="mv-land-shell grid items-center gap-4 sm:gap-5 lg:flex-1 lg:grid-cols-[1.05fr_0.95fr] lg:gap-8 xl:gap-10">
         <div className="max-w-2xl lg:max-w-none">
           <p className="inline-flex items-center gap-1.5 text-[11px] font-bold uppercase tracking-[0.16em] text-[#F6C85F]">
             <Sparkles className="size-3.5" aria-hidden />
             Read · Review · Discover
           </p>
-          <h1 className="mt-2 font-serif text-[2.35rem] font-black leading-[1.06] tracking-tight sm:text-[2.75rem] lg:text-[3.1rem]">
+          <h1 className="mt-1.5 font-serif text-[2rem] font-black leading-[1.06] tracking-tight sm:text-[2.35rem] lg:text-[2.65rem] xl:text-[2.85rem]">
             Find web novels{" "}
             <span className="bg-gradient-to-r from-white via-white to-[#F6C85F] bg-clip-text text-transparent">
               worth your night.
             </span>
           </h1>
-          <p className="mt-4 max-w-xl text-base leading-relaxed text-white/75 sm:text-lg">
+          <p className="mt-3 max-w-xl text-[0.95rem] leading-relaxed text-white/75 sm:text-base">
             A quiet place for thoughtful reviews, curated shelves and Moonie
             recommendations shaped by real readers.
           </p>
 
-          <div className="mt-6 flex flex-wrap items-center gap-3">
+          <div className="mt-4 flex flex-wrap items-center gap-2.5 sm:mt-5 sm:gap-3">
             <Button
               size="lg"
-              className="mv-nav-signup h-12 rounded-full border-0 px-7 text-base font-bold text-white"
+              className="mv-nav-signup h-11 rounded-full border-0 px-6 text-base font-bold text-white sm:h-12 sm:px-7"
               render={<Link href="/browse" />}
             >
               Browse the stacks
             </Button>
             <AskMoonieLink
               size="lg"
-              className="h-12 px-6 text-base font-bold"
+              className="h-11 px-5 text-base font-bold sm:h-12 sm:px-6"
             />
             <CatalogLink href="/#doorways" tone="night" size="compact">
               Browse by genre
             </CatalogLink>
           </div>
 
-          <p className="mt-4 flex max-w-lg items-start gap-2 text-sm font-medium leading-relaxed text-white/65">
+          <p className="mt-3 flex max-w-lg items-start gap-2 text-sm font-medium leading-relaxed text-white/65 sm:mt-3.5">
             <CheckCircle2
               className="mt-0.5 size-4 shrink-0 text-[#F6C85F]"
               aria-hidden
@@ -150,31 +150,31 @@ export function LandingHero({ reviews }: LandingHeroProps) {
 
         <div className="relative mx-auto w-full max-w-lg lg:max-w-none">
           <div
-            className="pointer-events-none absolute left-1/2 top-[10%] size-56 -translate-x-1/2 rounded-full bg-[#a78bfa]/35 blur-3xl sm:size-72"
+            className="pointer-events-none absolute left-1/2 top-[6%] size-48 -translate-x-1/2 rounded-full bg-[#a78bfa]/35 blur-3xl sm:size-56 lg:size-60"
             aria-hidden
           />
 
           <div className="relative flex justify-center">
             <MoonieMascot
-              size={228}
+              size={188}
               variant="waving"
               display="hero"
               priority
               showGlow
-              className="relative z-[2] origin-bottom animate-moonie-float motion-reduce:animate-none max-sm:scale-[0.88]"
+              className="relative z-[2] origin-bottom animate-moonie-float motion-reduce:animate-none max-sm:scale-[0.82] lg:max-h-[11.5rem] lg:w-auto lg:scale-[0.92]"
             />
           </div>
 
           {covers.length > 0 ? (
-            <div className="relative z-[3] mx-auto -mt-1 max-w-md sm:-mt-3 lg:max-w-none">
-              <p className="mb-2 text-center text-[10px] font-bold uppercase tracking-[0.14em] text-[#F6C85F]/85">
+            <div className="relative z-[3] mx-auto -mt-2 max-w-md sm:-mt-2 lg:max-w-none">
+              <p className="mb-1.5 text-center text-[10px] font-bold uppercase tracking-[0.14em] text-[#F6C85F]/85">
                 On the desk tonight
               </p>
-              <div className="flex items-end justify-center gap-1.5 sm:gap-3">
+              <div className="flex items-end justify-center gap-1 sm:gap-2.5">
                 {covers[1] ? (
                   <HeroCover
                     review={covers[1]}
-                    className="hidden w-[26%] -rotate-[7deg] translate-y-4 sm:block"
+                    className="hidden w-[24%] -rotate-[7deg] translate-y-3 sm:block"
                   />
                 ) : null}
                 {featured ? (
@@ -182,20 +182,20 @@ export function LandingHero({ reviews }: LandingHeroProps) {
                     review={featured}
                     priority
                     size="lg"
-                    className="z-[1] w-[52%] sm:w-[34%]"
+                    className="z-[1] w-[48%] sm:w-[32%]"
                   />
                 ) : null}
                 {covers[2] ? (
                   <HeroCover
                     review={covers[2]}
-                    className="hidden w-[26%] rotate-[7deg] translate-y-4 sm:block"
+                    className="hidden w-[24%] rotate-[7deg] translate-y-3 sm:block"
                   />
                 ) : null}
               </div>
 
-              <div className="pointer-events-none relative mt-0.5 px-4" aria-hidden>
+              <div className="pointer-events-none relative mt-0 px-4" aria-hidden>
                 <div className="h-px bg-gradient-to-r from-transparent via-[#F6C85F]/60 to-transparent" />
-                <div className="mx-auto h-6 w-[80%] rounded-[100%] bg-[radial-gradient(ellipse_at_center,rgba(246,200,95,0.32),rgba(98,70,234,0.2)_40%,transparent_72%)] blur-md" />
+                <div className="mx-auto h-4 w-[80%] rounded-[100%] bg-[radial-gradient(ellipse_at_center,rgba(246,200,95,0.32),rgba(98,70,234,0.2)_40%,transparent_72%)] blur-md" />
               </div>
             </div>
           ) : null}

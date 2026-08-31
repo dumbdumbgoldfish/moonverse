@@ -2,6 +2,7 @@
 
 import { useEffect, useId, useRef, useState, type ReactNode } from "react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { ChevronDown, type LucideIcon } from "lucide-react";
 import { cn } from "@/lib/utils";
 
@@ -17,6 +18,7 @@ interface NavDropdownProps {
   showCaret?: boolean;
   variant?: NavDropdownVariant;
   active?: boolean;
+  prefetchHrefs?: string[];
 }
 
 export function NavDropdown({
@@ -29,7 +31,9 @@ export function NavDropdown({
   showCaret,
   variant = "menu",
   active = false,
+  prefetchHrefs,
 }: NavDropdownProps) {
+  const router = useRouter();
   const [open, setOpen] = useState(false);
   const rootRef = useRef<HTMLDivElement>(null);
   const openTimer = useRef<number | null>(null);
@@ -46,7 +50,7 @@ export function NavDropdown({
 
   const scheduleOpen = () => {
     clearTimers();
-    openTimer.current = window.setTimeout(() => setOpen(true), 70);
+    setOpen(true);
   };
 
   const scheduleClose = () => {
@@ -55,6 +59,13 @@ export function NavDropdown({
   };
 
   useEffect(() => () => clearTimers(), []);
+
+  useEffect(() => {
+    if (!open || !prefetchHrefs?.length) return;
+    for (const href of prefetchHrefs) {
+      router.prefetch(href);
+    }
+  }, [open, prefetchHrefs, router]);
 
   useEffect(() => {
     if (!open) return;
