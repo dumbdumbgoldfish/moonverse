@@ -4,6 +4,7 @@ import {
   useCallback,
   useEffect,
   useLayoutEffect,
+  useMemo,
   useRef,
   useState,
   useTransition,
@@ -21,6 +22,7 @@ import { FolderFormDialog } from "@/components/folders/FolderFormDialog";
 import { Button } from "@/components/ui/button";
 import { publishCommunityReviewSync } from "@/lib/community-feed-sync";
 import { cn } from "@/lib/utils";
+import { nextReviewSaveCountForMembershipChange } from "@/lib/review-share";
 import type { FolderListItem } from "@/types/folder";
 
 interface AddToFolderMenuProps {
@@ -67,11 +69,11 @@ function nextPublicSaveCount(
   nextIds: string[],
   previousSaveCount: number
 ) {
-  const wasSaved = previousIds.length > 0;
-  const isSaved = nextIds.length > 0;
-  if (!wasSaved && isSaved) return previousSaveCount + 1;
-  if (wasSaved && !isSaved) return Math.max(0, previousSaveCount - 1);
-  return previousSaveCount;
+  return nextReviewSaveCountForMembershipChange(
+    previousIds.length,
+    nextIds.length,
+    previousSaveCount
+  );
 }
 
 export function AddToFolderMenu({
@@ -94,6 +96,10 @@ export function AddToFolderMenu({
     null
   );
   const [createOpen, setCreateOpen] = useState(false);
+  const [folderExtras, setFolderExtras] = useState<{
+    reviewId: string;
+    created: FolderListItem[];
+  }>({ reviewId, created: [] });
   const [errorRecord, setErrorRecord] = useState<{
     reviewId: string;
     message: string;
@@ -129,6 +135,17 @@ export function AddToFolderMenu({
   const error =
     errorRecord && errorRecord.reviewId === reviewId ? errorRecord.message : null;
 
+  const createdFolders =
+    folderExtras.reviewId === reviewId ? folderExtras.created : [];
+
+  const localFolders = useMemo(() => {
+    const byId = new Map(folders.map((folder) => [folder.id, folder]));
+    for (const folder of createdFolders) {
+      byId.set(folder.id, folder);
+    }
+    return [...byId.values()].sort((a, b) => a.name.localeCompare(b.name));
+  }, [createdFolders, folders]);
+
   const updateMenuPosition = useCallback(() => {
     const anchor = buttonRef.current;
     if (!anchor) return;
@@ -161,7 +178,7 @@ export function AddToFolderMenu({
   useLayoutEffect(() => {
     if (!open || !menuRef.current) return;
     updateMenuPosition();
-  }, [open, folders.length, localSavedIds.length, error, updateMenuPosition]);
+  }, [open, localFolders.length, localSavedIds.length, error, updateMenuPosition]);
 
   useEffect(() => {
     if (!open) return;
@@ -310,8 +327,6 @@ export function AddToFolderMenu({
     isPublic: boolean;
   }) => {
     const requestReviewId = reviewId;
-    const snapshotIds = nextFolderMenu.localSavedIds;
-    const snapshotSaveCount = nextFolderMenu.publicSaveCount;
     const requestId = mutationGenerationRef.current + 1;
     mutationGenerationRef.current = requestId;
 
@@ -331,47 +346,24 @@ export function AddToFolderMenu({
         return { success: false, error: result.error };
       }
 
-      if (result.folderId) {
-        const addResult = await addReviewToFolderAction(
-          result.folderId,
-          requestReviewId
-        );
-        if (!addResult.success) {
-          return { success: false, error: addResult.error };
-        }
-
-        if (mutationGenerationRef.current === requestId) {
-          const nextIds = snapshotIds.includes(result.folderId)
-            ? snapshotIds
-            : [...snapshotIds, result.folderId];
-          const optimisticCount = nextPublicSaveCount(
-            snapshotIds,
-            nextIds,
-            snapshotSaveCount
-          );
-          const nextSaveCount =
-            addResult.saveCount !== undefined
-              ? addResult.saveCount
-              : optimisticCount;
-
-          setFolderMenu((current) => {
-            if (current.reviewId !== requestReviewId) return current;
-            return {
-              ...current,
-              localSavedIds: nextIds,
-              publicSaveCount: nextSaveCount,
-              mutationPending: false,
-            };
-          });
-          publishCommunityReviewSync({
+      if (result.folder) {
+        setFolderExtras((current) => {
+          const created =
+            current.reviewId === requestReviewId ? current.created : [];
+          if (created.some((folder) => folder.id === result.folder!.id)) {
+            return { reviewId: requestReviewId, created };
+          }
+          return {
             reviewId: requestReviewId,
-            savedFolderIds: nextIds,
-          });
-        }
+            created: [...created, result.folder!],
+          };
+        });
       }
 
       router.refresh();
       setCreateOpen(false);
+      updateMenuPosition();
+      setOpen(true);
       return { success: true };
     } finally {
       if (mutationGenerationRef.current === requestId) {
@@ -399,13 +391,13 @@ export function AddToFolderMenu({
       >
         <p className="mb-2 text-sm font-medium">Save to folder</p>
 
-        {folders.length === 0 ? (
+        {localFolders.length === 0 ? (
           <p className="mb-3 text-sm text-muted-foreground">
             You have no folders yet. Create one below.
           </p>
         ) : (
           <ul className="mb-3 max-h-48 space-y-1 overflow-y-auto">
-            {folders.map((folder) => {
+            {localFolders.map((folder) => {
               const checked = localSavedIds.includes(folder.id);
               return (
                 <li key={folder.id}>
@@ -513,7 +505,14 @@ export function AddToFolderMenu({
 
       <FolderFormDialog
         open={createOpen}
-        onOpenChange={setCreateOpen}
+        onOpenChange={(open) => {
+          setCreateOpen(open);
+          if (!open) {
+            window.requestAnimationFrame(() => {
+              buttonRef.current?.querySelector("button")?.focus();
+            });
+          }
+        }}
         mode="create"
         onSubmit={handleCreateFolder}
       />

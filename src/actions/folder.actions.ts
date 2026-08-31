@@ -11,7 +11,7 @@ import {
   toggleFolderFeatured,
   updateFolder,
 } from "@/services/folder.service";
-import type { CreateFolderInput, UpdateFolderInput } from "@/types/folder";
+import type { CreateFolderInput, FolderListItem, UpdateFolderInput } from "@/types/folder";
 
 export type FolderActionResult =
   | { success: true }
@@ -37,12 +37,12 @@ function revalidateFolderPaths(folderId?: string, reviewId?: string) {
 
 export async function createFolderAction(
   data: CreateFolderInput
-): Promise<FolderActionResult & { folderId?: string }> {
+): Promise<FolderActionResult & { folderId?: string; folder?: FolderListItem }> {
   try {
     const userId = await requireUserId();
     const folder = await createFolder(userId, data);
     revalidateFolderPaths();
-    return { success: true, folderId: folder.id };
+    return { success: true, folderId: folder.id, folder };
   } catch (error) {
     if (error instanceof Error) {
       return { success: false, error: error.message };
