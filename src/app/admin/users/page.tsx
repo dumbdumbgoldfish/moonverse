@@ -1,5 +1,5 @@
 import { Suspense } from "react";
-import { auth } from "@/lib/auth";
+import { getSession } from "@/lib/session";
 import { AdminSearchBar } from "@/components/admin/AdminSearchBar";
 import { AdminUsersTable } from "@/components/admin/AdminUsersTable";
 import { AdminEmptyState, AdminPageHeader, AdminPagination } from "@/components/admin/AdminUi";
@@ -16,7 +16,7 @@ export default async function AdminUsersPage({ searchParams }: AdminUsersPagePro
   const page = Math.max(1, Number(pageParam) || 1);
   const [result, session] = await Promise.all([
     getAdminUsers(q, page),
-    auth(),
+    getSession(),
   ]);
 
   return (

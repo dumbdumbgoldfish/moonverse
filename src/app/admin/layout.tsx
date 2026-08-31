@@ -1,6 +1,6 @@
 import { redirect } from "next/navigation";
 import { UserRole } from "@prisma/client";
-import { auth } from "@/lib/auth";
+import { getSession } from "@/lib/session";
 import { AdminShell } from "@/components/admin/AdminShell";
 import { ForbiddenMessage } from "@/components/layout/ForbiddenMessage";
 
@@ -11,7 +11,7 @@ export default async function AdminLayout({
 }: {
   children: React.ReactNode;
 }) {
-  const session = await auth();
+  const session = await getSession();
 
   if (!session?.user?.id) {
     redirect("/login?callbackUrl=/admin");
