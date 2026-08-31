@@ -1,6 +1,7 @@
 import { auth } from "@/lib/auth";
 import { db } from "@/lib/db";
 import { resolveSessionImageUrl } from "@/lib/session-image";
+import { guestReviewPreviewBody } from "@/lib/review-utils";
 import type { FolderListItem } from "@/types/folder";
 import { getCommentsByReviewId } from "@/services/comment.service";
 import {
@@ -50,7 +51,12 @@ export async function loadCommunityReviewModal(
   ]);
 
   return {
-    review,
+    review: isLoggedIn
+      ? review
+      : {
+          ...review,
+          body: guestReviewPreviewBody(review.body, review.excerpt),
+        },
     comments,
     reviewerStats,
     isLoggedIn,

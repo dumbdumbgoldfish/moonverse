@@ -1,5 +1,6 @@
 import { notFound } from "next/navigation";
 import { ReviewDetailView } from "@/components/reviews/detail/ReviewDetailView";
+import { guestReviewPreviewBody } from "@/lib/review-utils";
 import { auth } from "@/lib/auth";
 import type { FolderListItem } from "@/types/folder";
 import { getCommentsByReviewId } from "@/services/comment.service";
@@ -154,7 +155,12 @@ export default async function ReviewDetailPage({ params }: ReviewDetailPageProps
 
   const readingLinks = readingLinksMap.get(review.novelId) ?? [];
   const jsonLd = buildReviewJsonLd(review, stats);
-  const displayReview = review;
+  const displayReview = isLoggedIn
+    ? review
+    : {
+        ...review,
+        body: guestReviewPreviewBody(review.body, review.excerpt),
+      };
   const displayRecommendations = isLoggedIn ? recommendations : [];
 
   return (

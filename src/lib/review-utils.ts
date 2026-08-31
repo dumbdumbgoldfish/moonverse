@@ -1,3 +1,4 @@
+export { getInitials } from "@/lib/initials";
 export const DEFAULT_COVER_URL = "";
 
 /** True when there is no usable cover image (missing or old picsum placeholder). */
@@ -6,18 +7,21 @@ export function isMissingCoverUrl(coverUrl: string | null | undefined): boolean 
   return coverUrl.includes("picsum.photos");
 }
 
-export function getInitials(name: string): string {
-  return name
-    .split(/\s+/)
-    .map((part) => part[0])
-    .join("")
-    .slice(0, 2)
-    .toUpperCase();
-}
-
 export function excerpt(text: string, maxLength = 150): string {
   if (text.length <= maxLength) return text;
   return `${text.slice(0, maxLength).trim()}…`;
+}
+
+
+/** Guest-visible review text cap — full body requires authentication. */
+export function guestReviewPreviewBody(
+  body: string,
+  excerptText?: string | null,
+  maxLength = 420
+): string {
+  const source = (excerptText?.trim() || body).trim();
+  if (source.length <= maxLength) return source;
+  return `${source.slice(0, maxLength).trimEnd()}…`;
 }
 
 /**
