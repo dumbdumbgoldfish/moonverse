@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import { describe, it } from "node:test";
 import {
   effectiveNovelLengthBand,
+  EMPTY_HARD_CONSTRAINTS,
   inferLengthBandFromChapterCount,
   novelMatchesHardConstraints,
 } from "@/lib/moonie/hard-constraints";
@@ -27,12 +28,8 @@ describe("novel length from chapterCount", () => {
           chapterCount: 42,
         },
         {
-          genres: [],
-          tags: [],
-          inclusionMatch: "all",
-          genreMatch: "all",
+          ...EMPTY_HARD_CONSTRAINTS,
           status: "completed",
-          language: null,
           length: "short",
         }
       ),
@@ -50,12 +47,8 @@ describe("novel length from chapterCount", () => {
           chapterCount: null,
         },
         {
-          genres: [],
-          tags: [],
-          inclusionMatch: "all",
-          genreMatch: "all",
+          ...EMPTY_HARD_CONSTRAINTS,
           status: "completed",
-          language: null,
           length: "short",
         }
       ),

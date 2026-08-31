@@ -19,7 +19,7 @@ import { demoRecommendation } from "@/lib/moonie/demo-acceptance-fixtures";
 import { handleMoonieRequest } from "./moonie-response.service";
 
 function rec(id: string, title: string, genres: string[] = ["Fantasy"]) {
-  return demoRecommendation(id, title, genres);
+  return demoRecommendation(id, title, { genres });
 }
 
 describe("prior recommendation id hydration", () => {

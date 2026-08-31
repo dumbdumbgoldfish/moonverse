@@ -27,8 +27,12 @@ import {
 import { handleMoonieRequest } from "@/services/moonie-response.service";
 
 function fixtureCandidate(
-  overrides: Partial<NovelCandidate> & Pick<NovelCandidate, "id" | "title">
+  overrides: Omit<Partial<NovelCandidate>, "historySignals"> &
+    Pick<NovelCandidate, "id" | "title"> & {
+      historySignals?: Partial<NonNullable<NovelCandidate["historySignals"]>>;
+    }
 ): NovelCandidate {
+  const { historySignals: historyOverrides, ...rest } = overrides;
   return {
     author: "Author",
     coverUrl: null,
@@ -55,8 +59,15 @@ function fixtureCandidate(
     },
     semantic: 0.2,
     lexical: 0,
-    historySignals: {},
-    ...overrides,
+    historySignals: {
+      onReadingList: false,
+      savedNovel: false,
+      moreLikeThis: false,
+      helpful: false,
+      tasteGenreAffinity: false,
+      ...historyOverrides,
+    },
+    ...rest,
   };
 }
 

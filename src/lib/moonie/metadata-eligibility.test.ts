@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
-import { novelMatchesHardConstraints } from "@/lib/moonie/hard-constraints";
+import { EMPTY_HARD_CONSTRAINTS, novelMatchesHardConstraints } from "@/lib/moonie/hard-constraints";
 import {
   constraintEligibleAfterFieldRemoval,
   constraintEligibleGenreLabels,
@@ -128,10 +128,8 @@ describe("metadata eligibility", () => {
           chapterCount: 40,
         },
         {
-          genres: [],
+          ...EMPTY_HARD_CONSTRAINTS,
           tags: ["slice-of-life"],
-          inclusionMatch: "all",
-          genreMatch: "all",
           status: "completed",
           language: "en",
           length: "short",
@@ -154,10 +152,8 @@ describe("metadata eligibility", () => {
           chapterCount: 40,
         },
         {
-          genres: [],
+          ...EMPTY_HARD_CONSTRAINTS,
           tags: ["slice-of-life"],
-          inclusionMatch: "all",
-          genreMatch: "all",
           status: "completed",
           language: "en",
           length: "short",
@@ -180,10 +176,8 @@ describe("metadata eligibility", () => {
           chapterCount: 40,
         },
         {
-          genres: [],
+          ...EMPTY_HARD_CONSTRAINTS,
           tags: ["slice-of-life"],
-          inclusionMatch: "all",
-          genreMatch: "all",
           status: "completed",
           language: "en",
           length: "short",

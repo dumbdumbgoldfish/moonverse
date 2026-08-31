@@ -28,6 +28,7 @@ import {
   buildHardConstraintNoResultsCopy,
   buildHardConstraintUnknownStatusCopy,
   buildHardConstraintExhaustionCopy,
+  EMPTY_HARD_CONSTRAINTS,
   filterNovelsByHardConstraints,
   novelMatchesHardConstraints,
   hasHardInclusionConstraints,
@@ -115,13 +116,8 @@ describe("current-turn hard recommendation constraints", () => {
     assert.equal(shouldRelaxRestrictiveRetrieval(null), true);
     assert.equal(
       shouldRelaxRestrictiveRetrieval({
-        genres: [],
-        tags: [],
-        inclusionMatch: "all",
-        genreMatch: "all",
+        ...EMPTY_HARD_CONSTRAINTS,
         status: "completed",
-        language: null,
-        length: null,
       }),
       false
     );
@@ -470,13 +466,7 @@ describe("current-turn hard recommendation constraints", () => {
     assert.equal(shouldKeepGroundedReplyAfterPolish(null), false);
     assert.equal(
       shouldKeepGroundedReplyAfterPolish({
-        genres: [],
-        tags: [],
-        inclusionMatch: "all",
-        genreMatch: "all",
-        status: null,
-        language: null,
-        length: null,
+        ...EMPTY_HARD_CONSTRAINTS,
       }),
       false
     );

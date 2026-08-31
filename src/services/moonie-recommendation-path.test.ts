@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import { describe, it } from "node:test";
 import {
   buildCurrentTurnHardConstraints,
+  EMPTY_HARD_CONSTRAINTS,
   novelMatchesHardConstraints,
 } from "@/lib/moonie/hard-constraints";
 import { labelsMatch } from "@/lib/moonie/label-match";
@@ -464,13 +465,9 @@ describe("Moonie recommendation criteria path", () => {
       queryText: "Show me completed definitely-not-a-real-tag novels",
       disableSemantic: true,
       hardConstraints: {
-        genres: [],
+        ...EMPTY_HARD_CONSTRAINTS,
         tags: ["definitely-not-a-real-tag"],
-        genreMatch: "all",
-        inclusionMatch: "all",
         status: "completed",
-        language: null,
-        length: null,
       },
       seekingUnseen: true,
       previouslyShownNovelIds: [],
