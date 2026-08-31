@@ -10,6 +10,7 @@ import { useSignInPrompt } from "@/components/auth/SignInPromptProvider";
 import { AddToFolderMenu } from "@/components/folders/AddToFolderMenu";
 import { Button } from "@/components/ui/button";
 import { publishCommunityReviewSync } from "@/lib/community-feed-sync";
+import { buildReviewSharePayload } from "@/lib/review-share";
 import { triggerMoonieReaction } from "@/lib/moonie/reactions";
 import { cn } from "@/lib/utils";
 import type { FolderListItem } from "@/types/folder";
@@ -184,29 +185,34 @@ export function ReviewActionBar({
   const handleShare = async () => {
     setShareFeedback(null);
     const requestReviewId = reviewId;
-    const url = `${window.location.origin}/reviews/${requestReviewId}`;
+    const { url, title, text } = buildReviewSharePayload(
+      requestReviewId,
+      reviewTitle
+    );
+    let shared = false;
 
     try {
       if (navigator.share) {
-        await navigator.share({
-          title: reviewTitle,
-          text: `Check out this review on MoonVerse: ${reviewTitle}`,
-          url,
-        });
+        await navigator.share({ title, text, url });
+        shared = true;
       } else {
         await navigator.clipboard.writeText(url);
         setShareFeedback("Copied");
+        shared = true;
       }
     } catch (error) {
       if (error instanceof Error && error.name === "AbortError") return;
       try {
         await navigator.clipboard.writeText(url);
         setShareFeedback("Copied");
+        shared = true;
       } catch {
         setShareFeedback("Unable to share");
         return;
       }
     }
+
+    if (!shared) return;
 
     startTransition(async () => {
       const result = await shareReviewAction(requestReviewId);
@@ -265,7 +271,13 @@ export function ReviewActionBar({
           variant="ghost"
           size="sm"
           type="button"
-          onClick={onCommentClick}
+          onClick={() => {
+            if (!isLoggedIn) {
+              promptSignIn(`/reviews/${reviewId}#comments`);
+              return;
+            }
+            onCommentClick();
+          }}
           aria-label={`Comment (${commentCount})`}
           className={actionBtnClass}
         >

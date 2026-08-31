@@ -12,6 +12,7 @@ import { AddToFolderMenu } from "@/components/folders/AddToFolderMenu";
 import { ReportButton } from "@/components/moderation/ReportButton";
 import { Button } from "@/components/ui/button";
 import { triggerMoonieReaction } from "@/lib/moonie/reactions";
+import { buildReviewSharePayload } from "@/lib/review-share";
 import { cn } from "@/lib/utils";
 import type { FolderListItem } from "@/types/folder";
 
@@ -86,18 +87,17 @@ export function ReviewActions({
 
   const handleShare = async () => {
     setShareFeedback(null);
-    const url = window.location.href;
+    const { url, title, text } = buildReviewSharePayload(reviewId, reviewTitle);
+    let shared = false;
 
     try {
       if (navigator.share) {
-        await navigator.share({
-          title: reviewTitle,
-          text: `Check out this review on MoonVerse: ${reviewTitle}`,
-          url,
-        });
+        await navigator.share({ title, text, url });
+        shared = true;
       } else {
         await navigator.clipboard.writeText(url);
         setShareFeedback("Link copied!");
+        shared = true;
       }
     } catch (error) {
       if (error instanceof Error && error.name === "AbortError") {
@@ -106,11 +106,14 @@ export function ReviewActions({
       try {
         await navigator.clipboard.writeText(url);
         setShareFeedback("Link copied!");
+        shared = true;
       } catch {
         setShareFeedback("Unable to share.");
         return;
       }
     }
+
+    if (!shared) return;
 
     startTransition(async () => {
       const result = await shareReviewAction(reviewId);
