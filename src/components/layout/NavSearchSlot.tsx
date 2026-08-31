@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { Suspense } from "react";
 import { Search } from "lucide-react";
 import { NavInlineSearch } from "@/components/landing/NavInlineSearch";
 import { cn } from "@/lib/utils";
@@ -20,7 +20,8 @@ function NavInlineSearchFallback({
     <form
       className={cn("relative w-full", className)}
       role="search"
-      onSubmit={(event) => event.preventDefault()}
+      action="/search"
+      method="get"
     >
       <div
         className={cn(
@@ -42,12 +43,12 @@ function NavInlineSearchFallback({
         </div>
         <input
           id={inputId}
+          name="q"
           type="search"
           placeholder="Search"
           aria-label="Search MoonVerse"
           autoComplete="off"
-          readOnly
-          tabIndex={-1}
+          data-moonverse-search=""
           className={cn(
             "h-full min-w-0 flex-1 rounded-full bg-transparent pr-5 text-sm font-medium text-night-blue outline-none placeholder:text-muted-foreground/70",
             compact ? "pl-10" : "pl-12"
@@ -58,18 +59,14 @@ function NavInlineSearchFallback({
   );
 }
 
-/** Defers `useSearchParams` until after mount so SSR emits a single search field. */
+/**
+ * Search field is focusable immediately. Suggest/results hydrate inside this
+ * boundary so `useSearchParams` cannot hide the site navbar.
+ */
 export function NavSearchSlot(props: NavSearchSlotProps) {
-  const [mounted, setMounted] = useState(false);
-
-  useEffect(() => {
-    const frame = requestAnimationFrame(() => setMounted(true));
-    return () => cancelAnimationFrame(frame);
-  }, []);
-
-  if (!mounted) {
-    return <NavInlineSearchFallback {...props} />;
-  }
-
-  return <NavInlineSearch {...props} />;
+  return (
+    <Suspense fallback={<NavInlineSearchFallback {...props} />}>
+      <NavInlineSearch {...props} />
+    </Suspense>
+  );
 }
