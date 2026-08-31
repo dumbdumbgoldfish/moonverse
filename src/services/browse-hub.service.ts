@@ -1,6 +1,6 @@
 import { Prisma, ReadingLinkCategory, ReadingLinkModerationStatus } from "@prisma/client";
 import { db } from "@/lib/db";
-import { getBrowseWorks } from "@/services/browse.service";
+import { resolveCoverUrl } from "@/lib/review-utils";
 import type { BrowseWorkItem } from "@/types/browse";
 
 const officialReadingLinkWhere: Prisma.ReadingLinkWhereInput = {
@@ -48,7 +48,44 @@ function shelfHref(slug: string) {
   return `/browse/${encodeURIComponent(slug)}?sort=community-strength`;
 }
 
-/** Featured genre mosaics + a cross-genre proof rail for the browse hub. */
+const HUB_COVER_SELECT = {
+  id: true,
+  title: true,
+  author: true,
+  coverUrl: true,
+  publicationStatus: true,
+  _count: { select: { reviews: true } },
+} satisfies Prisma.NovelSelect;
+
+function toHubWork(
+  novel: Prisma.NovelGetPayload<{ select: typeof HUB_COVER_SELECT }>
+): BrowseWorkItem {
+  return {
+    novelId: novel.id,
+    title: novel.title,
+    author: novel.author ?? "Unknown author",
+    coverUrl: resolveCoverUrl(novel.coverUrl, { title: novel.title }),
+    genres: [],
+    tags: [],
+    averageRating: 0,
+    reviewCount: novel._count.reviews,
+    hasOfficialLink: false,
+    href: `/novels/${novel.id}`,
+    bayesianRating: 0,
+    publicationStatus: novel.publicationStatus,
+    synopsis: null,
+    rankExplain: {
+      sort: "community-strength",
+      reasons: ["Featured on the browse hub by community review volume"],
+    },
+  };
+}
+
+/**
+ * Featured genre mosaics + a cross-genre proof rail.
+ * Uses slim cover queries instead of full genre ranking (which loads up to
+ * 200 novels and every review row per shelf).
+ */
 export async function getBrowseHubPayload(
   genreMeta: { slug: string; name: string }[]
 ): Promise<BrowseHubPayload> {
@@ -61,7 +98,7 @@ export async function getBrowseHubPayload(
       const where: Prisma.NovelWhereInput = {
         genres: { some: { slug: genre.slug } },
       };
-      const [novelCount, officialCount, worksPage] = await Promise.all([
+      const [novelCount, officialCount, covers] = await Promise.all([
         db.novel.count({ where }),
         db.novel.count({
           where: {
@@ -69,21 +106,22 @@ export async function getBrowseHubPayload(
             readingLinks: { some: officialReadingLinkWhere },
           },
         }),
-        getBrowseWorks({
-          genreSlug: genre.slug,
-          sort: "community-strength",
-          limit: 5,
-          offset: 0,
+        db.novel.findMany({
+          where,
+          take: 5,
+          orderBy: { reviews: { _count: "desc" } },
+          select: HUB_COVER_SELECT,
         }),
       ]);
 
+      const works = covers.map(toHubWork);
       const shelf: BrowseHubShelf = {
         slug: genre.slug,
         name: genre.name,
         novelCount,
         officialCount,
         href: shelfHref(genre.slug),
-        covers: worksPage.works.slice(0, 4).map((work) => ({
+        covers: works.slice(0, 4).map((work) => ({
           novelId: work.novelId,
           title: work.title,
           author: work.author,
@@ -92,7 +130,7 @@ export async function getBrowseHubPayload(
         })),
       };
 
-      return { shelf, works: worksPage.works };
+      return { shelf, works };
     })
   );
 
