@@ -4,7 +4,6 @@ import { ForYouShelvesClient } from "@/components/home/ForYouShelvesClient";
 import { parseHomeFeedTab } from "@/lib/feed";
 import { LITERARY_SALON_STYLE } from "@/lib/literary-salon";
 import { homeHref, parseHomeView } from "@/lib/home-view";
-import { isAdminRole } from "@/lib/admin-redirect";
 import { requireOnboardedUser } from "@/lib/onboarding-guard";
 import { SITE_SHELL_CLASS } from "@/lib/site-shell";
 import { getOrCreateDailyPick } from "@/services/moonie-daily.service";
@@ -26,9 +25,6 @@ export default async function AuthenticatedHomePage({
   searchParams,
 }: HomePageProps) {
   const session = await requireOnboardedUser("/home");
-  if (isAdminRole(session.user.role)) {
-    redirect("/admin");
-  }
   const params = await searchParams;
   const view = parseHomeView(params.view);
 

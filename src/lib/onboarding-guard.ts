@@ -10,12 +10,11 @@ export async function requireOnboardedUser(callbackPath = "/home") {
   if (!session?.user?.id) {
     redirect(`/login?callbackUrl=${encodeURIComponent(callbackPath)}`);
   }
-  if (isAdminRole(session.user.role)) {
-    redirect("/admin");
-  }
-  const done = await getOnboardingComplete(session.user.id);
-  if (!done) {
-    redirect(ONBOARDING_PATH);
+  if (!isAdminRole(session.user.role)) {
+    const done = await getOnboardingComplete(session.user.id);
+    if (!done) {
+      redirect(ONBOARDING_PATH);
+    }
   }
   return session;
 }
@@ -40,12 +39,11 @@ export async function requireOnboardingPending() {
 export async function redirectIncompleteOnboarding() {
   const session = await getSession();
   if (!session?.user?.id) return session;
-  if (isAdminRole(session.user.role)) {
-    redirect("/admin");
-  }
-  const done = await getOnboardingComplete(session.user.id);
-  if (!done) {
-    redirect(ONBOARDING_PATH);
+  if (!isAdminRole(session.user.role)) {
+    const done = await getOnboardingComplete(session.user.id);
+    if (!done) {
+      redirect(ONBOARDING_PATH);
+    }
   }
   return session;
 }
