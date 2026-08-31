@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 import { AppShell } from "@/components/layout/AppShell";
 import { SessionProvider } from "@/components/providers/SessionProvider";
-import { auth } from "@/lib/auth";
+import { getSession } from "@/lib/session";
 import { getMetadataBase } from "@/lib/site-url";
 import "./globals.css";
 
@@ -21,7 +21,7 @@ export default async function RootLayout({
 }: Readonly<{
   children: React.ReactNode;
 }>) {
-  const session = await auth();
+  const session = await getSession();
 
   return (
     <html

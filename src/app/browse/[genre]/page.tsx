@@ -1,7 +1,7 @@
 import { Suspense } from "react";
 import { notFound } from "next/navigation";
 import { GenreBrowseView } from "@/components/browse/GenreBrowseView";
-import { auth } from "@/lib/auth";
+import { getSession } from "@/lib/session";
 import {
   genreBrowseSortToApi,
   parseGenreBrowseSort,
@@ -32,7 +32,7 @@ interface BrowsePageProps {
 async function BrowseContent({ params, searchParams }: BrowsePageProps) {
   const { genre } = await params;
   const { tags, sort, mode: modeParam, link } = await searchParams;
-  const session = await auth();
+  const session = await getSession();
   const userId = session?.user?.id ?? null;
 
   const genreMeta = WEB_NOVEL_GENRES.find((g) => g.slug === genre);
