@@ -1250,7 +1250,9 @@ export function ReviewForm({
       keywords: ["moonie", "ai", "help"],
       group: "Studio",
       onSelect: () =>
-        router.push(`/moonie?prompt=${encodeURIComponent(mooniePrompt)}`),
+        router.push(
+          `/moonie?new=1&prompt=${encodeURIComponent(mooniePrompt)}`
+        ),
     },
     {
       id: "preview-review",

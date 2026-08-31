@@ -4,7 +4,7 @@ import Link from "next/link";
 import { ArrowRight } from "lucide-react";
 import { MoonieMascot } from "@/components/brand/MoonieMascot";
 import { AskMoonieLink } from "@/components/moonie/AskMoonieButton";
-import { moonieEntryHref } from "@/lib/moonie/open-moonie";
+import { moonieLoggedInEntryHref } from "@/lib/moonie/open-moonie";
 import type { WriteStep } from "@/components/reviews/write/ReviewStepIndicator";
 import { cn } from "@/lib/utils";
 
@@ -71,7 +71,7 @@ export function WritingStudioMoonieAside({
               {copy.body}
             </p>
             <AskMoonieLink
-              href={moonieEntryHref(prompt)}
+              href={moonieLoggedInEntryHref(prompt)}
               tone="light"
               size="sm"
               variant="soft"
@@ -109,7 +109,7 @@ export function WritingStudioMoonieAside({
       </div>
 
       <AskMoonieLink
-        href={moonieEntryHref(prompt)}
+        href={moonieLoggedInEntryHref(prompt)}
         tone="light"
         size="sm"
         className="mt-4 w-full"
@@ -118,7 +118,7 @@ export function WritingStudioMoonieAside({
       </AskMoonieLink>
 
       <Link
-        href="/moonie"
+        href={moonieLoggedInEntryHref()}
         className="mt-3 inline-flex items-center gap-1 text-[11px] font-medium text-[var(--mv-plum)] underline-offset-2 transition-colors fine-hover:underline"
       >
         Open Moonie hub
