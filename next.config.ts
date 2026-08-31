@@ -1,9 +1,15 @@
 import type { NextConfig } from "next";
 
+const isolatedDistDir = process.env.NEXT_MOONVERSE_DIST_DIR?.trim();
+
 const nextConfig: NextConfig = {
+  ...(isolatedDistDir ? { distDir: isolatedDistDir } : {}),
   // Keep Prisma out of Turbopack SSR bundles so `prisma generate` is picked up
   // without a stale inlined DMMF after schema changes.
   serverExternalPackages: ["@prisma/client", "prisma", "resend", "@react-email/render"],
+  experimental: {
+    optimizePackageImports: ["@base-ui/react", "lucide-react"],
+  },
   devIndicators: false,
   images: {
     deviceSizes: [640, 828, 1080, 1200],
