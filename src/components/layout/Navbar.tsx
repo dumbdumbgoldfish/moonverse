@@ -19,6 +19,7 @@ import {
   X,
 } from "lucide-react";
 import { BrandLogo } from "@/components/brand/BrandLogo";
+import { AskMoonieLink } from "@/components/moonie/AskMoonieButton";
 import { NavAuthActions, NavGuestActions } from "@/components/landing/NavActions";
 import { NavSearchSlot } from "@/components/layout/NavSearchSlot";
 import { NavDropdown } from "@/components/landing/NavDropdown";
@@ -31,7 +32,10 @@ import { NotificationDropdown } from "@/components/notifications/NotificationDro
 import { createBellPreviewLoader } from "@/lib/notifications/bell-preview";
 import { WEB_NOVEL_GENRES, genreBrowseHref } from "@/lib/genres";
 import { DISCOVERY_MOOD_CHIPS } from "@/lib/moonie/constants";
-import { moonieEntryHref } from "@/lib/moonie/open-moonie";
+import {
+  moonieEntryHref,
+  moonieLoggedInEntryHref,
+} from "@/lib/moonie/open-moonie";
 import { WEB_NOVEL_TAGS } from "@/lib/tags";
 import { cn } from "@/lib/utils";
 import {
@@ -311,7 +315,7 @@ export function Navbar({
 
   const writeHref = session ? "/reviews/new" : "/write";
   const myReviewsHref = session ? "/my-reviews" : "/login?callbackUrl=/my-reviews";
-  const moonieHref = session ? "/moonie" : "/ask-moonie";
+  const moonieHref = session ? moonieLoggedInEntryHref() : "/ask-moonie";
   const logoHref = session ? "/home" : "/";
   const communityHref = "/community";
   const communityActive = Boolean(session && isCommunityNavActive(normalizedPath));
@@ -372,14 +376,14 @@ export function Navbar({
               >
                 Browse
               </Link>
-              <Link
+              <AskMoonieLink
                 href={moonieHref}
+                size="md"
+                className="flex min-h-11 w-full items-center gap-2 rounded-xl px-3 py-2.5 text-sm font-semibold hover:bg-[#F4ECF8]"
                 onClick={() => setMobileMenuOpen(false)}
-                className="flex min-h-11 items-center gap-2 rounded-xl px-3 py-2.5 text-sm font-semibold hover:bg-[#F4ECF8]"
               >
-                <Sparkles className="size-4 text-primary" aria-hidden />
                 Ask Moonie
-              </Link>
+              </AskMoonieLink>
 
               <div className="flex items-center justify-between px-2 pb-1 pt-4">
                 <p className="text-[10px] font-bold uppercase tracking-[0.2em] text-[#6E46C7]">
