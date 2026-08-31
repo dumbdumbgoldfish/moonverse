@@ -1,4 +1,5 @@
 import type { CommunityReviewModalData } from "@/lib/community-review-modal.types";
+import { applyCommunityReviewClientState } from "@/lib/community-review-client-state";
 
 const TTL_MS = 60_000;
 const cache = new Map<
@@ -18,6 +19,10 @@ export function getPrefetchedCommunityReview(
   return entry.promise;
 }
 
+export function invalidateCommunityReviewCache(reviewId: string): void {
+  cache.delete(reviewId);
+}
+
 export function prefetchCommunityReview(reviewId: string): void {
   if (!reviewId || typeof window === "undefined") return;
   const existing = cache.get(reviewId);
@@ -28,7 +33,8 @@ export function prefetchCommunityReview(reviewId: string): void {
   })
     .then(async (response) => {
       if (!response.ok) return null;
-      return (await response.json()) as CommunityReviewModalData;
+      const payload = (await response.json()) as CommunityReviewModalData;
+      return applyCommunityReviewClientState(payload);
     })
     .catch(() => null);
 
@@ -50,7 +56,9 @@ export function loadCommunityReviewCached(
       } | null;
       throw new Error(body?.error ?? "Unable to load review.");
     }
-    return (await response.json()) as CommunityReviewModalData;
+    return applyCommunityReviewClientState(
+      (await response.json()) as CommunityReviewModalData
+    );
   }).catch((error: unknown) => {
     if (error instanceof Error) throw error;
     throw new Error("Unable to load review.");

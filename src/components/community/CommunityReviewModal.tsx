@@ -26,10 +26,13 @@ export function CommunityReviewModal({
     closeRef.current?.focus();
 
     const onKey = (event: KeyboardEvent) => {
-      if (event.key === "Escape") {
-        event.preventDefault();
-        onClose();
-      }
+      if (event.key !== "Escape") return;
+      const nestedDialog = document.querySelector(
+        "[data-slot='dialog-overlay'], [data-slot='dialog-content']"
+      );
+      if (nestedDialog) return;
+      event.preventDefault();
+      onClose();
     };
     document.addEventListener("keydown", onKey);
 

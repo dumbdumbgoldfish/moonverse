@@ -1,4 +1,6 @@
 import type { CommentItem } from "@/types/review";
+import { patchCommunityReviewClientState } from "@/lib/community-review-client-state";
+import { invalidateCommunityReviewCache } from "@/lib/community-review-prefetch";
 
 export type CommunityReviewSyncDetail = {
   reviewId: string;
@@ -14,6 +16,8 @@ const EVENT = "mv:community-review-sync";
 
 export function publishCommunityReviewSync(detail: CommunityReviewSyncDetail) {
   if (typeof window === "undefined") return;
+  invalidateCommunityReviewCache(detail.reviewId);
+  patchCommunityReviewClientState(detail);
   queueMicrotask(() => {
     window.dispatchEvent(new CustomEvent(EVENT, { detail }));
   });

@@ -38,6 +38,7 @@ export function CommunityReviewDetail({ data }: CommunityReviewDetailProps) {
   const [likeCount, setLikeCount] = useState(review.likeCount);
   const [commentCount, setCommentCount] = useState(review.commentCount);
   const [saveCount, setSaveCount] = useState(review.saveCount);
+  const [likedByMe, setLikedByMe] = useState(initialLiked);
   const [localSavedIds, setLocalSavedIds] = useState(savedFolderIds);
   const savedIdsRef = useRef(savedFolderIds);
   const composerRef = useRef<HTMLTextAreaElement>(null);
@@ -50,6 +51,9 @@ export function CommunityReviewDetail({ data }: CommunityReviewDetailProps) {
   useEffect(() => {
     return subscribeCommunityReviewSync((detail) => {
       if (detail.reviewId !== review.id) return;
+      if (detail.liked !== undefined) setLikedByMe(detail.liked);
+      if (detail.likeCount !== undefined) setLikeCount(detail.likeCount);
+      if (detail.commentCount !== undefined) setCommentCount(detail.commentCount);
       if (detail.saveCount !== undefined) setSaveCount(detail.saveCount);
       if (detail.savedFolderIds) {
         const incoming = detail.savedFolderIds;
@@ -130,7 +134,7 @@ export function CommunityReviewDetail({ data }: CommunityReviewDetailProps) {
           <ReviewStructuredBody
             body={review.body}
             isLoggedIn={isLoggedIn}
-            forceExpanded
+            forceExpanded={isLoggedIn}
             className="[&_p]:text-[15px] [&_p]:leading-[1.7] sm:[&_p]:text-[16px]"
           />
         </ReviewSpoilerGate>
@@ -160,7 +164,7 @@ export function CommunityReviewDetail({ data }: CommunityReviewDetailProps) {
           commentCount={commentCount}
           saveCount={saveCount}
           shareCount={review.shareCount}
-          initialLiked={initialLiked}
+          initialLiked={likedByMe}
           folders={folders}
           savedFolderIds={localSavedIds}
           isLoggedIn={isLoggedIn}
@@ -170,7 +174,10 @@ export function CommunityReviewDetail({ data }: CommunityReviewDetailProps) {
               ?.scrollIntoView({ block: "end", behavior: "smooth" });
             composerRef.current?.focus();
           }}
-          onLikeChange={(_liked, nextCount) => setLikeCount(nextCount)}
+          onLikeChange={(liked, nextCount) => {
+            setLikedByMe(liked);
+            setLikeCount(nextCount);
+          }}
           variant="literary"
         />
 
@@ -198,6 +205,7 @@ export function CommunityReviewDetail({ data }: CommunityReviewDetailProps) {
           currentUserImage={currentUserImage}
           currentUserInitials={initials}
           composerRef={composerRef}
+          signInCallbackUrl={`/reviews/${review.id}#comments`}
         />
       </div>
     </article>

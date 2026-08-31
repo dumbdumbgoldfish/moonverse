@@ -29,6 +29,7 @@ interface CommunityReviewCommentsProps {
   currentUserInitials: string;
   composerRef: RefObject<HTMLTextAreaElement | null>;
   layout?: "modal" | "page";
+  signInCallbackUrl?: string;
 }
 
 function patchComment(
@@ -79,6 +80,7 @@ export function CommunityReviewComments({
   currentUserInitials,
   composerRef,
   layout = "modal",
+  signInCallbackUrl,
 }: CommunityReviewCommentsProps) {
   const prompt = useSignInPromptOptional();
   const [comments, setComments] = useState(initialComments);
@@ -86,7 +88,7 @@ export function CommunityReviewComments({
   const [, startTransition] = useTransition();
 
   function requireAuth() {
-    prompt?.promptSignIn("/community");
+    prompt?.promptSignIn(signInCallbackUrl ?? "/community");
   }
 
   function handleReply(comment: CommentItem, parentId: string) {
