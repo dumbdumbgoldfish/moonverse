@@ -278,8 +278,15 @@ export async function createGenreAction(
   name: string,
   slug?: string
 ): Promise<AdminActionResult> {
-  return runAdminAction(async () => {
-    await adminCreateGenre(name, slug);
+  return runAdminAction(async (adminId) => {
+    const genre = await adminCreateGenre(name, slug);
+    await writeAuditLog({
+      actorId: adminId,
+      action: "GENRE_CREATE",
+      entityType: "Genre",
+      entityId: genre.id,
+      meta: { name: genre.name, slug: genre.slug },
+    });
   });
 }
 
@@ -288,14 +295,32 @@ export async function updateGenreAction(
   name: string,
   slug?: string
 ): Promise<AdminActionResult> {
-  return runAdminAction(async () => {
-    await adminUpdateGenre(genreId, name, slug);
+  return runAdminAction(async (adminId) => {
+    const genre = await adminUpdateGenre(genreId, name, slug);
+    await writeAuditLog({
+      actorId: adminId,
+      action: "GENRE_UPDATE",
+      entityType: "Genre",
+      entityId: genre.id,
+      meta: { name: genre.name, slug: genre.slug },
+    });
   });
 }
 
 export async function deleteGenreAction(genreId: string): Promise<AdminActionResult> {
-  return runAdminAction(async () => {
+  return runAdminAction(async (adminId) => {
+    const genre = await db.genre.findUnique({
+      where: { id: genreId },
+      select: { name: true, slug: true },
+    });
     await adminDeleteGenre(genreId);
+    await writeAuditLog({
+      actorId: adminId,
+      action: "GENRE_DELETE",
+      entityType: "Genre",
+      entityId: genreId,
+      meta: genre ?? undefined,
+    });
   });
 }
 
@@ -304,8 +329,15 @@ export async function createTagAction(
   slug?: string,
   kind?: "TROPE" | "MOOD" | "STYLE"
 ): Promise<AdminActionResult> {
-  return runAdminAction(async () => {
-    await adminCreateTag(name, slug, kind);
+  return runAdminAction(async (adminId) => {
+    const tag = await adminCreateTag(name, slug, kind);
+    await writeAuditLog({
+      actorId: adminId,
+      action: "TAG_CREATE",
+      entityType: "Tag",
+      entityId: tag.id,
+      meta: { name: tag.name, slug: tag.slug, kind: tag.kind },
+    });
   });
 }
 
@@ -315,14 +347,32 @@ export async function updateTagAction(
   slug?: string,
   kind?: "TROPE" | "MOOD" | "STYLE"
 ): Promise<AdminActionResult> {
-  return runAdminAction(async () => {
-    await adminUpdateTag(tagId, name, slug, kind);
+  return runAdminAction(async (adminId) => {
+    const tag = await adminUpdateTag(tagId, name, slug, kind);
+    await writeAuditLog({
+      actorId: adminId,
+      action: "TAG_UPDATE",
+      entityType: "Tag",
+      entityId: tag.id,
+      meta: { name: tag.name, slug: tag.slug, kind: tag.kind },
+    });
   });
 }
 
 export async function deleteTagAction(tagId: string): Promise<AdminActionResult> {
-  return runAdminAction(async () => {
+  return runAdminAction(async (adminId) => {
+    const tag = await db.tag.findUnique({
+      where: { id: tagId },
+      select: { name: true, slug: true, kind: true },
+    });
     await adminDeleteTag(tagId);
+    await writeAuditLog({
+      actorId: adminId,
+      action: "TAG_DELETE",
+      entityType: "Tag",
+      entityId: tagId,
+      meta: tag ?? undefined,
+    });
   });
 }
 
