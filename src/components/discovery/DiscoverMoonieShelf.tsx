@@ -8,26 +8,21 @@ import { cn } from "@/lib/utils";
 const GUEST_PROMPTS = [
   {
     label: "Like Solo Leveling",
-    prompt: "Recommend action fantasy similar to Solo Leveling, completed or bingeable.",
   },
   {
     label: "Spoiler-free romance",
-    prompt: "Spoiler-free romance with slow burn and a hopeful ending.",
   },
   {
     label: "Short completed reads",
-    prompt: "Short completed web novels I can finish in a weekend.",
   },
 ] as const;
 
 interface DiscoverMoonieShelfProps {
-  prompt: string;
   className?: string;
   showGuestPrompts?: boolean;
 }
 
 export function DiscoverMoonieShelf({
-  prompt,
   className,
   showGuestPrompts = false,
 }: DiscoverMoonieShelfProps) {
@@ -50,7 +45,6 @@ export function DiscoverMoonieShelf({
           </p>
         </div>
         <AskMoonieLink
-          href={moonieEntryHref(prompt)}
           size="sm"
           className="shrink-0 text-[13px] font-semibold"
         />
@@ -61,7 +55,7 @@ export function DiscoverMoonieShelf({
           {GUEST_PROMPTS.map((item) => (
             <Link
               key={item.label}
-              href={moonieEntryHref(item.prompt)}
+              href={moonieEntryHref()}
               className="inline-flex min-h-8 items-center rounded-full border border-[#6E46C7]/15 bg-white px-3 text-[12px] font-semibold text-[#1A1224] transition-colors hover:border-[#6E46C7]/35"
             >
               {item.label}

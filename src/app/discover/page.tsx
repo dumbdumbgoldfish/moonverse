@@ -49,13 +49,12 @@ function parseTagSlugs(tags?: string, legacyTag?: string): string[] {
 
 async function DiscoverContent({ searchParams }: DiscoverPageProps) {
   const params = await searchParams;
-  const { q, sort, genre, tags, tag, spoilers, link, verdict, page: pageParam } =
+  const { q, sort, genre, tags, tag, link, verdict, page: pageParam } =
     params;
 
   const session = await redirectIncompleteOnboarding();
   const isLoggedIn = !!session?.user?.id;
   const tagSlugs = parseTagSlugs(tags, tag);
-  const spoilerFree = spoilers === "hide";
   const hasOfficialLink = link === "official";
   const parsedVerdict = parseReviewVerdictFilter(verdict);
   const parsedSort = parseReviewSort(sort, isLoggedIn);
@@ -70,7 +69,6 @@ async function DiscoverContent({ searchParams }: DiscoverPageProps) {
     tagSlugs: tagSlugs.length ? tagSlugs : undefined,
     sort: parsedSort,
     personalizedUserId: session?.user?.id,
-    spoilerFree: spoilerFree || undefined,
     hasOfficialLink: hasOfficialLink || undefined,
     verdictFilter: parsedVerdict ?? undefined,
   };
@@ -79,7 +77,6 @@ async function DiscoverContent({ searchParams }: DiscoverPageProps) {
     Boolean(q?.trim()) ||
     Boolean(genre) ||
     tagSlugs.length > 0 ||
-    spoilerFree ||
     hasOfficialLink ||
     Boolean(parsedVerdict) ||
     parsedSort !== "trending";
@@ -90,7 +87,6 @@ async function DiscoverContent({ searchParams }: DiscoverPageProps) {
         genreSlug: genre,
         tagSlugs: tagSlugs.length ? tagSlugs : undefined,
         personalizedUserId: session?.user?.id,
-        spoilerFree: spoilerFree || undefined,
         hasOfficialLink: hasOfficialLink || undefined,
         verdictFilter: parsedVerdict ?? undefined,
         limit: CONTEXTUAL_SHELF_SIZE,
@@ -113,7 +109,6 @@ async function DiscoverContent({ searchParams }: DiscoverPageProps) {
     !q?.trim() &&
     !genre &&
     tagSlugs.length === 0 &&
-    !spoilerFree &&
     !hasOfficialLink &&
     !parsedVerdict &&
     parsedSort === "trending";
@@ -138,7 +133,6 @@ async function DiscoverContent({ searchParams }: DiscoverPageProps) {
         initialGenre={genre}
         initialTags={tagSlugs}
         initialSort={parsedSort}
-        initialSpoilerFree={spoilerFree}
         initialHasOfficialLink={hasOfficialLink}
         initialVerdict={parsedVerdict}
         initialPage={initialPage}

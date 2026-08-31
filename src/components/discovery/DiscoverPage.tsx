@@ -14,7 +14,6 @@ import { useSignInPrompt } from "@/components/auth/SignInPromptProvider";
 import { DiscoverFilterBar } from "@/components/discovery/DiscoverFilterBar";
 import { DiscoverMoonieShelf } from "@/components/discovery/DiscoverMoonieShelf";
 import { DiscoverPreviewRail } from "@/components/discovery/DiscoverPreviewRail";
-import { ReviewsCompareTray } from "@/components/reviews/salon/ReviewsCompareTray";
 import { ReviewsContextualShelf, ReviewsContextualShelfSkeleton } from "@/components/reviews/salon/ReviewsContextualShelf";
 import { ReviewsMembershipBand } from "@/components/reviews/salon/ReviewsMembershipBand";
 import { ReviewsMobilePreviewSheet } from "@/components/reviews/salon/ReviewsMobilePreviewSheet";
@@ -31,7 +30,6 @@ import {
 import { MoonieEmptyState } from "@/components/moonie/MoonieEmptyState";
 import { Button } from "@/components/ui/button";
 import {
-  buildMoonieShelfPrompt,
   discoverShelfCopy,
   markSalonVisited,
   type DiscoverTab,
@@ -66,7 +64,6 @@ interface DiscoverFilters {
   tags: string[];
   sort: ReviewSort;
   tab: DiscoverTab;
-  spoilerFree: boolean;
   hasOfficialLink: boolean;
   verdict: ReviewVerdictFilter | null;
 }
@@ -88,7 +85,6 @@ interface DiscoverPageProps {
   initialGenre?: string;
   initialTags?: string[];
   initialSort?: ReviewSort;
-  initialSpoilerFree?: boolean;
   initialHasOfficialLink?: boolean;
   initialVerdict?: ReviewVerdictFilter | null;
   initialPage?: number;
@@ -117,7 +113,6 @@ function filtersFromSearch(search: string, isLoggedIn = true): DiscoverFilters {
     tags: parseTagsParam(params),
     sort: parseReviewSort(params.get("sort"), isLoggedIn),
     tab: "reviews",
-    spoilerFree: params.get("spoilers") === "hide",
     hasOfficialLink: params.get("link") === "official",
     verdict: parseReviewVerdictFilter(params.get("verdict")),
   };
@@ -130,7 +125,6 @@ function filtersToParams(filters: DiscoverFilters): URLSearchParams {
   if (filters.tags.length) params.set("tags", filters.tags.join(","));
   if (filters.sort !== "trending") params.set("sort", filters.sort);
   if (filters.tab !== "reviews") params.set("tab", filters.tab);
-  if (filters.spoilerFree) params.set("spoilers", "hide");
   if (filters.hasOfficialLink) params.set("link", "official");
   if (filters.verdict) params.set("verdict", filters.verdict);
   return params;
@@ -165,7 +159,6 @@ function filtersEqual(a: DiscoverFilters, b: DiscoverFilters): boolean {
     tagsEqual(a.tags, b.tags) &&
     a.sort === b.sort &&
     a.tab === b.tab &&
-    a.spoilerFree === b.spoilerFree &&
     a.hasOfficialLink === b.hasOfficialLink &&
     a.verdict === b.verdict
   );
@@ -176,7 +169,6 @@ function isDefaultDiscoverPitch(filters: DiscoverFilters): boolean {
     !filters.q.trim() &&
     !filters.genre &&
     filters.tags.length === 0 &&
-    !filters.spoilerFree &&
     !filters.hasOfficialLink &&
     !filters.verdict &&
     filters.sort === "trending"
@@ -234,7 +226,6 @@ export function ReviewsSalonPage({
   initialGenre,
   initialTags = [],
   initialSort = "trending",
-  initialSpoilerFree = false,
   initialHasOfficialLink = false,
   initialVerdict = null,
   initialPage = 1,
@@ -246,6 +237,15 @@ export function ReviewsSalonPage({
   const router = useRouter();
   const { promptSignIn } = useSignInPrompt();
   const [, startTransition] = useTransition();
+
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    if (!params.has("spoilers")) return;
+    params.delete("spoilers");
+    const qs = params.toString();
+    const href = qs ? `${pathname}?${qs}` : pathname;
+    window.history.replaceState(window.history.state, "", href);
+  }, [pathname]);
 
   const [genresState, setGenresState] = useState(genres);
   const [popularTagsState, setPopularTagsState] = useState(popularTags);
@@ -260,7 +260,6 @@ export function ReviewsSalonPage({
     tags: initialTags,
     sort: initialSort,
     tab: "reviews",
-    spoilerFree: initialSpoilerFree,
     hasOfficialLink: initialHasOfficialLink,
     verdict: initialVerdict,
   }));
@@ -276,7 +275,6 @@ export function ReviewsSalonPage({
     initialReviews[0] ?? null
   );
   const [highlightIndex, setHighlightIndex] = useState(0);
-  const [compareReviews, setCompareReviews] = useState<ReviewListItem[]>([]);
   const [contextualShelf, setContextualShelf] =
     useState<ReviewListItem[]>(contextualShelfReviews);
 
@@ -372,7 +370,6 @@ export function ReviewsSalonPage({
       tags: initialTags,
       sort: initialSort,
       tab: "reviews",
-      spoilerFree: initialSpoilerFree,
       hasOfficialLink: initialHasOfficialLink,
       verdict: initialVerdict,
     };
@@ -392,7 +389,6 @@ export function ReviewsSalonPage({
     initialGenre,
     initialTags,
     initialSort,
-    initialSpoilerFree,
     initialHasOfficialLink,
     initialVerdict,
     initialPage,
@@ -562,22 +558,6 @@ export function ReviewsSalonPage({
     goToPage(page + 1);
   }, [goToPage, page]);
 
-  const compareReviewIds = useMemo(
-    () => new Set(compareReviews.map((review) => review.id)),
-    [compareReviews]
-  );
-
-  const toggleCompare = useCallback((review: ReviewListItem) => {
-    setCompareReviews((current) => {
-      const exists = current.some((item) => item.id === review.id);
-      if (exists) {
-        return current.filter((item) => item.id !== review.id);
-      }
-      if (current.length >= 3) return current;
-      return [...current, review];
-    });
-  }, []);
-
   const rankedGenres = [...genresState].sort(
     (a, b) => b.reviewCount - a.reviewCount || a.name.localeCompare(b.name)
   );
@@ -606,21 +586,9 @@ export function ReviewsSalonPage({
     query: filters.q,
     genreSlug: filters.genre,
     tagNames: filters.tags.map(tagName),
-    spoilerFree: filters.spoilerFree,
+    spoilerFree: false,
     hasOfficialLink: filters.hasOfficialLink,
   });
-
-  const mooniePrompt = useMemo(
-    () =>
-      buildMoonieShelfPrompt({
-        genreName: filters.genre ? genreLabel(filters.genre) : null,
-        tagNames: filters.tags.map(tagName),
-        novelTitles: reviews.map((review) => review.novelTitle),
-      }),
-    // tagName is stable enough for this shelf prompt.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-    [filters.genre, filters.tags, reviews]
-  );
 
   const showDefaultPitch = isDefaultDiscoverPitch(filters);
   const showContextualShelf = !showDefaultPitch;
@@ -640,8 +608,6 @@ export function ReviewsSalonPage({
     onSelectGenre: selectGenre,
     onToggleShowAll: () => setShowAllGenres((open) => !open),
     onToggleTag: toggleTag,
-    onToggleSpoiler: () =>
-      applyFilters({ spoilerFree: !filters.spoilerFree, tab: "reviews" }),
     onToggleOfficial: () =>
       applyFilters({
         hasOfficialLink: !filters.hasOfficialLink,
@@ -666,12 +632,6 @@ export function ReviewsSalonPage({
       key: `tag:${slug}`,
       label: tagName(slug),
     })),
-    filters.spoilerFree
-      ? {
-          key: "spoilers",
-          label: "Spoiler-free",
-        }
-      : null,
     filters.hasOfficialLink
       ? {
           key: "link",
@@ -693,10 +653,6 @@ export function ReviewsSalonPage({
       toggleTag(key.slice(4));
       return;
     }
-    if (key === "spoilers") {
-      applyFilters({ spoilerFree: false });
-      return;
-    }
     if (key === "link") {
       applyFilters({ hasOfficialLink: false });
     }
@@ -710,7 +666,6 @@ export function ReviewsSalonPage({
         tags: [],
         sort: "trending",
         tab: "reviews",
-        spoilerFree: false,
         hasOfficialLink: false,
         verdict: null,
       },
@@ -762,7 +717,6 @@ export function ReviewsSalonPage({
         ) : null}
 
         <DiscoverMoonieShelf
-          prompt={mooniePrompt}
           showGuestPrompts={!isLoggedIn}
           className="lg:hidden"
         />
@@ -872,7 +826,10 @@ export function ReviewsSalonPage({
                     {...filterPanelProps}
                   />
                 )}
-                <ReviewsSalonMoonieAside prompt={mooniePrompt} className="mt-6" />
+                <ReviewsSalonMoonieAside
+                  className="mt-6"
+                  isLoggedIn={isLoggedIn}
+                />
               </div>
             </aside>
 
@@ -892,7 +849,6 @@ export function ReviewsSalonPage({
                   highlightIndex={highlightIndex}
                   isLoggedIn={isLoggedIn}
                   folders={foldersState}
-                  compareReviewIds={compareReviewIds}
                   onPrevious={goToPreviousPage}
                   onNext={goToNextPage}
                   onPreview={(review, index) => {
@@ -903,7 +859,6 @@ export function ReviewsSalonPage({
                     trackReviewsEvent("sign_in_prompt", { source: "save" });
                     promptSignIn();
                   }}
-                  onToggleCompare={toggleCompare}
                 />
               ) : (
                 <DiscoverReviewsEmptyState
@@ -948,16 +903,6 @@ export function ReviewsSalonPage({
           <ReviewsMembershipBand stats={communityStatsState} />
         ) : null}
       </div>
-
-      <ReviewsCompareTray
-        reviews={compareReviews}
-        onRemove={(reviewId) =>
-          setCompareReviews((current) =>
-            current.filter((item) => item.id !== reviewId)
-          )
-        }
-        onClear={() => setCompareReviews([])}
-      />
     </div>
   );
 }
@@ -974,7 +919,6 @@ function DiscoverFilterPanel({
   onSelectGenre,
   onToggleShowAll,
   onToggleTag,
-  onToggleSpoiler,
   onToggleOfficial,
 }: {
   filters: DiscoverFilters;
@@ -988,7 +932,6 @@ function DiscoverFilterPanel({
   onSelectGenre: (slug: string | null) => void;
   onToggleShowAll: () => void;
   onToggleTag: (slug: string) => void;
-  onToggleSpoiler: () => void;
   onToggleOfficial: () => void;
 }) {
   return (
@@ -1056,15 +999,6 @@ function DiscoverFilterPanel({
         <h2 className="text-[11px] font-semibold uppercase tracking-[0.16em] text-[#1A1224]/45">
           Reading
         </h2>
-        <label className="flex cursor-pointer items-center gap-2 text-xs text-[#1A1224]/80">
-          <input
-            type="checkbox"
-            checked={filters.spoilerFree}
-            onChange={onToggleSpoiler}
-            className="size-3.5 accent-[#6E46C7]"
-          />
-          Spoiler-free
-        </label>
         <label className="flex cursor-pointer items-center gap-2 text-xs text-[#1A1224]/80">
           <input
             type="checkbox"
@@ -1137,12 +1071,6 @@ function DiscoverReviewsEmptyState({
     relaxals.push({
       label: `Drop ${genreLabel(filters.genre)}`,
       updates: { genre: null },
-    });
-  }
-  if (filters.spoilerFree) {
-    relaxals.push({
-      label: "Allow spoilers",
-      updates: { spoilerFree: false },
     });
   }
   if (filters.hasOfficialLink) {

@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import Link from "next/link";
-import { Bookmark, Columns2, Heart, Star } from "lucide-react";
+import { Bookmark, Heart, Star } from "lucide-react";
 import { AddToFolderMenu } from "@/components/folders/AddToFolderMenu";
 import { ReviewVerdictBadge } from "@/components/reviews/salon/ReviewVerdictBadge";
 import { ReviewerCredibilityStrip } from "@/components/reviews/salon/ReviewerCredibilityStrip";
@@ -24,11 +24,9 @@ interface DiscoverReviewCardProps {
   priority?: boolean;
   isLoggedIn?: boolean;
   folders?: FolderListItem[];
-  comparePinned?: boolean;
   className?: string;
   onPreview?: () => void;
   onAuthRequired?: () => void;
-  onToggleCompare?: (review: ReviewListItem) => void;
 }
 
 function tropes(review: ReviewListItem): string[] {
@@ -55,11 +53,9 @@ export function DiscoverReviewCard({
   priority = false,
   isLoggedIn = false,
   folders = [],
-  comparePinned = false,
   className,
   onPreview,
   onAuthRequired,
-  onToggleCompare,
 }: DiscoverReviewCardProps) {
   const hoverPreview = useHoverPreview(onPreview);
 
@@ -82,10 +78,8 @@ export function DiscoverReviewCard({
         priority={priority}
         isLoggedIn={isLoggedIn}
         folders={folders}
-        comparePinned={comparePinned}
         hoverPreview={hoverPreview}
         onAuthRequired={onAuthRequired}
-        onToggleCompare={onToggleCompare}
       />
     );
   }
@@ -229,29 +223,6 @@ export function DiscoverReviewCard({
           </p>
 
           <div className="flex shrink-0 items-center gap-2">
-            {onToggleCompare ? (
-              <button
-                type="button"
-                aria-label={
-                  comparePinned
-                    ? `Remove ${review.novelTitle} from compare`
-                    : `Pin ${review.novelTitle} to compare`
-                }
-                aria-pressed={comparePinned}
-                onClick={() => {
-                  onToggleCompare(review);
-                  trackReviewsEvent("compare_pin", { reviewId: review.id });
-                }}
-                className={cn(
-                  "rounded-full p-1.5 transition-colors",
-                  comparePinned
-                    ? "bg-[#6E46C7]/12 text-[#6E46C7]"
-                    : "text-[#1A1224]/40 fine-hover:bg-[#1A1224]/5 fine-hover:text-[#6E46C7]"
-                )}
-              >
-                <Columns2 className="size-3.5" aria-hidden />
-              </button>
-            ) : null}
             {isLoggedIn ? (
               <span data-discover-save={review.id}>
                 <AddToFolderMenu
@@ -291,20 +262,16 @@ function FeaturedCard({
   priority,
   isLoggedIn,
   folders,
-  comparePinned,
   hoverPreview,
   onAuthRequired,
-  onToggleCompare,
 }: {
   review: ReviewListItem;
   highlighted: boolean;
   priority: boolean;
   isLoggedIn: boolean;
   folders: FolderListItem[];
-  comparePinned: boolean;
   hoverPreview: ReturnType<typeof useHoverPreview>;
   onAuthRequired?: () => void;
-  onToggleCompare?: (review: ReviewListItem) => void;
 }) {
   const community = Number(review.novelAverageRating ?? review.rating).toFixed(1);
 
@@ -371,21 +338,6 @@ function FeaturedCard({
           {community}
         </p>
         <div className="flex items-center gap-2">
-          {onToggleCompare ? (
-            <button
-              type="button"
-              aria-pressed={comparePinned}
-              onClick={() => onToggleCompare(review)}
-              className={cn(
-                "rounded-full p-2",
-                comparePinned
-                  ? "bg-[#6E46C7]/12 text-[#6E46C7]"
-                  : "text-[#1A1224]/40 fine-hover:bg-[#1A1224]/5"
-              )}
-            >
-              <Columns2 className="size-4" aria-hidden />
-            </button>
-          ) : null}
           {isLoggedIn ? (
             <AddToFolderMenu
               reviewId={review.id}

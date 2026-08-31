@@ -5,8 +5,7 @@ import { ExternalLink, Star } from "lucide-react";
 import { AddToFolderMenu } from "@/components/folders/AddToFolderMenu";
 import { AskMoonieLink } from "@/components/moonie/AskMoonieButton";
 import { CoverImage } from "@/components/ui/CoverImage";
-import { moonieEntryHref } from "@/lib/moonie/open-moonie";
-import { buildMoonieSimilarPrompt } from "@/lib/discover";
+import { moonieGuestEntryHref, moonieLoggedInEntryHref } from "@/lib/moonie/open-moonie";
 import { formatCompactCount } from "@/lib/format-utils";
 import type { FolderListItem } from "@/types/folder";
 import type { ReviewListItem } from "@/types/review";
@@ -42,9 +41,6 @@ export function DiscoverPreviewRail({
   }
 
   const score = Number(review.novelAverageRating ?? review.rating).toFixed(1);
-  const similarHref = moonieEntryHref(
-    buildMoonieSimilarPrompt(review.novelTitle, review.novelAuthor)
-  );
   const isOwn = Boolean(currentUserId && review.reviewerId === currentUserId);
 
   return (
@@ -141,7 +137,9 @@ export function DiscoverPreviewRail({
             </div>
 
             <AskMoonieLink
-              href={similarHref}
+              href={
+                isLoggedIn ? moonieLoggedInEntryHref() : moonieGuestEntryHref()
+              }
               size="xs"
               className="text-[13px] font-medium shadow-none"
             >

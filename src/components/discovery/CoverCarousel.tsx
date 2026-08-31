@@ -61,7 +61,7 @@ export function CoverCarousel({
     <div className="relative md:px-10">
       <div
         ref={scrollerRef}
-        className="flex gap-3.5 overflow-x-auto overscroll-x-contain pb-1 scrollbar-hide snap-x snap-mandatory [content-visibility:auto]"
+        className="flex gap-3.5 overflow-x-auto overscroll-x-contain pb-1 scrollbar-hide snap-x snap-mandatory"
       >
         {children}
       </div>
@@ -71,13 +71,7 @@ export function CoverCarousel({
         aria-label="Scroll left"
         disabled={!canPrev}
         onClick={() => scrollByDirection(-1)}
-        className={cn(
-          "absolute left-0 top-[38%] z-10 hidden size-9 -translate-y-1/2 items-center justify-center rounded-full",
-          "border border-slate-200 bg-white text-[#1a1233] shadow-md",
-          "transition fine-hover:border-violet-200 fine-hover:bg-violet-50",
-          "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary",
-          canPrev && "md:inline-flex"
-        )}
+        className="absolute left-0 top-[38%] z-10 hidden size-9 -translate-y-1/2 items-center justify-center rounded-full border border-slate-200 bg-white text-[#1a1233] shadow-md transition fine-hover:border-violet-200 fine-hover:bg-violet-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary md:inline-flex disabled:opacity-40"
       >
         <ChevronLeft className="size-5" aria-hidden />
       </button>
@@ -86,13 +80,7 @@ export function CoverCarousel({
         aria-label="Scroll right"
         disabled={!canNext}
         onClick={() => scrollByDirection(1)}
-        className={cn(
-          "absolute right-0 top-[38%] z-10 hidden size-9 -translate-y-1/2 items-center justify-center rounded-full",
-          "border border-slate-200 bg-white text-[#1a1233] shadow-md",
-          "transition fine-hover:border-violet-200 fine-hover:bg-violet-50",
-          "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary",
-          canNext && "md:inline-flex"
-        )}
+        className="absolute right-0 top-[38%] z-10 hidden size-9 -translate-y-1/2 items-center justify-center rounded-full border border-slate-200 bg-white text-[#1a1233] shadow-md transition fine-hover:border-violet-200 fine-hover:bg-violet-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary md:inline-flex disabled:opacity-40"
       >
         <ChevronRight className="size-5" aria-hidden />
       </button>

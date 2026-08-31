@@ -1,33 +1,22 @@
 "use client";
 
-import Link from "next/link";
 import { Sparkles } from "lucide-react";
 import { MoonieMascot } from "@/components/brand/MoonieMascot";
 import { AskMoonieLink } from "@/components/moonie/AskMoonieButton";
-import { moonieEntryHref } from "@/lib/moonie/open-moonie";
+import {
+  moonieGuestEntryHref,
+  moonieLoggedInEntryHref,
+} from "@/lib/moonie/open-moonie";
 import { cn } from "@/lib/utils";
 
-const QUICK_PROMPTS = [
-  {
-    label: "Find my next binge",
-    prompt:
-      "Recommend completed web novels I can binge this weekend based on popular salon picks.",
-  },
-  {
-    label: "Match my mood",
-    prompt:
-      "Suggest novels by mood (cozy, tense, or romantic) with spoiler-free reviews.",
-  },
-] as const;
-
 interface ReviewsSalonMoonieAsideProps {
-  prompt: string;
   className?: string;
+  isLoggedIn?: boolean;
 }
 
 export function ReviewsSalonMoonieAside({
-  prompt,
   className,
+  isLoggedIn = true,
 }: ReviewsSalonMoonieAsideProps) {
   return (
     <section
@@ -61,26 +50,15 @@ export function ReviewsSalonMoonieAside({
       </div>
 
       <AskMoonieLink
-        href={moonieEntryHref(prompt)}
+        href={
+          isLoggedIn ? moonieLoggedInEntryHref() : moonieGuestEntryHref()
+        }
         tone="dark"
         size="sm"
         className="relative mt-4 w-full"
       >
         Get recommendations
       </AskMoonieLink>
-
-      <ul className="relative mt-4 space-y-2 border-t border-white/10 pt-4">
-        {QUICK_PROMPTS.map((item) => (
-          <li key={item.label}>
-            <Link
-              href={moonieEntryHref(item.prompt)}
-              className="block text-[11px] font-medium text-white/65 underline-offset-2 transition-colors fine-hover:text-white fine-hover:underline"
-            >
-              {item.label}
-            </Link>
-          </li>
-        ))}
-      </ul>
     </section>
   );
 }

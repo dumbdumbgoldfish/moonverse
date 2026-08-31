@@ -16,12 +16,10 @@ interface ReviewsStreamPagerProps {
   highlightIndex: number;
   isLoggedIn: boolean;
   folders: FolderListItem[];
-  compareReviewIds: Set<string>;
   onPrevious: () => void;
   onNext: () => void;
   onPreview: (review: ReviewListItem, index: number) => void;
   onAuthRequired: () => void;
-  onToggleCompare: (review: ReviewListItem) => void;
 }
 
 export function ReviewsStreamPager({
@@ -33,12 +31,10 @@ export function ReviewsStreamPager({
   highlightIndex,
   isLoggedIn,
   folders,
-  compareReviewIds,
   onPrevious,
   onNext,
   onPreview,
   onAuthRequired,
-  onToggleCompare,
 }: ReviewsStreamPagerProps) {
   const totalPages = Math.max(1, Math.ceil(total / pageSize));
   const canPrevious = page > 1 && !loading;
@@ -104,10 +100,8 @@ export function ReviewsStreamPager({
                 priority={index === 0 && review.id !== reviews[0]?.id}
                 isLoggedIn={isLoggedIn}
                 folders={folders}
-                comparePinned={compareReviewIds.has(review.id)}
                 onPreview={() => onPreview(review, index)}
                 onAuthRequired={onAuthRequired}
-                onToggleCompare={onToggleCompare}
               />
             ))}
           </div>

@@ -235,6 +235,16 @@ export function buildMoonieShelfPrompt(input: {
   return parts.join(" ");
 }
 
+/** Titles listed after “Nearby on this shelf:” in Discover shelf Moonie prompts. */
+export function parseShelfNearbyTitles(message: string): string[] {
+  const match = message.match(/Nearby on this shelf:\s*(.+?)(?:\.\s|$)/i);
+  if (!match?.[1]) return [];
+  return match[1]
+    .split(/\s*;\s*/)
+    .map((title) => title.trim().replace(/[?.!]+$/, ""))
+    .filter(Boolean);
+}
+
 export function buildMoonieSimilarPrompt(novelTitle: string, author: string): string {
   return `Recommend novels similar to “${novelTitle}” by ${author}. Stay in the MoonVerse catalog and give a short why.`;
 }
