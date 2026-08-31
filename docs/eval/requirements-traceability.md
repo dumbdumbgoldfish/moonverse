@@ -2,6 +2,10 @@
 
 Maps the five research upgrades to code. This is implementation evidence, not a claim of user satisfaction.
 
+**Proposal / IPR / supervisor alignment:** No proposal, IPR, or supervisor feedback documents are present in this repository. Rows below trace **in-repo Distinction upgrade requirements** to implementation and eval hooks only. Mapping to formal proposal/IPR/supervisor criteria is **unverified** until those source documents are archived alongside this repo.
+
+**Eval snapshot limits:** Aug 15–17 Moonie eval artifacts (`docs/eval/moonie-eval-results-2026-08-15.*`, `2026-08-17.*`, `*-latest.*`) ran with **OpenAI disabled**. They do not verify OpenAI-enabled preference extraction or explanation polish. **Unsupported-title rate = 0** in those runs means catalogue-ID allowlisting succeeded, not that card text is factually accurate.
+
 | Requirement | Implementation | Eval / test |
 |-------------|----------------|-------------|
 | Explainable, grounded Moonie cards | `src/services/moonie-pipeline.service.ts`, `src/components/moonie/MoonieLuxuryCard.tsx` | `npm run test:moonie`; unsupported-title rate |

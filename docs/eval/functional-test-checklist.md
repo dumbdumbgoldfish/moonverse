@@ -2,6 +2,8 @@
 
 Developer-led checks. Record date, result (Pass/Fail), and notes. Do not mark Pass until the behaviour is observed on a running build.
 
+**Status:** As of the last documentation reconciliation, **all rows below are unfilled** — no Pass/Fail has been recorded in this file. Automated Moonie metrics come from `npm run moonie:eval` (see `docs/eval/moonie-eval-results-latest.md`); August 30 bounded acceptance evidence is in [`../MOONIE_SEARCH_ACCEPTANCE_EVIDENCE.md`](../MOONIE_SEARCH_ACCEPTANCE_EVIDENCE.md), where several authenticated browser checks remain **BLOCKED** or **NOT MEASURED** (not converted to Pass).
+
 | Test ID | Function | Steps | Result | Date | Notes |
 |---------|----------|-------|--------|------|-------|
 | FT-01 | Register valid user | Create account with valid email/password | | | |

@@ -286,9 +286,15 @@ src/
 - No AI moderation, payments, or direct messages
 - No activity feed or real-time admin updates
 - Moonie uses context injection, not vector search / RAG
-- Notification and Moonie rate limits are in-memory (reset on server restart)
+- Moonie discovery quota is persisted in the database (`moonieRecommendationEvent`); guest demo cap is separate
 - Email/username cannot be changed after registration
 - Avatar URLs must be external links (no file upload)
+
+## Moonie & evaluation evidence
+
+- **Documentation index:** [`docs/README.md`](docs/README.md) — separates August 15–18 eval archives from August 30 acceptance notes
+- **Historical eval snapshots:** [`docs/eval/`](docs/eval/) (raw JSON/CSV preserved)
+- **Bounded acceptance (2026-08-30):** [`docs/MOONIE_SEARCH_ACCEPTANCE_EVIDENCE.md`](docs/MOONIE_SEARCH_ACCEPTANCE_EVIDENCE.md)
 
 ## Licence
 

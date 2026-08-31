@@ -2,6 +2,22 @@
 
 This folder stores reproducible evidence for the Final Project Report. Evaluation is **developer-led / technical**. It does **not** claim participant usability, satisfaction, or SUS unless an ethics-approved study is added later.
 
+**Documentation index:** See [`../README.md`](../README.md) for how this folder relates to August 30 acceptance evidence and for cross-cutting limits (quota, OpenAI-off runs, catalogue-ID vs factual accuracy).
+
+## Archived run dates (do not overwrite)
+
+| Period | What was run | Frozen artifacts |
+|--------|--------------|------------------|
+| **2026-08-15** | Moonie eval, 15 scenarios | `moonie-eval-results-2026-08-15.{md,json,csv}` |
+| **2026-08-17** | Moonie eval, 17 scenarios, **OpenAI disabled** | `moonie-eval-results-2026-08-17.{md,json,csv}`; `moonie-eval-results-latest.*` (same 22:49 UTC snapshot) |
+| **2026-08-18** | Browse + Discover contract evals | `browse-eval-results-2026-08-18.*`, `browse-eval-results-latest.*`, `discover-eval-results-latest.*` |
+
+Re-running `npm run moonie:eval` updates `*-latest.*` outputs only. Dated files remain the historical record.
+
+**OpenAI-disabled runs:** Aug 15–17 Moonie snapshots record `OpenAI enabled: false`. They validate heuristic extraction, retrieval, ranking, and catalogue allowlisting — **not** OpenAI Structured Outputs or explanation polish when a key is present.
+
+**Unsupported-title rate = 0** means every returned `novelId` exists in the catalogue allowlist. That is **catalogue-ID validation**, not a claim that recommendations are factually correct or that readers would agree they are relevant.
+
 ## What is compared
 
 | System | What it is |
@@ -61,7 +77,7 @@ See [`../../data/moonie-eval-scenarios.json`](../../data/moonie-eval-scenarios.j
 
 | Metric | Meaning | Target (technical) |
 |--------|---------|-------------------|
-| Unsupported-title rate | Share of recs not in MoonVerse catalogue | **0** (allowlisting) |
+| Unsupported-title rate | Share of recs whose `novelId` is not in the catalogue allowlist | **0** target (ID validation only; not factual accuracy) |
 | Top-5 relevance | Genre/tag overlap with interpreted prefs | Higher is better |
 | Consistency | Jaccard overlap across repeated runs | Stable rankings |
 | Diversity | Unique IDs / total IDs in batch | Avoid total homogenisation |

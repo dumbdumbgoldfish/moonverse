@@ -34,4 +34,8 @@ Optional `Novel.embedding` JSON is a deterministic hash of title + author + genr
 
 ## Rate limits
 
-Logged-in users: 10 grounded recommendation turns per day. Guests: a smaller cap on `/ask-moonie`.
+Logged-in users: **30** grounded **discovery** turns per UTC day (`MOONIE_DAILY_DISCOVERY_LIMIT` in `src/lib/moonie/constants.ts`). Quota is tracked in `moonieRecommendationEvent` (`quota_reserved`), not in-memory. Casual chat and quota-free replay paths do not consume this counter when `consumesQuota` is false.
+
+Guests on `/ask-moonie`: a separate demo cap (default **3** turns, admin-configurable via `guestMoonieDemoCap` in system settings).
+
+Local QA may enable `MOONIE_DEV_QUOTA_TOOLS` / `MOONIE_DEV_QUOTA_BYPASS` in `.env` — production behaviour above applies unless those flags are explicitly set.
