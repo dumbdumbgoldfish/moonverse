@@ -18,6 +18,7 @@ import {
 } from "@/components/admin/AdminUi";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { readingLinkHealthBadgeVariant } from "@/lib/admin/reading-link-presentation";
 import { formatDate } from "@/lib/date-utils";
 import { getPlatformLabel } from "@/lib/reading-platforms";
 
@@ -51,16 +52,6 @@ const statusVariant: Record<
   NEEDS_REVIEW: "secondary",
   APPROVED: "default",
   REJECTED: "destructive",
-};
-
-const healthVariant: Record<
-  string,
-  "default" | "secondary" | "destructive" | "outline"
-> = {
-  HEALTHY: "default",
-  REDIRECT: "secondary",
-  BROKEN: "destructive",
-  UNKNOWN: "outline",
 };
 
 function ApproveButton({ linkId }: { linkId: string }) {
@@ -171,7 +162,7 @@ export function AdminReadingLinksTable({ links }: AdminReadingLinksTableProps) {
               </Badge>
             </AdminTableCell>
             <AdminTableCell>
-              <Badge variant={healthVariant[link.healthStatus] ?? "outline"}>
+              <Badge variant={readingLinkHealthBadgeVariant(link.healthStatus)}>
                 {link.healthStatus.replace(/_/g, " ")}
               </Badge>
               {link.lastCheckedAt ? (
