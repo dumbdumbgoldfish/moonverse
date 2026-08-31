@@ -269,9 +269,6 @@ async function expandCatalog(
       for (const book of books) {
         const key = book.title.toLowerCase();
         if (byTitle.has(key)) continue;
-        const secondary = rng.chance(0.5)
-          ? genreSlugOrFallback(rng.pick(WEB_NOVEL_GENRE_CYCLE))
-          : undefined;
         byTitle.set(key, {
           title: book.title,
           author: book.author,
@@ -279,7 +276,6 @@ async function expandCatalog(
           // Open Library is metadata only: not an official reading source.
           externalLink: "",
           genreSlug,
-          secondaryGenreSlug: secondary && secondary !== genreSlug ? secondary : undefined,
           tagSlugs: (GENRE_TAG_SLUGS[genreSlug] ?? []).slice(0, 3),
           readingUrls: [],
           origin: "open-library",
@@ -294,14 +290,6 @@ async function expandCatalog(
   }
 
   const list = [...byTitle.values()];
-  let cycle = 0;
-  for (let i = 0; i < list.length; i += 11) {
-    const slug = genreSlugOrFallback(WEB_NOVEL_GENRE_CYCLE[cycle % WEB_NOVEL_GENRE_CYCLE.length]);
-    if (!list[i].secondaryGenreSlug) list[i].secondaryGenreSlug = slug;
-    else if (rng.chance(0.3)) list[i].genreSlug = slug;
-    cycle += 1;
-  }
-
   return list.slice(0, targetNovels);
 }
 
@@ -349,12 +337,19 @@ async function main() {
       ? genreSlugOrFallback(n.secondaryGenreSlug)
       : undefined;
     const originalLanguage = inferLanguage(tagSlugs, n.origin);
-    const publicationStatus = rng.pick(["Ongoing", "Completed", "Hiatus"] as const);
+    const publicationStatus =
+      n.origin === "open-library"
+        ? null
+        : rng.pick(["Ongoing", "Completed", "Hiatus"] as const);
     const publisher = inferPublisher(readingUrls);
+    const synopsisGenres =
+      n.origin === "open-library"
+        ? [genreSlug]
+        : ([genreSlug, secondaryGenreSlug].filter(Boolean) as string[]);
     const synopsis = composeEditorialSynopsis(
       n.title,
       n.author,
-      [genreSlug, secondaryGenreSlug].filter(Boolean) as string[],
+      synopsisGenres,
       tagSlugs,
       rng
     );
