@@ -111,6 +111,7 @@ export default async function CommunityPage({
     followerCount,
     currentUser,
     desk,
+    tasteInsight,
   ] = await Promise.all([
     getLikedReviewIds(userId, reviewIds),
     getCommentPreviewsByReviewIds(reviewIds, 2),
@@ -127,9 +128,8 @@ export default async function CommunityPage({
       select: { avatarUrl: true },
     }),
     getCommunityDeskSnapshot(userId),
+    getTasteInsightSnapshot(userId, taste),
   ]);
-
-  const tasteInsight = await getTasteInsightSnapshot(userId, taste);
 
   if (feed === "for-you" && reviews.length > 0) {
     reviews = attachFeedReasons(reviews, {
