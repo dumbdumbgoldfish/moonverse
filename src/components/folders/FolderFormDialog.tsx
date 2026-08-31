@@ -4,6 +4,7 @@ import { useState, useTransition } from "react";
 import { useSession } from "next-auth/react";
 import { triggerMoonieReaction } from "@/lib/moonie/reactions";
 import { Button } from "@/components/ui/button";
+import { cn } from "@/lib/utils";
 import {
   Dialog,
   DialogContent,
@@ -11,6 +12,7 @@ import {
   DialogFooter,
   DialogHeader,
   DialogTitle,
+  NESTED_DIALOG_Z_CLASS,
 } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -168,7 +170,10 @@ export function FolderFormDialog({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-md">
+      <DialogContent
+        className={cn("sm:max-w-md", NESTED_DIALOG_Z_CLASS)}
+        overlayClassName={NESTED_DIALOG_Z_CLASS}
+      >
         {open && (
           <FolderFormFields
             key={formKey}

@@ -23,6 +23,9 @@ function DialogClose({ ...props }: DialogPrimitive.Close.Props) {
   return <DialogPrimitive.Close data-slot="dialog-close" {...props} />
 }
 
+/** Above community review overlay (`z-[80]`). */
+export const NESTED_DIALOG_Z_CLASS = "z-[100]";
+
 function DialogOverlay({
   className,
   ...props

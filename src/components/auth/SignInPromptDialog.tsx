@@ -6,7 +6,9 @@ import {
   DialogDescription,
   DialogHeader,
   DialogTitle,
+  NESTED_DIALOG_Z_CLASS,
 } from "@/components/ui/dialog";
+import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 
 export const SIGN_IN_PROMPT_TITLE = "Sign in to continue";
@@ -29,7 +31,13 @@ export function SignInPromptDialog({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-sm bg-[#FBF7F1] text-[#1A1224]">
+      <DialogContent
+        className={cn(
+          "max-w-sm bg-[#FBF7F1] text-[#1A1224]",
+          NESTED_DIALOG_Z_CLASS
+        )}
+        overlayClassName={NESTED_DIALOG_Z_CLASS}
+      >
         <DialogHeader>
           <DialogTitle className="font-serif text-xl font-medium tracking-tight">
             {SIGN_IN_PROMPT_TITLE}
