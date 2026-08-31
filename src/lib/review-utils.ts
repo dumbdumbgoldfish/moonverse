@@ -1,3 +1,4 @@
+import { curatedCoverUrlForTitle } from "../../prisma/lib/open-library-covers";
 export { getInitials } from "@/lib/initials";
 export const DEFAULT_COVER_URL = "";
 
@@ -28,9 +29,17 @@ export function guestReviewPreviewBody(
  * Resolve a cover URL for display.
  * Never invents fake picsum images. returns "" when missing so UI can show a brand fallback.
  */
-export function resolveCoverUrl(coverUrl: string | null | undefined): string {
-  if (isMissingCoverUrl(coverUrl)) return DEFAULT_COVER_URL;
-  return coverUrl as string;
+export function resolveCoverUrl(
+  coverUrl: string | null | undefined,
+  options?: { title?: string | null }
+): string {
+  if (!isMissingCoverUrl(coverUrl)) return coverUrl as string;
+  const title = options?.title?.trim();
+  if (title) {
+    const curated = curatedCoverUrlForTitle(title);
+    if (curated) return curated;
+  }
+  return DEFAULT_COVER_URL;
 }
 
 /** First non-missing cover URL for Moonie cards (catalogue field, lookup candidate, etc.). */

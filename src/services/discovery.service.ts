@@ -6,13 +6,15 @@ import {
   pickLandingDiscoverNovels,
 } from "@/lib/landing-discover";
 import {
+  pickLandingDoorCovers,
+} from "@/lib/landing-door-covers";
+import {
   LANDING_GENRE_DOOR_SLUGS,
   LANDING_SLOW_BURN_SLUG,
   isCloseNightShelfCandidate,
   landingGenreBlurb,
   landingGenreHref,
   normalizeNovelTitle,
-  scoreLandingDoorFace,
 } from "@/lib/landing-genres";
 import { isTemplateReviewTitle } from "@/lib/landing-reviews";
 import { ENGLISH_WEB_NOVELS } from "../../prisma/lib/english-web-novels";
@@ -47,7 +49,7 @@ export async function getContinueReadingReviews(
   const saved = await db.folderReview.findMany({
     where: { folder: { userId } },
     orderBy: { addedAt: "desc" },
-    take: 12,
+    take: 48,
     include: {
       review: {
         include: {
@@ -58,12 +60,15 @@ export async function getContinueReadingReviews(
     },
   });
 
-  const seen = new Set<string>();
+  const seenReviewIds = new Set<string>();
+  const seenNovelIds = new Set<string>();
   const items: ReviewListItem[] = [];
 
   for (const entry of saved) {
-    if (seen.has(entry.review.id)) continue;
-    seen.add(entry.review.id);
+    if (seenReviewIds.has(entry.review.id)) continue;
+    if (seenNovelIds.has(entry.review.novelId)) continue;
+    seenReviewIds.add(entry.review.id);
+    seenNovelIds.add(entry.review.novelId);
     const r = entry.review;
     const novelTags = r.novel.tags
       .map((t) => t.name)
@@ -82,7 +87,7 @@ export async function getContinueReadingReviews(
       novelId: r.novelId,
       novelTitle: r.novel.title,
       novelAuthor: r.novel.author ?? "Unknown",
-      coverUrl: resolveCoverUrl(r.novel.coverUrl),
+      coverUrl: resolveCoverUrl(r.novel.coverUrl, { title: r.novel.title }),
       reviewerName: r.user.displayName,
       reviewerUsername: r.user.username,
       reviewerAvatar: getInitials(r.user.displayName),
@@ -92,7 +97,21 @@ export async function getContinueReadingReviews(
     });
   }
 
-  return items.slice(0, 10);
+  return uniqueContinueReadingByNovelId(items).slice(0, 10);
+}
+
+/** Novel-cover rails show one card per catalogue work, not one per saved review. */
+export function uniqueContinueReadingByNovelId(
+  items: ReviewListItem[]
+): ReviewListItem[] {
+  const seen = new Set<string>();
+  const unique: ReviewListItem[] = [];
+  for (const item of items) {
+    if (seen.has(item.novelId)) continue;
+    seen.add(item.novelId);
+    unique.push(item);
+  }
+  return unique;
 }
 
 export async function getRecommendedReviews(
@@ -183,7 +202,7 @@ export async function getTrendingNovels(
         novelId: novel.id,
         title: novel.title,
         author: novel.author ?? "Unknown author",
-        coverUrl: resolveCoverUrl(novel.coverUrl),
+        coverUrl: resolveCoverUrl(novel.coverUrl, { title: novel.title }),
         primaryGenre: novel.genres[0]?.name,
         averageRating,
         reviewCount,
@@ -248,7 +267,7 @@ export async function getAuthShowcaseNovels(
   });
 
   for (const novel of extras) {
-    const coverUrl = resolveCoverUrl(novel.coverUrl);
+    const coverUrl = resolveCoverUrl(novel.coverUrl, { title: novel.title });
     if (isMissingCoverUrl(coverUrl)) continue;
     picked.push({
       novelId: novel.id,
@@ -262,7 +281,7 @@ export async function getAuthShowcaseNovels(
   return picked;
 }
 
-function uniqueShelfCovers(
+export function uniqueShelfCovers(
   entries: Array<{
     novelId: string;
     coverUrl: string | null;
@@ -285,19 +304,24 @@ function uniqueShelfCovers(
     if (seen.has(entry.novelId)) continue;
     seen.add(entry.novelId);
 
-    covers.push(resolveCoverUrl(entry.coverUrl));
-    novelTitles.push(entry.title);
-
-    if (!highlightQuote && entry.excerpt) {
-      highlightQuote = entry.excerpt;
-      highlightReviewer = entry.reviewerName;
+    const coverUrl = resolveCoverUrl(entry.coverUrl, { title: entry.title });
+    if (coverUrl && covers.length < max) {
+      covers.push(coverUrl);
     }
-    if (typeof entry.rating === "number") {
-      ratingSum += entry.rating;
-      ratingCount += 1;
+    if (novelTitles.length < max) {
+      novelTitles.push(entry.title);
+
+      if (!highlightQuote && entry.excerpt) {
+        highlightQuote = entry.excerpt;
+        highlightReviewer = entry.reviewerName;
+      }
+      if (typeof entry.rating === "number") {
+        ratingSum += entry.rating;
+        ratingCount += 1;
+      }
     }
 
-    if (covers.length >= max) break;
+    if (covers.length >= max && novelTitles.length >= max) break;
   }
 
   return {
@@ -410,65 +434,6 @@ type LandingDoorNovel = {
   _count: { reviews: number; readingLinks: number };
 };
 
-function coverSourceScore(coverUrl: string | null): number {
-  if (!coverUrl || isMissingCoverUrl(coverUrl)) return 0;
-  if (
-    coverUrl.includes("cdn.wuxiaworld.com") ||
-    coverUrl.includes("wikimedia.org") ||
-    coverUrl.includes("wikipedia.org")
-  ) {
-    return 30;
-  }
-  if (coverUrl.includes("openlibrary.org")) return 15;
-  if (coverUrl.includes("royalroadcdn.com")) return 5;
-  return 1;
-}
-
-function pickLandingDoorCovers(
-  novels: LandingDoorNovel[],
-  limit: number
-): LandingGenreCover[] {
-  const eligible = novels.filter((novel) =>
-    isCloseNightShelfCandidate({
-      curated: CURATED_WEB_NOVEL_TITLES.has(normalizeNovelTitle(novel.title)),
-      readingLinkCount: novel._count.readingLinks,
-    })
-  );
-
-  // Door fans should show real jackets only. Branded fallbacks look like missing books.
-  const withArt = eligible.filter((novel) => !isMissingCoverUrl(novel.coverUrl));
-  const pool = withArt.length > 0 ? withArt : [];
-
-  return [...pool]
-    .sort((a, b) => {
-      const coverDelta =
-        coverSourceScore(b.coverUrl) - coverSourceScore(a.coverUrl);
-      if (coverDelta !== 0) return coverDelta;
-      const scoreDelta =
-        scoreLandingDoorFace({
-          missingCover: isMissingCoverUrl(b.coverUrl),
-          reviewCount: b._count.reviews,
-          readingLinkCount: b._count.readingLinks,
-          curated: CURATED_WEB_NOVEL_TITLES.has(normalizeNovelTitle(b.title)),
-        }) -
-        scoreLandingDoorFace({
-          missingCover: isMissingCoverUrl(a.coverUrl),
-          reviewCount: a._count.reviews,
-          readingLinkCount: a._count.readingLinks,
-          curated: CURATED_WEB_NOVEL_TITLES.has(normalizeNovelTitle(a.title)),
-        });
-      if (scoreDelta !== 0) return scoreDelta;
-      return a.title.localeCompare(b.title);
-    })
-    .slice(0, limit)
-    .map((novel) => ({
-      novelId: novel.id,
-      title: novel.title,
-      author: novel.author ?? "Unknown author",
-      coverUrl: resolveCoverUrl(novel.coverUrl),
-    }));
-}
-
 async function loadLandingDoorNovels(
   where: { genres?: { some: { slug: string } }; tags?: { some: { slug: string } } }
 ): Promise<LandingDoorNovel[]> {
@@ -480,7 +445,8 @@ async function loadLandingDoorNovels(
         { readingLinks: { some: {} } },
       ],
     },
-    take: 36,
+    orderBy: [{ reviews: { _count: "desc" } }, { title: "asc" }],
+    take: 48,
     select: landingDoorNovelSelect,
   });
 }
@@ -493,7 +459,11 @@ function toLandingGenreDoor(input: {
   reviewCount: number;
   novels: LandingDoorNovel[];
 }): LandingGenreDoor {
-  const covers = pickLandingDoorCovers(input.novels, 4);
+  const covers = pickLandingDoorCovers(
+    input.novels,
+    4,
+    CURATED_WEB_NOVEL_TITLES
+  );
   return {
     kind: input.kind,
     slug: input.slug,
@@ -611,11 +581,7 @@ export async function getCloseNightShelf(
     eligible.push(novel);
   }
 
-  const withCovers = eligible.filter((novel) => !isMissingCoverUrl(novel.coverUrl));
-  return pickLandingDoorCovers(
-    withCovers.length >= limit ? withCovers : eligible,
-    limit
-  );
+  return pickLandingDoorCovers(eligible, limit, CURATED_WEB_NOVEL_TITLES);
 }
 
 function landingDiscoverQuote(
@@ -708,7 +674,7 @@ export async function getLandingDiscoverShelf(
         novelId: novel.id,
         title: novel.title,
         author: novel.author ?? "Unknown author",
-        coverUrl: resolveCoverUrl(novel.coverUrl),
+        coverUrl: resolveCoverUrl(novel.coverUrl, { title: novel.title }),
         primaryGenre: novel.genres[0]?.name,
         averageRating,
         reviewCount,

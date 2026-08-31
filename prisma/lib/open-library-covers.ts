@@ -26,9 +26,23 @@ const CURATED_COVERS: Record<string, string> = {
   "sovereign of the three realms":
     "https://cdn.wuxiaworld.com/images/covers/sotr.webp",
   "lord of the mysteries":
-    "https://upload.wikimedia.org/wikipedia/en/e/e4/Lord_of_Mysteries_web_serial_cover.jpg",
+    "https://upload.wikimedia.org/wikipedia/en/1/18/Lord_of_Mysteries%2C_Volume_1%2C_print_cover.jpg",
   "lord of mysteries":
-    "https://upload.wikimedia.org/wikipedia/en/e/e4/Lord_of_Mysteries_web_serial_cover.jpg",
+    "https://upload.wikimedia.org/wikipedia/en/1/18/Lord_of_Mysteries%2C_Volume_1%2C_print_cover.jpg",
+  "the three body problem":
+    "https://covers.openlibrary.org/b/id/10526598-L.jpg",
+  "dungeon crawler carl":
+    "https://upload.wikimedia.org/wikipedia/en/f/f9/DungeonCrawlerCarlBook1.png",
+  "he who fights with monsters":
+    "https://covers.openlibrary.org/b/id/15229454-L.jpg",
+  "the primal hunter":
+    "https://covers.openlibrary.org/b/id/12884273-L.jpg",
+  "azarinth healer":
+    "https://covers.openlibrary.org/b/id/13007629-L.jpg",
+  "delve":
+    "https://www.royalroadcdn.com/public/covers-full/20381-questworld-union-of-underworked-adventurers.jpg",
+  "beware of chicken":
+    "https://www.royalroadcdn.com/public/covers-full/dr-bennett-54875.jpg?time=1642012289",
 };
 
 interface OpenLibraryCoverDoc {
@@ -56,6 +70,10 @@ function normalizeTitleKey(title: string): string {
 }
 
 export { normalizeTitleKey };
+
+export function curatedCoverUrlForTitle(title: string): string | null {
+  return CURATED_COVERS[normalizeTitleKey(title)] ?? null;
+}
 
 /** Hosts we accept as real cover sources (not placeholder art). */
 export function isTrustedCoverUrl(
