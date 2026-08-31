@@ -10,8 +10,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
-import { moonieEntryHref } from "@/lib/moonie/open-moonie";
-import { buildMoonieSimilarPrompt } from "@/lib/discover";
+import { moonieGuestEntryHref, moonieLoggedInEntryHref } from "@/lib/moonie/open-moonie";
 import type { FolderListItem } from "@/types/folder";
 import type { ReviewListItem } from "@/types/review";
 import { ReviewVerdictBadge } from "./ReviewVerdictBadge";
@@ -35,10 +34,6 @@ export function ReviewsMobilePreviewSheet({
   onAuthRequired,
 }: ReviewsMobilePreviewSheetProps) {
   if (!review) return null;
-
-  const similarHref = moonieEntryHref(
-    buildMoonieSimilarPrompt(review.novelTitle, review.novelAuthor)
-  );
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -121,7 +116,9 @@ export function ReviewsMobilePreviewSheet({
           </div>
 
           <AskMoonieLink
-            href={similarHref}
+            href={
+              isLoggedIn ? moonieLoggedInEntryHref() : moonieGuestEntryHref()
+            }
             size="xs"
             className="mt-4 text-xs font-semibold shadow-none"
           >

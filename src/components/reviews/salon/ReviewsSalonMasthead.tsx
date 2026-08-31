@@ -13,6 +13,7 @@ import {
 import { AuthRequiredLink } from "@/components/auth/AuthRequiredLink";
 import { AskMoonieButton } from "@/components/moonie/AskMoonieButton";
 import { MoonieCharacter } from "@/components/moonie/MoonieCharacter";
+import { moonieGuestEntryHref, moonieLoggedInEntryHref } from "@/lib/moonie/open-moonie";
 import { CoverImage } from "@/components/ui/CoverImage";
 import { formatCompactCount } from "@/lib/format-utils";
 import { scrollToSectionId } from "@/lib/scroll-to-section";
@@ -33,9 +34,6 @@ interface ReviewsSalonMastheadProps {
   loading?: boolean;
   showDefaultPitch?: boolean;
 }
-
-const ASK_MOONIE_PROMPT =
-  "Recommend spoiler-aware novel reviews from the MoonVerse salon that match what I might binge next.";
 
 export function ReviewsSalonMasthead({
   kicker,
@@ -158,7 +156,9 @@ export function ReviewsSalonMasthead({
 
           <div className="mt-1 flex flex-wrap items-center gap-2.5">
             <AskMoonieButton
-              prompt={ASK_MOONIE_PROMPT}
+              href={
+                isLoggedIn ? moonieLoggedInEntryHref() : moonieGuestEntryHref()
+              }
               size="md"
               className="min-h-10 px-5 text-[13px] font-bold focus-visible:ring-[#E8C36A]"
             />

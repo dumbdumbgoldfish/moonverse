@@ -658,7 +658,6 @@ export function DiscoverPage({
         />
 
         <DiscoverMoonieShelf
-          prompt={mooniePrompt}
           className="mb-6"
           showGuestPrompts={!isLoggedIn}
         />
