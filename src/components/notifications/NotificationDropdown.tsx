@@ -9,6 +9,7 @@ import {
   markNotificationsAsReadAction,
 } from "@/actions/notification.actions";
 import { NotificationDropdownRow } from "@/components/notifications/NotificationDropdownRow";
+import { resolveBellOpenToggle } from "@/lib/notifications/bell-preview";
 import {
   NOTIFICATION_DROPDOWN_BUCKET_LABELS,
   bucketDropdownNotifications,
@@ -20,6 +21,7 @@ interface NotificationDropdownProps {
   unreadCount: number;
   notifications: EnrichedNotificationItem[];
   className?: string;
+  onOpen?: () => void;
 }
 
 interface InboxState {
@@ -55,6 +57,7 @@ export function NotificationDropdown({
   unreadCount,
   notifications: initialNotifications,
   className,
+  onOpen,
 }: NotificationDropdownProps) {
   const menuId = useId();
   const router = useRouter();
@@ -195,7 +198,11 @@ export function NotificationDropdown({
             ? `Notifications, ${localUnreadCount} unread`
             : "Notifications"
         }
-        onClick={() => setOpen((current) => !current)}
+        onClick={() => {
+          const { nextOpen, shouldLoadPreview } = resolveBellOpenToggle(open);
+          setOpen(nextOpen);
+          if (shouldLoadPreview) onOpen?.();
+        }}
         className={cn(
           "relative inline-flex size-11 items-center justify-center rounded-xl text-[#1A1224]/80 transition-colors",
           "hover:bg-[#F4ECF8]/80 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#6E46C7]/35",

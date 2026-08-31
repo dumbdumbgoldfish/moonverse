@@ -1,9 +1,13 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import Link from "next/link";
 import { usePathname, useSearchParams } from "next/navigation";
 import type { Session } from "next-auth";
+import {
+  getNotificationBellSnapshotAction,
+  getNotificationUnreadCountAction,
+} from "@/actions/notification.actions";
 import {
   BookMarked,
   Menu,
@@ -24,6 +28,7 @@ import { NavShell } from "@/components/landing/NavShell";
 import { CatalogLink } from "@/components/ui/CatalogLink";
 import { NavbarUserMenu } from "@/components/layout/NavbarUserMenu";
 import { NotificationDropdown } from "@/components/notifications/NotificationDropdown";
+import { createBellPreviewLoader } from "@/lib/notifications/bell-preview";
 import { WEB_NOVEL_GENRES, genreBrowseHref } from "@/lib/genres";
 import { DISCOVERY_MOOD_CHIPS } from "@/lib/moonie/constants";
 import { moonieEntryHref } from "@/lib/moonie/open-moonie";
@@ -93,6 +98,79 @@ export function Navbar({
     setMobileMenuOpen(false);
     setMobileSearchOpen(false);
   }
+
+  const [bellSnapshot, setBellSnapshot] = useState<{
+    ownerId: string;
+    unreadCount: number;
+    notifications: EnrichedNotificationItem[];
+  } | null>(null);
+
+  const sessionUserId = session?.user?.id;
+  const ownedSnapshot =
+    bellSnapshot && sessionUserId && bellSnapshot.ownerId === sessionUserId
+      ? bellSnapshot
+      : null;
+  const bellUnreadCount =
+    ownedSnapshot == null
+      ? unreadCount
+      : ownedSnapshot.unreadCount > unreadCount
+        ? ownedSnapshot.unreadCount
+        : unreadCount;
+  const bellNotifications =
+    ownedSnapshot?.notifications ?? latestNotifications;
+
+  const [bellPreviewLoader] = useState(() =>
+    createBellPreviewLoader({
+      fetchPreview: getNotificationBellSnapshotAction,
+      onSuccess: (result, ownerId) => {
+        setBellSnapshot({
+          ownerId,
+          unreadCount: result.unreadCount,
+          notifications: result.notifications,
+        });
+      },
+    })
+  );
+
+  useEffect(() => {
+    bellPreviewLoader.invalidate();
+  }, [sessionUserId, bellPreviewLoader]);
+
+  useEffect(() => {
+    if (!sessionUserId) return;
+    const ownerId = sessionUserId;
+
+    let active = true;
+
+    async function pollUnread() {
+      const snapshot = await getNotificationUnreadCountAction();
+      if (!active || !snapshot.success) return;
+      setBellSnapshot((current) => ({
+        ownerId,
+        unreadCount: snapshot.unreadCount,
+        notifications:
+          current?.ownerId === ownerId ? current.notifications : [],
+      }));
+    }
+
+    void pollUnread();
+
+    const intervalId = window.setInterval(pollUnread, 45000);
+    const onFocus = () => {
+      void pollUnread();
+    };
+    window.addEventListener("focus", onFocus);
+
+    return () => {
+      active = false;
+      window.clearInterval(intervalId);
+      window.removeEventListener("focus", onFocus);
+    };
+  }, [sessionUserId]);
+
+  const loadBellPreview = useCallback(() => {
+    void bellPreviewLoader.requestPreview(sessionUserId);
+  }, [bellPreviewLoader, sessionUserId]);
 
   useEffect(() => {
     const onScroll = () => {
@@ -415,13 +493,15 @@ export function Navbar({
                   />
                   <div className="flex items-center gap-1.5 xl:gap-2">
                     <NotificationDropdown
-                      unreadCount={unreadCount}
-                      notifications={latestNotifications}
+                      unreadCount={bellUnreadCount}
+                      notifications={bellNotifications}
+                      onOpen={loadBellPreview}
                     />
                     <NavbarUserMenu
                       session={session}
-                      unreadCount={unreadCount}
-                      notifications={latestNotifications}
+                      unreadCount={bellUnreadCount}
+                      notifications={bellNotifications}
+                      onOpen={loadBellPreview}
                     />
                   </div>
                 </>

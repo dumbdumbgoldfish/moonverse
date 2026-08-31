@@ -3,6 +3,8 @@
 import { revalidatePath } from "next/cache";
 import { auth } from "@/lib/auth";
 import {
+  getEnrichedNotificationsByUser,
+  getUnreadNotificationCount,
   markAllNotificationsAsRead,
   markNotificationAsRead,
   markNotificationsAsRead,
@@ -68,5 +70,44 @@ export async function markAllNotificationsAsReadAction(): Promise<NotificationAc
       return { success: false, error: error.message };
     }
     return { success: false, error: "Failed to mark all notifications as read." };
+  }
+}
+
+export type NotificationBellSnapshot =
+  | {
+      success: true;
+      unreadCount: number;
+      notifications: import("@/types/notification").EnrichedNotificationItem[];
+    }
+  | { success: false; error: string };
+
+export async function getNotificationUnreadCountAction(): Promise<
+  { success: true; unreadCount: number } | { success: false; error: string }
+> {
+  try {
+    const userId = await requireUserId();
+    const unreadCount = await getUnreadNotificationCount(userId);
+    return { success: true, unreadCount };
+  } catch (error) {
+    if (error instanceof Error) {
+      return { success: false, error: error.message };
+    }
+    return { success: false, error: "Failed to load unread count." };
+  }
+}
+
+export async function getNotificationBellSnapshotAction(): Promise<NotificationBellSnapshot> {
+  try {
+    const userId = await requireUserId();
+    const [unreadCount, notifications] = await Promise.all([
+      getUnreadNotificationCount(userId),
+      getEnrichedNotificationsByUser(userId, 20),
+    ]);
+    return { success: true, unreadCount, notifications };
+  } catch (error) {
+    if (error instanceof Error) {
+      return { success: false, error: error.message };
+    }
+    return { success: false, error: "Failed to load notifications." };
   }
 }
