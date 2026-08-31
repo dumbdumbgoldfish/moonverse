@@ -100,7 +100,7 @@ export function ReviewDetailView({
                 review={review}
                 stats={stats}
                 readingLinks={readingLinks}
-                className="lg:h-full"
+                className="min-h-0 flex-1"
               />
             </div>
           </div>

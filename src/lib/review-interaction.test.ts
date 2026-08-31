@@ -103,4 +103,27 @@ describe("review detail outer preview", () => {
     assert.match(structured, /reviewBodyNeedsPreviewClamp/);
     assert.match(structured, /useState\(initialOverflowing\)/);
   });
+
+  it("stretches review-detail desktop columns to equal height", async () => {
+    const detailView = await import("node:fs/promises").then((fs) =>
+      fs.readFile(
+        new URL("../components/reviews/detail/ReviewDetailView.tsx", import.meta.url),
+        "utf8"
+      )
+    );
+    const aside = await import("node:fs/promises").then((fs) =>
+      fs.readFile(
+        new URL(
+          "../components/reviews/detail/ReviewRelatedInfoAside.tsx",
+          import.meta.url
+        ),
+        "utf8"
+      )
+    );
+    assert.match(detailView, /lg:items-stretch/);
+    assert.match(detailView, /className="min-h-0 flex-1"/);
+    assert.match(aside, /lg:flex-1 lg:flex-col/);
+    assert.match(aside, /lg:flex-1/);
+    assert.match(aside, /shrink-0/);
+  });
 });
