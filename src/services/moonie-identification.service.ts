@@ -207,6 +207,7 @@ export async function fetchNovelCandidatesByIds(
       lengthBand: novel.lengthBand ?? null,
       chapterCount: novel.chapterCount ?? null,
       metadataSource: novel.metadataSource ?? null,
+      createdAt: novel.createdAt,
       genres,
       tags,
       moods,

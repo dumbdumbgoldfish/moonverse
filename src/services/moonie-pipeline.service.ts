@@ -800,7 +800,10 @@ export async function polishExplanationsWithOpenAI(
         : acceptPolishedSummary(polishSummary, grounded.reply),
       summary: keepGroundedReply
         ? grounded.summary
-        : acceptPolishedSummary(polishSummary, grounded.summary),
+        : acceptPolishedSummary(
+            polishSummary,
+            grounded.summary ?? grounded.reply
+          ),
       followUpQuestion,
       recommendations: polished,
     };
