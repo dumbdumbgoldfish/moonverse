@@ -9,8 +9,9 @@ import { subscribeCommunityReviewSync } from "@/lib/community-feed-sync";
 import type { FolderListItem } from "@/types/folder";
 import type { CommentItem, ReviewDetail } from "@/types/review";
 
-function subscribeDiscussionHash() {
-  return () => {};
+function subscribeDiscussionHash(onStoreChange: () => void) {
+  window.addEventListener("hashchange", onStoreChange);
+  return () => window.removeEventListener("hashchange", onStoreChange);
 }
 
 function getDiscussionHashSnapshot() {
@@ -33,6 +34,9 @@ interface ReviewDiscussionHostProps {
   currentUserId?: string;
   currentUserName?: string;
   currentUserImage?: string | null;
+  overlayOpen?: boolean;
+  overlayFocusComments?: boolean;
+  onOverlayOpenChange?: (open: boolean, focusComments?: boolean) => void;
 }
 
 export function ReviewDiscussionHost({
@@ -42,7 +46,11 @@ export function ReviewDiscussionHost({
   initialLiked,
   folders,
   savedFolderIds,
+  overlayOpen,
+  overlayFocusComments = false,
+  onOverlayOpenChange,
 }: ReviewDiscussionHostProps) {
+  const controlled = onOverlayOpenChange != null;
   const [discussionOpen, setDiscussionOpen] = useState(false);
   const [focusComments, setFocusComments] = useState(false);
   const [hashDismissed, setHashDismissed] = useState(false);
@@ -52,11 +60,18 @@ export function ReviewDiscussionHost({
     getServerDiscussionHashSnapshot
   );
   const hashWantsOpen = hashRequested && !hashDismissed;
-  const effectiveOpen = discussionOpen || hashWantsOpen;
-  const effectiveFocus = discussionOpen ? focusComments : hashWantsOpen;
+  const effectiveOpen = controlled
+    ? overlayOpen ?? false
+    : discussionOpen || hashWantsOpen;
+  const effectiveFocus = controlled
+    ? overlayFocusComments
+    : discussionOpen
+      ? focusComments
+      : hashWantsOpen;
   const [commentCount, setCommentCount] = useState(review.commentCount);
   const [likeCount, setLikeCount] = useState(review.likeCount);
   const [saveCount, setSaveCount] = useState(review.saveCount);
+  const [likedByMe, setLikedByMe] = useState(initialLiked);
   const [localSavedIds, setLocalSavedIds] = useState(savedFolderIds);
   const savedIdsRef = useRef(savedFolderIds);
 
@@ -67,6 +82,7 @@ export function ReviewDiscussionHost({
   useEffect(() => {
     return subscribeCommunityReviewSync((detail) => {
       if (detail.reviewId !== review.id) return;
+      if (detail.liked !== undefined) setLikedByMe(detail.liked);
       if (detail.likeCount !== undefined) setLikeCount(detail.likeCount);
       if (detail.commentCount !== undefined) setCommentCount(detail.commentCount);
       if (detail.saveCount !== undefined) setSaveCount(detail.saveCount);
@@ -84,12 +100,20 @@ export function ReviewDiscussionHost({
   }, [review.id]);
 
   function openDiscussion(shouldFocusComments: boolean) {
+    if (controlled) {
+      onOverlayOpenChange?.(true, shouldFocusComments);
+      return;
+    }
     setHashDismissed(false);
     setFocusComments(shouldFocusComments);
     setDiscussionOpen(true);
   }
 
   function closeDiscussion() {
+    if (controlled) {
+      onOverlayOpenChange?.(false, false);
+      return;
+    }
     setDiscussionOpen(false);
     setFocusComments(false);
     setHashDismissed(true);
@@ -105,12 +129,15 @@ export function ReviewDiscussionHost({
           commentCount={commentCount}
           saveCount={saveCount}
           shareCount={review.shareCount}
-          initialLiked={initialLiked}
+          initialLiked={likedByMe}
           folders={folders}
           savedFolderIds={localSavedIds}
           isLoggedIn={isLoggedIn}
           onCommentClick={() => openDiscussion(true)}
-          onLikeChange={(_liked, nextCount) => setLikeCount(nextCount)}
+          onLikeChange={(liked, nextCount) => {
+            setLikedByMe(liked);
+            setLikeCount(nextCount);
+          }}
           variant="literary"
         />
 

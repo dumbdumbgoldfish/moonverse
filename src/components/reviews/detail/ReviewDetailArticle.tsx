@@ -1,3 +1,6 @@
+"use client";
+
+import { useState } from "react";
 import { ReviewBylineStrip } from "@/components/reviews/detail/ReviewBylineStrip";
 import { ReviewDetailBodyPanel } from "@/components/reviews/detail/ReviewDetailBodyPanel";
 import { ReviewDiscussionHost } from "@/components/reviews/ReviewDiscussionHost";
@@ -39,6 +42,19 @@ export function ReviewDetailArticle({
   currentUserImage,
   className,
 }: ReviewDetailArticleProps) {
+
+  const [overlayOpen, setOverlayOpen] = useState(false);
+  const [overlayFocusComments, setOverlayFocusComments] = useState(false);
+
+  function handleOverlayOpenChange(open: boolean, focusComments = false) {
+    setOverlayOpen(open);
+    if (!open) {
+      setOverlayFocusComments(false);
+      return;
+    }
+    setOverlayFocusComments(focusComments);
+  }
+
   return (
     <article id="review-article" className={cn(className)}>
       <header className="flex shrink-0 flex-col gap-3 border-b border-[#1a1033]/6 px-4 py-4 sm:px-6 sm:py-5 lg:flex-row lg:items-start lg:justify-between">
@@ -81,6 +97,9 @@ export function ReviewDetailArticle({
           currentUserId={currentUserId}
           currentUserName={currentUserName}
           currentUserImage={currentUserImage}
+          overlayOpen={overlayOpen}
+          overlayFocusComments={overlayFocusComments}
+          onOverlayOpenChange={handleOverlayOpenChange}
         />
       </div>
     </article>
