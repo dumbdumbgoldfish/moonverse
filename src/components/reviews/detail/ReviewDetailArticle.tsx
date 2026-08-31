@@ -46,6 +46,11 @@ export function ReviewDetailArticle({
   const [overlayOpen, setOverlayOpen] = useState(false);
   const [overlayFocusComments, setOverlayFocusComments] = useState(false);
 
+  function openOverlay(focusComments = false) {
+    setOverlayFocusComments(focusComments);
+    setOverlayOpen(true);
+  }
+
   function handleOverlayOpenChange(open: boolean, focusComments = false) {
     setOverlayOpen(open);
     if (!open) {
@@ -82,6 +87,7 @@ export function ReviewDetailArticle({
           body={review.body}
           containsSpoilers={review.containsSpoilers}
           isLoggedIn={isLoggedIn}
+          onReadFull={isLoggedIn ? () => openOverlay(false) : undefined}
         />
       </div>
 

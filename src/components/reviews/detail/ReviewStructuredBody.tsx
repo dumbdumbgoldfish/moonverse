@@ -5,6 +5,7 @@ import { ChevronDown } from "lucide-react";
 import { useSignInPrompt } from "@/components/auth/SignInPromptProvider";
 import {
   parseReviewBody,
+  reviewBodyNeedsPreviewClamp,
   type ReviewBodyBlock,
 } from "@/lib/review-body";
 import { cn } from "@/lib/utils";
@@ -123,10 +124,12 @@ export function ReviewStructuredBody({
   const blocks = parseReviewBody(body);
   const contentRef = useRef<HTMLDivElement>(null);
   const scrollRef = useRef<HTMLDivElement>(null);
-  const [expanded, setExpanded] = useState(false);
-  const [overflowing, setOverflowing] = useState(false);
   const opensInModal = Boolean(onReadFull);
   const previewHeight = isLoggedIn ? PREVIEW_HEIGHT_LOGGED_IN : PREVIEW_HEIGHT_GUEST;
+  const initialOverflowing =
+    !forceExpanded && reviewBodyNeedsPreviewClamp(body);
+  const [expanded, setExpanded] = useState(false);
+  const [overflowing, setOverflowing] = useState(initialOverflowing);
 
   useLayoutEffect(() => {
     if (forceExpanded) return;
@@ -198,7 +201,7 @@ export function ReviewStructuredBody({
               "hover:bg-[#faf8ff] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#6b4bb5]",
             )}
           >
-            {opensInModal || !expanded ? "Read full review" : "Show less"}
+            {opensInModal ? "Continue reading" : !expanded ? "Read full review" : "Show less"}
             <ChevronDown
               className={cn(
                 "size-4 transition-transform duration-200",

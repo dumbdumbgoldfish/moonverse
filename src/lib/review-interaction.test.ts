@@ -64,3 +64,43 @@ describe("community review client state", () => {
     assert.deepEqual(merged.savedFolderIds, ["folder-a"]);
   });
 });
+
+describe("review detail outer preview", () => {
+  it("does not force-expand signed-in detail bodies on the outer card", async () => {
+    const panel = await import("node:fs/promises").then((fs) =>
+      fs.readFile(
+        new URL(
+          "../components/reviews/detail/ReviewDetailBodyPanel.tsx",
+          import.meta.url
+        ),
+        "utf8"
+      )
+    );
+    assert.doesNotMatch(panel, /forceExpanded=\{isLoggedIn\}/);
+    assert.match(panel, /onReadFull/);
+  });
+
+  it("keeps full expansion inside the community overlay", async () => {
+    const detail = await import("node:fs/promises").then((fs) =>
+      fs.readFile(
+        new URL("../components/community/CommunityReviewDetail.tsx", import.meta.url),
+        "utf8"
+      )
+    );
+    assert.match(detail, /forceExpanded=\{isLoggedIn\}/);
+  });
+
+  it("initializes outer preview overflow from sync heuristic", async () => {
+    const structured = await import("node:fs/promises").then((fs) =>
+      fs.readFile(
+        new URL(
+          "../components/reviews/detail/ReviewStructuredBody.tsx",
+          import.meta.url
+        ),
+        "utf8"
+      )
+    );
+    assert.match(structured, /reviewBodyNeedsPreviewClamp/);
+    assert.match(structured, /useState\(initialOverflowing\)/);
+  });
+});

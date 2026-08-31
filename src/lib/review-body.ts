@@ -173,6 +173,24 @@ export function shouldCollapseReviewBody(body: string): boolean {
   return reviewWordCount(body) > 450;
 }
 
+/**
+ * Sync heuristic for outer review previews (~260px clip). Matches first paint on
+ * the server and client so long bodies do not flash expanded before measurement.
+ */
+export function reviewBodyNeedsPreviewClamp(body: string): boolean {
+  const text = body.trim();
+  if (!text) return false;
+  if (text.length > 420) return true;
+  const lineCount = text.split("\n").filter((line) => line.trim()).length;
+  if (lineCount > 6) return true;
+  const blocks = parseReviewBody(text);
+  if (blocks.length > 3) return true;
+  if (blocks.some((block) => block.kind === "list" && block.lines.length > 2)) {
+    return true;
+  }
+  return reviewWordCount(text) > 120;
+}
+
 export const GUEST_REVIEW_BODY_LIMIT = 480;
 
 /** Server-side preview cap for signed-out readers. */
