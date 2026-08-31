@@ -20,6 +20,7 @@ import {
   buildMoonieIntentContextFromMessages,
   moonieRequestLikelyConsumesQuota,
 } from "@/lib/moonie/guest-quota-enforcement";
+import { collectPriorRecommendedNovelIds } from "@/lib/moonie/conversation-context";
 import { logMoonieDevQuotaToolsStatus } from "@/lib/moonie/dev-quota";
 import { MOONIE_IMAGE_BASE64_MAX_CHARS } from "@/lib/image-upload-limits";
 import { validateMoonieMessage } from "@/lib/validation";
