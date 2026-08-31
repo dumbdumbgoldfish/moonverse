@@ -38,7 +38,7 @@ export function FeedHeader({ greetingName, taste }: FeedHeaderProps) {
             <PencilLine className="size-4" aria-hidden />
             Write a review
           </Button>
-          <AskMoonieLink href="/moonie" size="sm" className="rounded-full" />
+          <AskMoonieLink size="sm" className="rounded-full" />
         </div>
       </div>
 

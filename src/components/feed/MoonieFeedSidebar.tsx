@@ -4,6 +4,7 @@ import { MoonieMascot } from "@/components/brand/MoonieMascot";
 import { MoonieDailyPick } from "@/components/moonie/MoonieDailyPick";
 import { ActivityFeedItem } from "@/components/discovery/ActivityFeedItem";
 import { Button } from "@/components/ui/button";
+import { moonieLoggedInEntryHref } from "@/lib/moonie/open-moonie";
 import { moonieVariantFor } from "@/lib/moonie/variants";
 import type { ActivityPreview } from "@/types/discovery";
 import type { ReviewListItem } from "@/types/review";
@@ -32,7 +33,7 @@ export function MoonieFeedSidebar({ topPick, activity }: MoonieFeedSidebarProps)
         <Button
           className="mt-4 w-full rounded-full"
           size="sm"
-          render={<Link href="/moonie" />}
+          render={<Link href={moonieLoggedInEntryHref()} />}
         >
           <Sparkles className="size-4" aria-hidden />
           Chat with Moonie
