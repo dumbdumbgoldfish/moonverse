@@ -1,8 +1,8 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useSyncExternalStore, useState } from "react";
 import Link from "next/link";
-import { usePathname, useSearchParams } from "next/navigation";
+import { usePathname, useRouter } from "next/navigation";
 import type { Session } from "next-auth";
 import {
   getNotificationBellSnapshotAction,
@@ -34,7 +34,24 @@ import { DISCOVERY_MOOD_CHIPS } from "@/lib/moonie/constants";
 import { moonieEntryHref } from "@/lib/moonie/open-moonie";
 import { WEB_NOVEL_TAGS } from "@/lib/tags";
 import { cn } from "@/lib/utils";
+import {
+  isCommunityNavActive,
+  isDiscoverNavActive,
+  isBrowseNavActive,
+  isWriteNavActive,
+  isNavPending,
+  normalizeNavPathname,
+} from "@/lib/nav-route-active";
 import type { EnrichedNotificationItem } from "@/types/notification";
+
+const BROWSE_PREFETCH_HREFS = ["/browse"];
+const PRIMARY_PREFETCH_HREFS = [
+  "/browse",
+  "/search",
+  "/discover",
+  "/community",
+  "/home",
+];
 
 const CATALOGUE_TROPES = WEB_NOVEL_TAGS.filter((tag) =>
   [
@@ -47,6 +64,43 @@ const CATALOGUE_TROPES = WEB_NOVEL_TAGS.filter((tag) =>
   ].includes(tag.slug)
 );
 
+function subscribeScroll(onStoreChange: () => void) {
+  window.addEventListener("scroll", onStoreChange, { passive: true });
+  return () => window.removeEventListener("scroll", onStoreChange);
+}
+
+function getScrollSnapshot() {
+  return window.scrollY > 8;
+}
+
+function getServerScrollSnapshot() {
+  return false;
+}
+
+let navBrandMounted = false;
+const navBrandListeners = new Set<() => void>();
+
+function subscribeNavBrandReady(onStoreChange: () => void) {
+  navBrandListeners.add(onStoreChange);
+  if (!navBrandMounted) {
+    queueMicrotask(() => {
+      navBrandMounted = true;
+      navBrandListeners.forEach((listener) => listener());
+    });
+  }
+  return () => {
+    navBrandListeners.delete(onStoreChange);
+  };
+}
+
+function getNavBrandReadySnapshot() {
+  return navBrandMounted;
+}
+
+function getNavBrandReadyServerSnapshot() {
+  return false;
+}
+
 interface NavbarProps {
   session: Session | null;
   unreadCount?: number;
@@ -56,16 +110,25 @@ interface NavbarProps {
 function NavLink({
   href,
   active,
+  pending,
+  onPending,
   children,
 }: {
   href: string;
   active?: boolean;
+  pending?: boolean;
+  onPending?: () => void;
   children: React.ReactNode;
 }) {
   return (
     <Link
       href={href}
       aria-current={active ? "page" : undefined}
+      aria-busy={pending || undefined}
+      data-nav-pending={pending ? "true" : undefined}
+      onClick={() => {
+        if (!active) onPending?.();
+      }}
       className="mv-nav-trigger inline-flex h-11 min-h-[44px] items-center px-3 text-[13px] font-semibold tracking-wide"
     >
       {children}
@@ -85,20 +148,33 @@ export function Navbar({
   latestNotifications = [],
 }: NavbarProps) {
   const pathname = usePathname();
-  const searchParams = useSearchParams();
-  const homeView = searchParams.get("view");
-  const [scrolled, setScrolled] = useState(false);
-  const [mobileSearchOpen, setMobileSearchOpen] = useState(false);
-  const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
-  const [menuKey, setMenuKey] = useState(() => `${pathname}?${searchParams.toString()}`);
-
-  const currentMenuKey = `${pathname}?${searchParams.toString()}`;
-  if (currentMenuKey !== menuKey) {
-    setMenuKey(currentMenuKey);
-    setMobileMenuOpen(false);
-    setMobileSearchOpen(false);
-  }
-
+  const router = useRouter();
+  const normalizedPath = normalizeNavPathname(pathname);
+  const [pendingFromPath, setPendingFromPath] = useState<{
+    path: string;
+    href: string;
+  } | null>(null);
+  const pendingHref =
+    pendingFromPath?.path === normalizedPath ? pendingFromPath.href : null;
+  const navBrandReady = useSyncExternalStore(
+    subscribeNavBrandReady,
+    getNavBrandReadySnapshot,
+    getNavBrandReadyServerSnapshot
+  );
+  const scrolled = useSyncExternalStore(
+    subscribeScroll,
+    getScrollSnapshot,
+    getServerScrollSnapshot
+  );
+  const [mobileOverlay, setMobileOverlay] = useState<{
+    path: string;
+    menuOpen: boolean;
+    searchOpen: boolean;
+  }>({ path: normalizedPath, menuOpen: false, searchOpen: false });
+  const mobileMenuOpen =
+    mobileOverlay.path === normalizedPath && mobileOverlay.menuOpen;
+  const mobileSearchOpen =
+    mobileOverlay.path === normalizedPath && mobileOverlay.searchOpen;
   const [bellSnapshot, setBellSnapshot] = useState<{
     ownerId: string;
     unreadCount: number;
@@ -172,10 +248,35 @@ export function Navbar({
     void bellPreviewLoader.requestPreview(sessionUserId);
   }, [bellPreviewLoader, sessionUserId]);
 
+  const setPendingForNav = (href: string) => {
+    setPendingFromPath({ path: normalizedPath, href });
+  };
+
+  const setMobileMenuOpen = (open: boolean) => {
+    setMobileOverlay({
+      path: normalizedPath,
+      menuOpen: open,
+      searchOpen: false,
+    });
+  };
+
+  const setMobileSearchOpen = (open: boolean) => {
+    setMobileOverlay({
+      path: normalizedPath,
+      menuOpen: false,
+      searchOpen: open,
+    });
+  };
+
+  useEffect(() => {
+    for (const href of PRIMARY_PREFETCH_HREFS) {
+      router.prefetch(href);
+    }
+  }, [router]);
+
   useEffect(() => {
     const onScroll = () => {
       const isScrolled = window.scrollY > 8;
-      setScrolled(isScrolled);
       document.documentElement.style.setProperty(
         "--mv-nav-offset",
         isScrolled ? "var(--mv-nav-h-scrolled)" : "var(--mv-nav-h)"
@@ -191,6 +292,8 @@ export function Navbar({
       );
     };
   }, []);
+
+  const navScrolled = scrolled;
 
   useEffect(() => {
     if (!mobileMenuOpen) return;
@@ -211,21 +314,12 @@ export function Navbar({
   const moonieHref = session ? "/moonie" : "/ask-moonie";
   const logoHref = session ? "/home" : "/";
   const communityHref = "/community";
-  const communityActive = Boolean(
-    session &&
-      (pathname.startsWith("/community") ||
-        (pathname.startsWith("/home") && homeView === "community"))
-  );
-  const browseActive = pathname.startsWith("/browse");
-  const discoverActive =
-    pathname === "/discover" ||
-    pathname === "/reviews" ||
-    (/^\/reviews\/[^/]+$/.test(pathname) && pathname !== "/reviews/new");
-  const writeActive =
-    pathname === "/write" ||
-    pathname.startsWith("/reviews/new") ||
-    pathname.startsWith("/my-reviews") ||
-    /^\/reviews\/[^/]+\/edit$/.test(pathname);
+  const communityActive = Boolean(session && isCommunityNavActive(normalizedPath));
+  const browseActive = isBrowseNavActive(normalizedPath);
+  const discoverActive = isDiscoverNavActive(normalizedPath);
+  const writeActive = isWriteNavActive(normalizedPath);
+  const navPending = (href: string) =>
+    isNavPending(normalizedPath, pendingHref, href);
 
   const belowBar =
     mobileSearchOpen || mobileMenuOpen ? (
@@ -344,7 +438,7 @@ export function Navbar({
 
   return (
     <NavShell
-      scrolled={scrolled}
+      scrolled={navScrolled}
       maxWidth="guest"
       belowBar={belowBar}
       bar={
@@ -355,29 +449,46 @@ export function Navbar({
               size="nav"
               mark="none"
               showWordmark
-              showTagline={!scrolled}
+              showTagline={navBrandReady && !navScrolled}
               variant="light"
               priority
               className={cn(
                 "mr-1 shrink-0 transition-transform duration-300 motion-reduce:transition-none lg:mr-2",
-                scrolled && "scale-[0.94]",
-                !scrolled && "[&_.mv-wordmark-sub]:hidden [&_.mv-wordmark-sub]:xl:block"
+                navScrolled && "scale-[0.94]",
+                navBrandReady &&
+                  !navScrolled &&
+                  "[&_.mv-wordmark-sub]:hidden [&_.mv-wordmark-sub]:xl:block"
               )}
             />
 
             <nav className="hidden items-center gap-1 lg:flex" aria-label="Primary">
               {!session ? (
-                <NavLink href="/discover" active={discoverActive}>
+                <NavLink
+                  href="/discover"
+                  active={discoverActive}
+                  pending={navPending("/discover")}
+                  onPending={() => setPendingForNav("/discover")}
+                >
                   Discover
                 </NavLink>
               ) : null}
               {session ? (
-                <NavLink href={communityHref} active={communityActive}>
+                <NavLink
+                  href={communityHref}
+                  active={communityActive}
+                  pending={navPending(communityHref)}
+                  onPending={() => setPendingForNav(communityHref)}
+                >
                   Community
                 </NavLink>
               ) : null}
               {session ? (
-                <NavLink href="/discover" active={discoverActive}>
+                <NavLink
+                  href="/discover"
+                  active={discoverActive}
+                  pending={navPending("/discover")}
+                  onPending={() => setPendingForNav("/discover")}
+                >
                   Discover
                 </NavLink>
               ) : null}
@@ -386,6 +497,7 @@ export function Navbar({
                 label="Browse"
                 variant="menu"
                 active={browseActive}
+                prefetchHrefs={BROWSE_PREFETCH_HREFS}
                 panelClassName="w-[min(680px,calc(100vw-2rem))] overflow-hidden p-0"
               >
                 <div className="flex items-center justify-between border-b border-[#6E46C7]/10 px-4 py-2.5">
@@ -501,7 +613,6 @@ export function Navbar({
                       session={session}
                       unreadCount={bellUnreadCount}
                       notifications={bellNotifications}
-                      onOpen={loadBellPreview}
                     />
                   </div>
                 </>
@@ -515,7 +626,7 @@ export function Navbar({
                 id="mv-nav-search-mobile"
                 type="button"
                 onClick={() => {
-                  setMobileSearchOpen((current) => !current);
+                  setMobileSearchOpen(!mobileSearchOpen);
                   setMobileMenuOpen(false);
                 }}
                 className="inline-flex size-11 items-center justify-center rounded-xl text-foreground/80 transition-colors hover:bg-moon-purple-soft/60 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary"
@@ -528,13 +639,14 @@ export function Navbar({
               {session ? (
                 <div className="flex items-center gap-1.5 sm:gap-2">
                   <NotificationDropdown
-                    unreadCount={unreadCount}
-                    notifications={latestNotifications}
+                    unreadCount={bellUnreadCount}
+                    notifications={bellNotifications}
+                    onOpen={loadBellPreview}
                   />
                   <NavbarUserMenu
                     session={session}
-                    unreadCount={unreadCount}
-                    notifications={latestNotifications}
+                    unreadCount={bellUnreadCount}
+                    notifications={bellNotifications}
                   />
                 </div>
               ) : (
@@ -559,7 +671,7 @@ export function Navbar({
               <button
                 type="button"
                 onClick={() => {
-                  setMobileMenuOpen((current) => !current);
+                  setMobileMenuOpen(!mobileMenuOpen);
                   setMobileSearchOpen(false);
                 }}
                 className="inline-flex size-11 items-center justify-center rounded-xl text-foreground/80 transition-colors hover:bg-moon-purple-soft/60 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary"
