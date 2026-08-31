@@ -1,4 +1,5 @@
 import { Suspense } from "react";
+import { PageRouteLoading } from "@/components/layout/PageRouteLoading";
 import { SearchPage } from "@/components/search/SearchPage";
 import { parseSearchPage, parseSearchSort, parseSearchType, parseTagSlugs, searchBatchSize } from "@/lib/search";
 import { redirectIncompleteOnboarding } from "@/lib/onboarding-guard";
@@ -68,11 +69,7 @@ async function SearchContent({ searchParams }: SearchPageProps) {
 export default function SearchRoute(props: SearchPageProps) {
   return (
     <Suspense
-      fallback={
-        <div className="px-4 py-10 text-[#1A1224]/50">
-          Loading the stacks…
-        </div>
-      }
+      fallback={<PageRouteLoading label="Loading search" title="Search" />}
     >
       <SearchContent {...props} />
     </Suspense>

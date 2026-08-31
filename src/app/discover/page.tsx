@@ -1,4 +1,5 @@
 import { Suspense } from "react";
+import { PageRouteLoading } from "@/components/layout/PageRouteLoading";
 import { ReviewsSalonPage } from "@/components/discovery/DiscoverPage";
 import { ReviewsJsonLd } from "@/components/reviews/salon/ReviewsJsonLd";
 import { ReviewsSalonShelvesClient } from "@/components/reviews/salon/ReviewsSalonShelvesClient";
@@ -156,7 +157,10 @@ export default function DiscoverRoute(props: DiscoverPageProps) {
   return (
     <Suspense
       fallback={
-        <div className="px-4 py-10 text-muted-foreground">Loading Discover…</div>
+        <PageRouteLoading
+          label="Loading discover"
+          title="Discover reads worth finishing"
+        />
       }
     >
       <DiscoverContent {...props} />

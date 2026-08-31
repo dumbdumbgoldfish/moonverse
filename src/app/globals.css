@@ -102,6 +102,21 @@
   }
 }
 
+@keyframes moonie-reply-enter {
+  from {
+    opacity: 0;
+    transform: translateY(6px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.mv-moonie-reply-enter {
+  animation: moonie-reply-enter 260ms cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+
 /*
  * MoonVerse. Moonlit Library palette
  * Violet primary · warm amber accent · soft lavender surfaces
@@ -176,6 +191,8 @@
   --mv-violet: #6e46c7;
   --mv-lavender: #8b6ad9;
   --mv-gold: #f9db7e;
+  /** Dark catalogue gold for Moonie mascot seal / FAB rings only. */
+  --mv-gold-seal: #a67c2e;
   --mv-ivory: #ffffff;
   --mv-paper: #fbf6fc;
   --mv-muted-gold: #fce9a8;
@@ -388,13 +405,13 @@
 
   .mv-moonie-fab {
     background: var(--mv-dark-surface, #2a1840);
-    border: 2px solid var(--mv-gold, #f9db7e);
+    border: 2px solid var(--mv-gold-seal, #a67c2e);
     box-shadow: 0 8px 24px -8px rgba(26, 18, 36, 0.55);
     transition: transform 0.2s ease, box-shadow 0.2s ease;
   }
   .mv-moonie-fab:hover {
     box-shadow:
-      0 0 0 1px color-mix(in srgb, var(--mv-gold) 30%, transparent),
+      0 0 0 1px color-mix(in srgb, var(--mv-gold-seal) 30%, transparent),
       0 12px 28px -10px rgba(26, 18, 36, 0.62);
   }
 
@@ -832,11 +849,11 @@
     font-size: 0.58rem;
     font-weight: 700;
     letter-spacing: 0.16em;
-    color: #7a7284;
+    color: #4c2a67;
     transition: color 0.2s ease;
   }
   .group:hover .mv-wordmark-sub {
-    color: var(--mv-gold);
+    color: #6e46c7;
   }
   .mv-wordmark--inverse .mv-wordmark-moon {
     color: #fffbff;
@@ -845,7 +862,7 @@
     color: var(--mv-gold);
   }
   .mv-wordmark--inverse .mv-wordmark-sub {
-    color: rgba(255, 251, 255, 0.55);
+    color: rgba(230, 210, 163, 0.88);
   }
   .group:hover .mv-wordmark--inverse .mv-wordmark-sub {
     color: var(--mv-gold);
@@ -884,8 +901,14 @@
   }
   .mv-nav-trigger:hover::after,
   .mv-nav-trigger[aria-expanded="true"]::after,
-  .mv-nav-trigger[aria-current="page"]::after {
+  .mv-nav-trigger[aria-current="page"]::after,
+  .mv-nav-trigger:active::after,
+  .mv-nav-trigger[data-nav-pending="true"]::after {
     transform: scaleX(1);
+  }
+  .mv-nav-trigger:active,
+  .mv-nav-trigger[data-nav-pending="true"] {
+    color: #4c35c4;
   }
   .mv-nav-search {
     background: linear-gradient(180deg, #f6f3ff 0%, #efeaff 100%);
@@ -1377,7 +1400,14 @@
 @layer components {
   /* Match SITE_SHELL_CLASS (navbar + footer): max-w-[1440px] + px-4 sm:px-6 lg:px-8 */
   .mv-land {
-    @apply relative overflow-hidden py-8 lg:py-10;
+    @apply relative overflow-hidden py-5 sm:py-6 lg:py-5;
+  }
+  /* Guest landing hero: one full viewport below the fixed navbar on laptop. */
+  .mv-land-hero-fill {
+    @apply lg:min-h-[calc(100dvh-var(--mv-nav-h))] lg:flex lg:flex-col;
+  }
+  .mv-land-hero-fill > .mv-land-shell {
+    @apply lg:flex-1 lg:flex lg:flex-col lg:justify-center;
   }
   .mv-land-shell {
     @apply relative mx-auto w-full max-w-[1440px] px-4 sm:px-6 lg:px-8;
@@ -1425,6 +1455,7 @@
     scroll-behavior: auto;
   }
   .animate-moonie-float,
+  .mv-moonie-reply-enter,
   [data-moonie-state] {
     animation: none !important;
   }

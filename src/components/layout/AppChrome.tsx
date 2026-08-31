@@ -1,7 +1,7 @@
 "use client";
 
 import dynamic from "next/dynamic";
-import { Suspense } from "react";
+import { Suspense, useEffect } from "react";
 import { usePathname } from "next/navigation";
 import type { Session } from "next-auth";
 import { cn } from "@/lib/utils";
@@ -10,6 +10,7 @@ import { SignInPromptProvider } from "@/components/auth/SignInPromptProvider";
 import { Navbar } from "@/components/layout/Navbar";
 import { Footer } from "@/components/layout/Footer";
 import { MobileBottomNav } from "@/components/layout/MobileBottomNav";
+import { setMoonieEntrySignedIn } from "@/lib/moonie/open-moonie";
 import type { EnrichedNotificationItem } from "@/types/notification";
 
 const MoonieWidgetHost = dynamic(
@@ -34,6 +35,10 @@ export function AppChrome({
   children,
 }: AppChromeProps) {
   const pathname = usePathname();
+  useEffect(() => {
+    setMoonieEntrySignedIn(Boolean(session));
+    return () => setMoonieEntrySignedIn(false);
+  }, [session]);
   const isAdminConsole = pathname.startsWith("/admin");
   const isMoonieDesk = pathname === "/moonie";
   const isGuestAskMoonie = pathname === "/ask-moonie";
@@ -72,7 +77,14 @@ export function AppChrome({
       </a>
       {/* One site-wide navbar on every page. never swap variants by route */}
       {!isOnboarding ? (
-        <Suspense fallback={null}>
+        <Suspense
+          fallback={
+            <div
+              className="h-[var(--mv-nav-h)] shrink-0 bg-[#FFFBFF]"
+              aria-hidden
+            />
+          }
+        >
           <Navbar
             session={session}
             unreadCount={unreadCount}
@@ -83,6 +95,7 @@ export function AppChrome({
       <div
         className={cn(
           "flex min-h-0 flex-1 flex-col",
+          (isMoonieDesk || isGuestAskMoonie) && "bg-[#1A1224]",
           lockViewportHeight &&
             "h-[calc(100dvh-var(--mv-nav-offset)-var(--mv-mobile-nav-h)-env(safe-area-inset-bottom,0px))] max-h-[calc(100dvh-var(--mv-nav-offset)-var(--mv-mobile-nav-h)-env(safe-area-inset-bottom,0px))] overflow-hidden lg:h-[calc(100dvh-var(--mv-nav-offset))] lg:max-h-[calc(100dvh-var(--mv-nav-offset))]",
           lockGuestAskMoonieDesktop &&
@@ -107,7 +120,14 @@ export function AppChrome({
         </div>
       </div>
       {session && !isOnboarding ? (
-        <Suspense fallback={null}>
+        <Suspense
+          fallback={
+            <div
+              className="h-[calc(4rem+env(safe-area-inset-bottom,0px))] md:hidden"
+              aria-hidden
+            />
+          }
+        >
           <MobileBottomNav
             unreadCount={unreadCount}
             username={session.user?.username}

@@ -1,7 +1,7 @@
 "use client";
 
-import { useEffect, useMemo, useRef, useState } from "react";
-import { usePathname, useRouter, useSearchParams } from "next/navigation";
+import { useEffect, useMemo, useRef, useState, useSyncExternalStore } from "react";
+import { usePathname, useRouter } from "next/navigation";
 import { Search, X } from "lucide-react";
 import { SearchSuggestMenu, type SearchSuggestRow } from "@/components/search/SearchSuggestMenu";
 import { useRecentSearches } from "@/hooks/use-recent-searches";
@@ -13,6 +13,12 @@ import {
   EMPTY_SEARCH_RESPONSE,
   type SearchResponse,
 } from "@/types/search";
+
+import {
+  notifySearchLocation,
+  readLocationSearchQuery,
+  subscribeSearchLocation,
+} from "@/lib/search-location";
 
 function suggestRowSetKey(rows: SearchSuggestRow[]): string {
   return rows
@@ -37,11 +43,19 @@ export function NavInlineSearch({
 }: NavInlineSearchProps) {
   const router = useRouter();
   const pathname = usePathname();
-  const searchParams = useSearchParams();
   const rootRef = useRef<HTMLFormElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
 
-  const urlQuery = (searchParams.get("q") ?? "").trim();
+  const urlQuery = useSyncExternalStore(
+    subscribeSearchLocation,
+    readLocationSearchQuery,
+    () => ""
+  );
+
+  useEffect(() => {
+    notifySearchLocation();
+  }, [pathname]);
+
   const [focused, setFocused] = useState(false);
   const [draft, setDraft] = useState(urlQuery);
   const { recents, forget, remember, error: recentError, dismissError } = useRecentSearches();
@@ -49,6 +63,14 @@ export function NavInlineSearch({
   const [trending, setTrending] = useState<SearchResponse>(EMPTY_SEARCH_RESPONSE);
   const [suggestLoad, setSuggestLoad] = useState({ queryKey: "", loading: false });
   const [highlight, setHighlight] = useState({ key: "", index: 0 });
+  const [pendingQuery, setPendingQuery] = useState<string | null>(null);
+  const searchPending = pendingQuery != null && pendingQuery !== urlQuery;
+
+  useEffect(() => {
+    if (!focused) {
+      setDraft(urlQuery);
+    }
+  }, [urlQuery, focused]);
 
   const searchValue = focused ? draft : urlQuery;
   const suggestOpen = focused;
@@ -158,19 +180,33 @@ export function NavInlineSearch({
   }, [suggestOpen]);
 
   const navigateSearch = (cleaned: string, mode: "push" | "replace") => {
-    const navigate = mode === "push" ? router.push.bind(router) : router.replace.bind(router);
-    const onSearchPage = pathname === "/search" || pathname.startsWith("/search?");
+    setPendingQuery(cleaned);
+    const onSearchPage = pathname === "/search";
 
     if (onSearchPage) {
-      const params = new URLSearchParams(searchParams.toString());
-      if (cleaned) params.set("q", cleaned);
-      else params.delete("q");
-      const qs = params.toString();
-      navigate(qs ? `/search?${qs}` : "/search");
+      let href: string;
+      if (cleaned) {
+        const params = new URLSearchParams(window.location.search);
+        params.set("q", cleaned);
+        params.delete("page");
+        const qs = params.toString();
+        href = qs ? `/search?${qs}` : "/search";
+      } else {
+        href = "/search";
+      }
+      if (mode === "push") {
+        window.history.pushState(window.history.state, "", href);
+      } else {
+        window.history.replaceState(window.history.state, "", href);
+      }
+      notifySearchLocation();
       return;
     }
 
+    const navigate =
+      mode === "push" ? router.push.bind(router) : router.replace.bind(router);
     navigate(searchHref(cleaned));
+    notifySearchLocation();
   };
 
   const closeSuggest = () => {
@@ -228,8 +264,8 @@ export function NavInlineSearch({
 
   const clearSearch = () => {
     setDraft("");
-    const onSearchPage = pathname === "/search";
-    if (onSearchPage || searchParams.has("q")) {
+    closeSuggest();
+    if (pathname === "/search" || urlQuery) {
       navigateSearch("", "replace");
     }
   };
@@ -248,6 +284,8 @@ export function NavInlineSearch({
       ref={rootRef}
       className={cn("relative w-full", className)}
       role="search"
+      aria-busy={searchPending || undefined}
+      data-nav-pending={searchPending ? "true" : undefined}
       onSubmit={(event) => {
         event.preventDefault();
         submitSearch();
@@ -282,6 +320,11 @@ export function NavInlineSearch({
           }}
           onFocus={openSuggest}
           onKeyDown={(event) => {
+            if (event.key === "Enter") {
+              event.preventDefault();
+              submitSearch();
+              return;
+            }
             if (event.key === "Escape") {
               event.preventDefault();
               closeSuggest();
