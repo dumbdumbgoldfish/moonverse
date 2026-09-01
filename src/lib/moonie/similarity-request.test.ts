@@ -10,6 +10,7 @@ import {
   extractNovelQuery,
   primaryRetrievalIntent,
 } from "./intent";
+import { parseRequestedRecommendationCount } from "./hard-constraints";
 
 describe("parseSimilarityRequest", () => {
   it("splits Queen of Shadows seed from preference tail", () => {
@@ -61,5 +62,47 @@ describe("parseSimilarityRequest", () => {
     assert.equal(parsed!.seedTitle, "Outlander");
     assert.match(similarityPreferenceSource(parsed!), /cozy/i);
     assert.equal(parsed!.requiresVerifiedReadingLinks, true);
+  });
+
+  it("parses natural-language similar-to variants with something / a novel phrasing", () => {
+    const variants = [
+      "Recommend me something similar to The Hidden Oracle",
+      "Recommend something similar to The Hidden Oracle",
+      "Give me something similar to The Hidden Oracle",
+      "Find me something like The Hidden Oracle",
+      "Recommend me a novel like The Hidden Oracle",
+      "Give me three novels similar to The Hidden Oracle",
+    ];
+    for (const message of variants) {
+      const parsed = parseSimilarityRequest(message);
+      assert.ok(parsed, message);
+      assert.match(parsed!.seedTitle, /hidden oracle/i, message);
+      assert.equal(extractNovelQuery(message), null, message);
+      const intents = classifyMoonieIntents(message);
+      assert.equal(primaryRetrievalIntent(intents), "MORE_LIKE_THIS", message);
+    }
+    const counted = parseSimilarityRequest(
+      "Give me three novels similar to The Hidden Oracle"
+    );
+    assert.equal(
+      parseRequestedRecommendationCount(
+        "Give me three novels similar to The Hidden Oracle"
+      ),
+      3
+    );
+    assert.ok(counted);
+  });
+
+  it("does not parse unrelated recommendation prompts as similarity", () => {
+    assert.equal(
+      parseSimilarityRequest("Recommend me a completed romance novel"),
+      null
+    );
+    assert.equal(
+      primaryRetrievalIntent(
+        classifyMoonieIntents("Recommend me a completed romance novel")
+      ),
+      "RECOMMEND"
+    );
   });
 });

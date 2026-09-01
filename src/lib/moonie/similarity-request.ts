@@ -10,8 +10,17 @@ export interface ParsedSimilarityRequest {
   requiresVerifiedReadingLinks: boolean;
 }
 
-const SIMILARITY_LEAD_RE =
-  /^(?:find|recommend|suggest|show|give)\s+(?:me\s+)?(?:(?:the\s+)?(?:\d{1,2}|one|two|three|four|five|six|seven|eight|nine|ten)\s+)?(?:(?:novels?|books?)\s+)?(?:like|similar\s+to)\s+/i;
+const COUNT_TOKEN =
+  "(?:\\d{1,2}|one|two|three|four|five|six|seven|eight|nine|ten)";
+
+/** Lead phrase for explicit similar-to recommendation requests (not bare title lookup). */
+const SIMILARITY_LEAD_RE = new RegExp(
+  `^(?:find|recommend|suggest|show|give)\\s+(?:me\\s+)?` +
+    `(?:(?:the\\s+)?${COUNT_TOKEN}\\s+)?` +
+    `(?:(?:(?:novels?|books?)|something|(?:a|an)\\s+(?:novel|book))\\s+)?` +
+    `(?:like|similar\\s+to)\\s+`,
+  "i"
+);
 
 const READING_LINK_ON_RESULTS_RE =
   /\b(?:with\s+)?(?:verified\s+)?(?:official\s+)?reading\s+links?\b/i;

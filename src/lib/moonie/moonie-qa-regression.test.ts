@@ -315,6 +315,23 @@ describe("moonie QA regression — ranked review context", () => {
     assert.ok(parsed);
     assert.match(parsed?.seedTitle ?? "", /hidden oracle/i);
   });
+
+  it("parses natural-language similar-to variants as explicit similarity", () => {
+    const variants = [
+      "Recommend me something similar to The Hidden Oracle",
+      "Recommend something similar to The Hidden Oracle",
+      "Give me something similar to The Hidden Oracle",
+      "Find me something like The Hidden Oracle",
+      "Recommend me a novel like The Hidden Oracle",
+    ];
+    for (const message of variants) {
+      const parsed = parseSimilarityRequest(message);
+      assert.ok(parsed, message);
+      assert.match(parsed?.seedTitle ?? "", /hidden oracle/i, message);
+      const intents = classifyMoonieIntents(message);
+      assert.equal(primaryRetrievalIntent(intents), "MORE_LIKE_THIS", message);
+    }
+  });
 });
 
 describe("moonie QA regression — M-13–M-16 context", () => {
