@@ -97,6 +97,7 @@ export async function findCandidateNovels(options: {
   recentSearches?: MoonieRecentSearchEntry[];
   skipUserHiddenNovels?: boolean;
   hardConstraints?: MoonieHardInclusionConstraints | null;
+  similaritySeedDominant?: boolean;
 }): Promise<NovelCandidate[]> {
   const hidden =
     options.userId && !options.skipUserHiddenNovels
@@ -116,6 +117,7 @@ export async function findCandidateNovels(options: {
     limit: options.limit ?? 40,
     personalization: options.personalization,
     recentSearches: options.recentSearches,
+    similaritySeedDominant: options.similaritySeedDominant,
   };
 
   const candidates = await retrieveHybridCandidates(base);
@@ -390,6 +392,7 @@ export async function buildGroundedRecommendations(options: {
   hasExplicitExclusions?: boolean;
   previouslyShownNovelIds?: string[];
   sortBy?: MoonieDiscoverySort;
+  similaritySeedDominant?: boolean;
 }): Promise<MoonieRecommendResponse> {
   const requestPrefs = options.requestPrefs ?? options.prefs;
   const hardConstraints = options.hardConstraints
@@ -410,6 +413,7 @@ export async function buildGroundedRecommendations(options: {
   const candidates = await findCandidateNovels({
     ...pipelineOptions,
     limit: 30,
+    similaritySeedDominant: options.similaritySeedDominant,
   });
 
   const take = options.take ?? 5;

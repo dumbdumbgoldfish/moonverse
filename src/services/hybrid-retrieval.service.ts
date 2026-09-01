@@ -85,6 +85,8 @@ export interface HybridRetrievalOptions {
   personalization?: MooniePersonalizationSettings;
   /** Client-provided recent searches (localStorage); only used when useSearchHistory is on. */
   recentSearches?: MoonieRecentSearchEntry[];
+  /** When true, ranking prioritises overlap with the similar-to seed over saved taste. */
+  similaritySeedDominant?: boolean;
 }
 
 function normalize(value: string): string {
@@ -611,18 +613,29 @@ export async function retrieveHybridCandidates(
     const reviewCount = stats?.count ?? 0;
     const averageRating = stats?.average ?? null;
 
+    const seedNeedles = [...seedGenres, ...seedTags];
+    const seedStructured =
+      seedNeedles.length > 0
+        ? overlapScore([...genres, ...tropes, ...moods], seedNeedles)
+        : 0;
+    const structuredNeedles = options.similaritySeedDominant
+      ? seedNeedles
+      : [
+          ...options.prefs.genres,
+          ...options.prefs.tags,
+          ...options.prefs.mood,
+          ...seedGenres,
+          ...seedTags,
+        ];
     const structured = overlapScore(
       [...genres, ...tropes, ...moods],
-      [
-        ...options.prefs.genres,
-        ...options.prefs.tags,
-        ...options.prefs.mood,
-        ...seedGenres,
-        ...seedTags,
-      ]
+      structuredNeedles
     );
+    const effectiveStructured = options.similaritySeedDominant
+      ? seedStructured
+      : structured;
     const quality = bayesianQuality(averageRating, reviewCount, catalogueMean);
-    const history =
+    const tasteHistory =
       (genres.some((g) => likedGenreBoost.has(normalize(g))) ? 0.45 : 0) +
       (useFeedback && moreLike.has(novel.id) ? 0.35 : 0) +
       (useFeedback && helpful.has(novel.id) ? 0.08 : 0) +
@@ -634,6 +647,9 @@ export async function retrieveHybridCandidates(
         ? 0.1
         : 0) -
       (useFeedback && lessLike.has(novel.id) ? 0.12 : 0);
+    const history = options.similaritySeedDominant
+      ? Math.min(0.12, tasteHistory)
+      : Math.min(1, tasteHistory);
 
     const embedding = options.disableSemantic
       ? []
@@ -649,13 +665,23 @@ export async function retrieveHybridCandidates(
         ? Math.max(0, cosineSimilarity(queryEmbedding, embedding))
         : 0;
     const lexicalScore = Math.min(1, lexical.get(novel.id) ?? 0);
-    const semantic = Math.max(semanticRaw, lexicalScore * 0.9);
+    const seedEmbedding =
+      options.similaritySeedDominant && similar
+        ? parseEmbedding(similar.embedding)
+        : [];
+    const seedSemantic =
+      seedEmbedding.length && embedding.length
+        ? Math.max(0, cosineSimilarity(seedEmbedding, embedding))
+        : 0;
+    const semantic = options.similaritySeedDominant
+      ? Math.max(seedSemantic, semanticRaw, lexicalScore * 0.9)
+      : Math.max(semanticRaw, lexicalScore * 0.9);
 
     const { score, breakdown } = combineRankingScore({
       semantic,
-      structured,
+      structured: effectiveStructured,
       quality,
-      history: Math.min(1, history),
+      history,
       diversity: 0,
     });
 
@@ -699,8 +725,22 @@ export async function retrieveHybridCandidates(
     };
   });
 
-  ranked.sort((a, b) => b.score - a.score || b.reviewCount - a.reviewCount);
-  return ranked.slice(0, limit);
+  let filtered = ranked;
+  if (options.similaritySeedDominant && similar && seedGenres.length + seedTags.length > 0) {
+    filtered = ranked.filter((candidate) => {
+      const seedOverlap = overlapScore(
+        [...candidate.genres, ...candidate.tags],
+        [...seedGenres, ...seedTags]
+      );
+      return seedOverlap >= 0.12 || candidate.semantic >= 0.22 || candidate.score >= 0.42;
+    });
+    if (filtered.length === 0) {
+      filtered = ranked.slice(0, Math.min(limit, ranked.length));
+    }
+  }
+
+  filtered.sort((a, b) => b.score - a.score || b.reviewCount - a.reviewCount);
+  return filtered.slice(0, limit);
 }
 
 async function resolveSearchHistoryNovels(

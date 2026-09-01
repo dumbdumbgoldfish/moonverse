@@ -1805,6 +1805,7 @@ export async function handleMoonieRequest(
       personalization: ctx.personalization,
       recentSearches: ctx.recentSearches,
       spoilerMode,
+      similaritySeedDominant: Boolean(parsedSimilarity),
       take: parsedSimilarity
         ? parseRequestedRecommendationCount(ctx.message) ?? undefined
         : undefined,
