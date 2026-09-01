@@ -22,8 +22,10 @@ import {
 } from "@/actions/inbox.actions";
 import {
   approveTagSuggestionAction,
+  mapTagSuggestionAction,
   rejectTagSuggestionAction,
 } from "@/actions/admin.actions";
+import { InboxTagSuggestionMapControl } from "@/components/admin/InboxTagSuggestionMapControl";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -47,6 +49,10 @@ import {
   type InboxSelectionResolution,
 } from "@/lib/admin/inbox-selection";
 import {
+  INBOX_TAG_MAP_ACTION_ID,
+  toCanonicalTagOptions,
+} from "@/lib/admin/inbox-tag-suggestion-map";
+import {
   beginInboxAction,
   canBeginInboxAction,
   completeInboxAction,
@@ -62,10 +68,12 @@ import {
   type InboxItem,
   type InboxItemKind,
 } from "@/services/admin/inbox.service";
+import type { AdminTagSummary } from "@/types/admin";
 
 interface AdminInboxTriageProps {
   items: InboxItem[];
   counts?: Record<InboxItemKind | "total", number>;
+  canonicalTags?: AdminTagSummary[];
   activeFilter?: InboxItemKind | "all";
   selection: InboxSelectionResolution;
 }
@@ -82,6 +90,7 @@ function slaTone(hours: number) {
 export function AdminInboxTriage({
   items,
   counts,
+  canonicalTags = [],
   activeFilter = "all",
   selection,
 }: AdminInboxTriageProps) {
@@ -90,6 +99,7 @@ export function AdminInboxTriage({
   const [resolution, setResolution] = useState("");
   const [actionError, setActionError] = useState<{
     itemId: string;
+    action: InboxPendingActionId;
     message: string;
   } | null>(null);
   const [pendingState, setPendingState] = useState<InboxActionPendingState>(
@@ -158,6 +168,7 @@ export function AdminInboxTriage({
         if (startedItemId === selection.activeSelectedId) {
           setActionError({
             itemId: startedItemId,
+            action,
             message: result.error ?? "Action failed.",
           });
         }
@@ -286,6 +297,10 @@ export function AdminInboxTriage({
               <InboxDetailActions
                 item={selected}
                 pendingState={pendingState}
+                canonicalTags={toCanonicalTagOptions(canonicalTags)}
+                itemActionError={
+                  actionError?.itemId === selected.id ? actionError : null
+                }
                 resolution={resolution}
                 onResolutionChange={setResolution}
                 onRun={runInboxAction}
@@ -305,12 +320,20 @@ const INBOX_LINK_CLASS =
 function InboxDetailActions({
   item,
   pendingState,
+  canonicalTags,
+  itemActionError,
   resolution,
   onResolutionChange,
   onRun,
 }: {
   item: InboxItem;
   pendingState: InboxActionPendingState;
+  canonicalTags: ReturnType<typeof toCanonicalTagOptions>;
+  itemActionError: {
+    itemId: string;
+    action: InboxPendingActionId;
+    message: string;
+  } | null;
   resolution: string;
   onResolutionChange: (value: string) => void;
   onRun: (
@@ -493,30 +516,53 @@ function InboxDetailActions({
   }
 
   if (item.kind === "tag_suggestion") {
+    const mapError =
+      itemActionError?.action === INBOX_TAG_MAP_ACTION_ID
+        ? itemActionError.message
+        : null;
+
     return (
-      <div className="flex flex-wrap gap-2">
-        <Button
-          size="sm"
-          disabled={itemBusy}
-          onClick={() =>
-            onRun(item.id, "approve_tag", () => approveTagSuggestionAction(item.suggestionId))
+      <div className="space-y-3">
+        <InboxTagSuggestionMapControl
+          key={item.suggestionId}
+          canonicalTags={canonicalTags}
+          itemBusy={itemBusy}
+          isMapPending={actionPending(INBOX_TAG_MAP_ACTION_ID)}
+          mapError={mapError}
+          onMap={(tagId) =>
+            onRun(item.id, INBOX_TAG_MAP_ACTION_ID, () =>
+              mapTagSuggestionAction(item.suggestionId, tagId)
+            )
           }
-        >
-          {actionLabel("approve_tag", "Approve as new tag")}
-        </Button>
-        <Button
-          size="sm"
-          variant="outline"
-          disabled={itemBusy}
-          onClick={() =>
-            onRun(item.id, "reject_tag", () => rejectTagSuggestionAction(item.suggestionId, ""))
-          }
-        >
-          {actionLabel("reject_tag", "Reject")}
-        </Button>
-        <Link href="/admin/tags" className={INBOX_LINK_CLASS}>
-          Open tag manager
-        </Link>
+        />
+        <div className="flex flex-wrap gap-2">
+          <Button
+            size="sm"
+            disabled={itemBusy}
+            onClick={() =>
+              onRun(item.id, "approve_tag", () =>
+                approveTagSuggestionAction(item.suggestionId)
+              )
+            }
+          >
+            {actionLabel("approve_tag", "Approve as new tag")}
+          </Button>
+          <Button
+            size="sm"
+            variant="outline"
+            disabled={itemBusy}
+            onClick={() =>
+              onRun(item.id, "reject_tag", () =>
+                rejectTagSuggestionAction(item.suggestionId, "")
+              )
+            }
+          >
+            {actionLabel("reject_tag", "Reject")}
+          </Button>
+          <Link href="/admin/tags" className={INBOX_LINK_CLASS}>
+            Open tag manager
+          </Link>
+        </div>
       </div>
     );
   }

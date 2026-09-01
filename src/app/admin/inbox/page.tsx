@@ -12,6 +12,7 @@ import {
   buildInboxTriageSearchParams,
   resolveInboxSelection,
 } from "@/lib/admin/inbox-selection";
+import { getAdminTags } from "@/services/admin/catalog.service";
 import {
   findInboxPageForSelectedItem,
   getAdminInboxPage,
@@ -54,9 +55,10 @@ export default async function AdminInboxPage({
     }
   }
 
-  const [result, counts] = await Promise.all([
+  const [result, counts, canonicalTags] = await Promise.all([
     getAdminInboxPage(page, INBOX_PAGE_SIZE, inboxFilters),
     getInboxCounts(),
+    getAdminTags(),
   ]);
 
   let selectionWarning: string | undefined;
@@ -125,6 +127,7 @@ export default async function AdminInboxPage({
             <AdminInboxTriage
               items={result.items}
               counts={counts}
+              canonicalTags={canonicalTags}
               activeFilter={activeFilter}
               selection={selection}
             />
