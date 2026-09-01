@@ -79,13 +79,22 @@ function revalidateAdmin() {
   revalidatePath("/");
 }
 
+function revalidateAdminUsers() {
+  revalidatePath("/admin/users");
+}
+
+function revalidateAdminReadingLinks() {
+  revalidatePath("/admin/reading-links");
+}
+
 async function runAdminAction(
-  action: (adminId: string) => Promise<void>
+  action: (adminId: string) => Promise<void>,
+  revalidate: () => void = revalidateAdmin
 ): Promise<AdminActionResult> {
   try {
     const adminId = await requireAdminUserId();
     await action(adminId);
-    revalidateAdmin();
+    revalidate();
     return { success: true };
   } catch (error) {
     if (error instanceof Error) {
@@ -104,7 +113,7 @@ export async function promoteUserAction(userId: string): Promise<AdminActionResu
       entityType: "User",
       entityId: userId,
     });
-  });
+  }, revalidateAdminUsers);
 }
 
 export async function demoteUserAction(userId: string): Promise<AdminActionResult> {
@@ -117,7 +126,7 @@ export async function demoteUserAction(userId: string): Promise<AdminActionResul
       entityType: "User",
       entityId: userId,
     });
-  });
+  }, revalidateAdminUsers);
 }
 
 export async function suspendUserAction(
@@ -135,7 +144,7 @@ export async function suspendUserAction(
       entityType: "User",
       entityId: userId,
     });
-  });
+  }, revalidateAdminUsers);
 }
 
 export async function deleteUserAction(userId: string): Promise<AdminActionResult> {
@@ -147,7 +156,7 @@ export async function deleteUserAction(userId: string): Promise<AdminActionResul
       entityType: "User",
       entityId: userId,
     });
-  });
+  }, revalidateAdminUsers);
 }
 
 export async function deleteReviewAction(reviewId: string): Promise<AdminActionResult> {
@@ -437,7 +446,7 @@ export async function approveReadingLinkAction(
       entityType: "ReadingLink",
       entityId: linkId,
     });
-  });
+  }, revalidateAdminReadingLinks);
 }
 
 export async function rejectReadingLinkAction(
@@ -453,7 +462,7 @@ export async function rejectReadingLinkAction(
       entityId: linkId,
       meta: reason ? { reason } : undefined,
     });
-  });
+  }, revalidateAdminReadingLinks);
 }
 
 export type ReadingLinkHealthCheckActionResult =
@@ -481,7 +490,7 @@ export async function checkReadingLinkHealthAction(
         lastStatusCode: updated.lastStatusCode,
       },
     });
-    revalidateAdmin();
+    revalidateAdminReadingLinks();
     return {
       success: true,
       linkId: updated.id,

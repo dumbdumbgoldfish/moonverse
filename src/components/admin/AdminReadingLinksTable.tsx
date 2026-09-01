@@ -1,7 +1,8 @@
 "use client";
 
 import Link from "next/link";
-import { useState, useTransition } from "react";
+import { startTransition, useState } from "react";
+import { flushSync } from "react-dom";
 import { useRouter } from "next/navigation";
 import {
   approveReadingLinkAction,
@@ -18,12 +19,18 @@ import {
 } from "@/components/admin/AdminUi";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { runAdminTableAction } from "@/lib/admin/admin-table-action-runner";
 import {
+  serialAdminFollowUp,
+  serialAdminServerAction,
+} from "@/lib/admin/serial-admin-server-action";
+import {
+  applyReadingLinkHealthCheckOutcome,
+  applyReadingLinkRowOutcome,
   beginReadingLinkHealthCheck,
   beginReadingLinkRowAction,
   canBeginReadingLinkRowAction,
-  completeReadingLinkHealthCheck,
-  completeReadingLinkRowAction,
+  clearReadingLinkRowPendingIfMatch,
   isReadingLinkRowBusy,
   mergeReadingLinkRowPatches,
   readingLinkHealthBadgeVariant,
@@ -139,68 +146,92 @@ export function AdminReadingLinksTable({ links }: AdminReadingLinksTableProps) {
   const router = useRouter();
   const [rowState, setRowState] =
     useState<ReadingLinkHealthCheckUiState>(INITIAL_ROW_STATE);
-  const [, startTransition] = useTransition();
 
   const rows = mergeReadingLinkRowPatches(links, rowState.patchedById);
 
-  function runRowAction(
+  function beginRowAction(
     linkId: string,
-    operation: ReadingLinkRowPendingOperation,
+    operation: ReadingLinkRowPendingOperation
+  ): boolean {
+    let started = false;
+    flushSync(() => {
+      setRowState((current) => {
+        if (!canBeginReadingLinkRowAction(current, linkId)) {
+          return current;
+        }
+        started = true;
+        return operation === "health_check"
+          ? beginReadingLinkHealthCheck(current, linkId)
+          : beginReadingLinkRowAction(current, linkId, operation);
+      });
+    });
+    return started;
+  }
+
+  function clearRowPending(
+    linkId: string,
+    operation: ReadingLinkRowPendingOperation
+  ) {
+    flushSync(() => {
+      setRowState((current) =>
+        clearReadingLinkRowPendingIfMatch(current, linkId, operation)
+      );
+    });
+  }
+
+  function scheduleDeferredRefresh() {
+    void serialAdminFollowUp(() =>
+      startTransition(() => router.refresh())
+    );
+  }
+
+  function handleCheckHealth(linkId: string) {
+    if (!beginRowAction(linkId, "health_check")) {
+      return;
+    }
+
+    void runAdminTableAction({
+      run: () =>
+        serialAdminServerAction(() => checkReadingLinkHealthAction(linkId)),
+      applyOutcome: (outcome) => {
+        setRowState((current) =>
+          applyReadingLinkHealthCheckOutcome(current, linkId, outcome)
+        );
+      },
+      clearPending: () => clearRowPending(linkId, "health_check"),
+    }).then((result) => {
+      if (result.success) {
+        scheduleDeferredRefresh();
+      }
+    });
+  }
+
+  function runModerationAction(
+    linkId: string,
+    operation: Exclude<ReadingLinkRowPendingOperation, "health_check">,
     action: () => Promise<{ success: boolean; error?: string }>,
     patch?: ReadingLinkRowPatch
   ): Promise<{ success: boolean; error?: string }> {
-    let started = false;
-    setRowState((current) => {
-      if (!canBeginReadingLinkRowAction(current, linkId)) {
-        return current;
-      }
-      started = true;
-      return beginReadingLinkRowAction(current, linkId, operation);
-    });
-
-    if (!started) {
+    if (!beginRowAction(linkId, operation)) {
       return Promise.resolve({
         success: false,
         error: "Another action is already running for this link.",
       });
     }
 
-    return new Promise((resolve) => {
-      startTransition(async () => {
-        const result = await action();
+    return runAdminTableAction({
+      run: () => serialAdminServerAction(action),
+      applyOutcome: (result) => {
         setRowState((current) =>
-          completeReadingLinkRowAction(current, linkId, result, patch)
+          applyReadingLinkRowOutcome(current, linkId, result, patch)
         );
-        if (result.success) {
-          router.refresh();
-        }
-        resolve(result);
-      });
-    });
-  }
-
-  function handleCheckHealth(linkId: string) {
-    let started = false;
-    setRowState((current) => {
-      if (!canBeginReadingLinkRowAction(current, linkId)) {
-        return current;
-      }
-      started = true;
-      return beginReadingLinkHealthCheck(current, linkId);
-    });
-
-    if (!started) {
-      return;
-    }
-
-    startTransition(async () => {
-      const result = await checkReadingLinkHealthAction(linkId);
-      setRowState((current) =>
-        completeReadingLinkHealthCheck(current, linkId, result)
-      );
+      },
+      clearPending: () => clearRowPending(linkId, operation),
+    }).then((result) => {
       if (result.success) {
-        router.refresh();
+        scheduleDeferredRefresh();
       }
+      return result;
     });
   }
 
@@ -294,7 +325,7 @@ export function AdminReadingLinksTable({ links }: AdminReadingLinksTableProps) {
                 healthCheckError={rowState.errorsByLinkId[link.id] ?? null}
                 onCheckHealth={handleCheckHealth}
                 onApprove={(linkId) =>
-                  runRowAction(
+                  runModerationAction(
                     linkId,
                     "approve",
                     () => approveReadingLinkAction(linkId),
@@ -302,7 +333,7 @@ export function AdminReadingLinksTable({ links }: AdminReadingLinksTableProps) {
                   )
                 }
                 onReject={(linkId) =>
-                  runRowAction(
+                  runModerationAction(
                     linkId,
                     "reject",
                     () =>

@@ -1,7 +1,6 @@
 "use client";
 
-import { useState, useTransition } from "react";
-import { useRouter } from "next/navigation";
+import { useState } from "react";
 import { Trash2 } from "lucide-react";
 import { ADMIN_BTN_DELETE } from "@/components/admin/admin-styles";
 import {
@@ -14,6 +13,7 @@ import {
 } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
+import { runAdminConfirmFlow } from "@/lib/admin/admin-confirm-flow";
 
 interface AdminConfirmDialogProps {
   title: string;
@@ -32,13 +32,13 @@ export function AdminConfirmDialog({
   disabled = false,
   onConfirm,
 }: AdminConfirmDialogProps) {
-  const router = useRouter();
   const [open, setOpen] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [isPending, startTransition] = useTransition();
+  const [isConfirming, setIsConfirming] = useState(false);
   const showDeleteIcon = /^delete/i.test(confirmLabel);
+  const triggerDisabled = disabled || isConfirming;
 
-  const confirmContent = isPending ? (
+  const confirmContent = isConfirming ? (
     "Working…"
   ) : (
     <>
@@ -48,15 +48,11 @@ export function AdminConfirmDialog({
   );
 
   const handleConfirm = () => {
-    setError(null);
-    startTransition(async () => {
-      const result = await onConfirm();
-      if (!result.success) {
-        setError(result.error ?? "Action failed.");
-        return;
-      }
-      setOpen(false);
-      router.refresh();
+    if (isConfirming) return;
+    void runAdminConfirmFlow(onConfirm, {
+      setConfirming: setIsConfirming,
+      setError,
+      close: () => setOpen(false),
     });
   };
 
@@ -65,19 +61,28 @@ export function AdminConfirmDialog({
       <Button
         size="xs"
         variant="outline"
-        disabled={disabled}
+        disabled={triggerDisabled}
         className={cn(variant === "destructive" && ADMIN_BTN_DELETE)}
         onClick={() => {
-          if (disabled) return;
+          if (triggerDisabled) return;
           setError(null);
           setOpen(true);
         }}
       >
         {showDeleteIcon ? <Trash2 className="size-3.5" aria-hidden /> : null}
-        {confirmLabel}
+        {isConfirming ? "…" : confirmLabel}
       </Button>
 
-      <Dialog open={open} onOpenChange={setOpen}>
+      <Dialog
+        open={open}
+        onOpenChange={(nextOpen) => {
+          if (isConfirming) return;
+          setOpen(nextOpen);
+          if (!nextOpen) {
+            setError(null);
+          }
+        }}
+      >
         <DialogContent className="sm:max-w-md">
           <DialogHeader>
             <DialogTitle>{title}</DialogTitle>
@@ -89,14 +94,18 @@ export function AdminConfirmDialog({
             </p>
           )}
           <DialogFooter>
-            <Button variant="outline" onClick={() => setOpen(false)} disabled={isPending}>
+            <Button
+              variant="outline"
+              onClick={() => setOpen(false)}
+              disabled={isConfirming}
+            >
               Cancel
             </Button>
             <Button
               variant={variant === "destructive" ? "outline" : "default"}
               className={cn(variant === "destructive" && ADMIN_BTN_DELETE)}
               onClick={handleConfirm}
-              disabled={isPending}
+              disabled={isConfirming}
             >
               {confirmContent}
             </Button>

@@ -101,24 +101,19 @@ export function beginReadingLinkRowAction(
   return next;
 }
 
-export function completeReadingLinkRowAction(
+/** Apply row patches/errors without clearing pending — caller owns pending cleanup. */
+export function applyReadingLinkRowOutcome(
   state: ReadingLinkHealthCheckUiState,
   linkId: string,
   outcome: { success: boolean; error?: string },
   patch?: ReadingLinkRowPatch
 ): ReadingLinkHealthCheckUiState {
-  const next: ReadingLinkHealthCheckUiState = {
-    ...state,
-    pendingLinkId: null,
-    pendingOperation: null,
-  };
-
   if (!outcome.success) {
     if (!outcome.error) {
-      return next;
+      return state;
     }
     return {
-      ...next,
+      ...state,
       errorsByLinkId: {
         ...state.errorsByLinkId,
         [linkId]: outcome.error,
@@ -129,7 +124,7 @@ export function completeReadingLinkRowAction(
   const { [linkId]: _removed, ...errorsByLinkId } = state.errorsByLinkId;
   const rowPatch = patch ?? state.patchedById[linkId];
   return {
-    ...next,
+    ...state,
     errorsByLinkId,
     patchedById: rowPatch
       ? {
@@ -143,6 +138,16 @@ export function completeReadingLinkRowAction(
   };
 }
 
+export function completeReadingLinkRowAction(
+  state: ReadingLinkHealthCheckUiState,
+  linkId: string,
+  outcome: { success: boolean; error?: string },
+  patch?: ReadingLinkRowPatch
+): ReadingLinkHealthCheckUiState {
+  const applied = applyReadingLinkRowOutcome(state, linkId, outcome, patch);
+  return clearReadingLinkRowPendingIfMatch(applied, linkId);
+}
+
 export function beginReadingLinkHealthCheck(
   state: ReadingLinkHealthCheckUiState,
   linkId: string
@@ -150,25 +155,95 @@ export function beginReadingLinkHealthCheck(
   return beginReadingLinkRowAction(state, linkId, "health_check");
 }
 
-export function completeReadingLinkHealthCheck(
+export function applyReadingLinkHealthCheckOutcome(
   state: ReadingLinkHealthCheckUiState,
   linkId: string,
   outcome: ReadingLinkHealthCheckOutcome
 ): ReadingLinkHealthCheckUiState {
-  const clearedPending: ReadingLinkHealthCheckUiState = {
-    ...state,
-    pendingLinkId: null,
-    pendingOperation: null,
-  };
-
   if (outcome.success) {
-    return completeReadingLinkRowAction(clearedPending, linkId, outcome, {
+    return applyReadingLinkRowOutcome(state, linkId, outcome, {
       healthStatus: outcome.healthStatus,
       lastCheckedAt: outcome.lastCheckedAt,
     });
   }
 
-  return completeReadingLinkRowAction(clearedPending, linkId, outcome);
+  return applyReadingLinkRowOutcome(state, linkId, outcome);
+}
+
+export function completeReadingLinkHealthCheck(
+  state: ReadingLinkHealthCheckUiState,
+  linkId: string,
+  outcome: ReadingLinkHealthCheckOutcome
+): ReadingLinkHealthCheckUiState {
+  const applied = applyReadingLinkHealthCheckOutcome(state, linkId, outcome);
+  return clearReadingLinkRowPendingIfMatch(applied, linkId, "health_check");
+}
+
+export function clearReadingLinkRowPendingIfMatch(
+  state: ReadingLinkHealthCheckUiState,
+  linkId: string,
+  _operation?: ReadingLinkRowPendingOperation
+): ReadingLinkHealthCheckUiState {
+  if (state.pendingLinkId !== linkId) {
+    return state;
+  }
+  return {
+    ...state,
+    pendingLinkId: null,
+    pendingOperation: null,
+  };
+}
+
+export type ReadingLinkRowActionOutcome = { success: boolean; error?: string };
+
+export async function runReadingLinkRowActionLifecycle(
+  state: ReadingLinkHealthCheckUiState,
+  linkId: string,
+  operation: ReadingLinkRowPendingOperation,
+  action: () => Promise<ReadingLinkRowActionOutcome>,
+  patch?: ReadingLinkRowPatch
+): Promise<ReadingLinkHealthCheckUiState> {
+  if (!canBeginReadingLinkRowAction(state, linkId)) {
+    return state;
+  }
+
+  let current = beginReadingLinkRowAction(state, linkId, operation);
+  try {
+    const result = await action();
+    current = completeReadingLinkRowAction(current, linkId, result, patch);
+  } catch (error) {
+    current = completeReadingLinkRowAction(current, linkId, {
+      success: false,
+      error: error instanceof Error ? error.message : "Action failed.",
+    }, patch);
+  } finally {
+    current = clearReadingLinkRowPendingIfMatch(current, linkId, operation);
+  }
+  return current;
+}
+
+export async function runReadingLinkHealthCheckLifecycle(
+  state: ReadingLinkHealthCheckUiState,
+  linkId: string,
+  action: () => Promise<ReadingLinkHealthCheckOutcome>
+): Promise<ReadingLinkHealthCheckUiState> {
+  if (!canBeginReadingLinkRowAction(state, linkId)) {
+    return state;
+  }
+
+  let current = beginReadingLinkHealthCheck(state, linkId);
+  try {
+    const result = await action();
+    current = completeReadingLinkHealthCheck(current, linkId, result);
+  } catch (error) {
+    current = completeReadingLinkHealthCheck(current, linkId, {
+      success: false,
+      error: error instanceof Error ? error.message : "Action failed.",
+    });
+  } finally {
+    current = clearReadingLinkRowPendingIfMatch(current, linkId, "health_check");
+  }
+  return current;
 }
 
 export function mergeReadingLinkRowPatches<T extends { id: string }>(

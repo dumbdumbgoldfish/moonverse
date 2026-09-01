@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useTransition } from "react";
+import { useState } from "react";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import {
@@ -55,6 +55,7 @@ import {
 import {
   beginInboxAction,
   canBeginInboxAction,
+  clearInboxPendingIfMatch,
   completeInboxAction,
   inboxRemediationActionId,
   INITIAL_INBOX_ACTION_PENDING_STATE,
@@ -105,7 +106,6 @@ export function AdminInboxTriage({
   const [pendingState, setPendingState] = useState<InboxActionPendingState>(
     INITIAL_INBOX_ACTION_PENDING_STATE
   );
-  const [, startTransition] = useTransition();
 
   const selected =
     items.find((item) => item.id === selection.activeSelectedId) ??
@@ -160,27 +160,43 @@ export function AdminInboxTriage({
     const startedItemId = itemId;
     setActionError(null);
 
-    startTransition(async () => {
-      const result = await actionFn();
-      setPendingState((current) => completeInboxAction(current));
+    void (async () => {
+      try {
+        const result = await actionFn();
+        setPendingState((current) => completeInboxAction(current, startedItemId));
 
-      if (!result.success) {
+        if (!result.success) {
+          if (startedItemId === selection.activeSelectedId) {
+            setActionError({
+              itemId: startedItemId,
+              action,
+              message: result.error ?? "Action failed.",
+            });
+          }
+          return;
+        }
+
+        if (startedItemId === selection.activeSelectedId) {
+          setResolution("");
+          setActionError(null);
+        }
+        router.refresh();
+      } catch (error) {
+        setPendingState((current) => completeInboxAction(current, startedItemId));
         if (startedItemId === selection.activeSelectedId) {
           setActionError({
             itemId: startedItemId,
             action,
-            message: result.error ?? "Action failed.",
+            message:
+              error instanceof Error ? error.message : "Action failed.",
           });
         }
-        return;
+      } finally {
+        setPendingState((current) =>
+          clearInboxPendingIfMatch(current, startedItemId, action)
+        );
       }
-
-      if (startedItemId === selection.activeSelectedId) {
-        setResolution("");
-        setActionError(null);
-      }
-      router.refresh();
-    });
+    })();
   }
 
   const detailError =

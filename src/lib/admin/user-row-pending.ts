@@ -55,9 +55,52 @@ export function beginUserRowAction(
 }
 
 export function completeUserRowAction(
-  state: UserRowPendingState
+  state: UserRowPendingState,
+  userId?: string
 ): UserRowPendingState {
+  if (userId) {
+    return clearUserRowPendingIfMatch(state, userId);
+  }
   return INITIAL_USER_ROW_PENDING_STATE;
+}
+
+export function clearUserRowPendingIfMatch(
+  state: UserRowPendingState,
+  userId: string,
+  action?: UserRowPendingActionId
+): UserRowPendingState {
+  if (state.pendingAction?.userId !== userId) {
+    return state;
+  }
+  if (action && state.pendingAction.action !== action) {
+    return state;
+  }
+  return INITIAL_USER_ROW_PENDING_STATE;
+}
+
+export type UserRowActionOutcome = { success: boolean; error?: string };
+
+export async function runUserRowActionLifecycle(
+  state: UserRowPendingState,
+  userId: string,
+  action: UserRowPendingActionId,
+  actionFn: () => Promise<UserRowActionOutcome>
+): Promise<UserRowPendingState> {
+  if (!canBeginUserRowAction(state, userId)) {
+    return state;
+  }
+
+  let current = beginUserRowAction(state, userId, action);
+  try {
+    await actionFn();
+    current = completeUserRowAction(current, userId);
+    return current;
+  } catch {
+    current = completeUserRowAction(current, userId);
+    return current;
+  } finally {
+    current = clearUserRowPendingIfMatch(current, userId, action);
+  }
 }
 
 export function userSuspendActionId(isSuspended: boolean): UserRowPendingActionId {

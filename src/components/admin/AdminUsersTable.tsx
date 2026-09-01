@@ -1,8 +1,8 @@
 "use client";
 
 import Link from "next/link";
-import { useRouter } from "next/navigation";
-import { useState, useTransition } from "react";
+import { startTransition, useState } from "react";
+import { flushSync } from "react-dom";
 import {
   deleteUserAction,
   demoteUserAction,
@@ -19,10 +19,12 @@ import {
 } from "@/components/admin/AdminUi";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { runAdminTableAction } from "@/lib/admin/admin-table-action-runner";
+import { serialAdminServerAction } from "@/lib/admin/serial-admin-server-action";
 import {
   beginUserRowAction,
   canBeginUserRowAction,
-  completeUserRowAction,
+  clearUserRowPendingIfMatch,
   INITIAL_USER_ROW_PENDING_STATE,
   isUserRowActionPending,
   isUserRowBusy,
@@ -38,22 +40,35 @@ interface AdminUsersTableProps {
   currentAdminId: string;
 }
 
+type UserRowPatch = Partial<Pick<AdminUserSummary, "role" | "isSuspended">>;
+
+function mergeUserRowPatches(
+  users: AdminUserSummary[],
+  patchedById: Record<string, UserRowPatch>
+): AdminUserSummary[] {
+  return users.map((user) => ({
+    ...user,
+    ...patchedById[user.id],
+  }));
+}
+
 export function AdminUsersTable({ users, currentAdminId }: AdminUsersTableProps) {
-  const router = useRouter();
   const [pendingState, setPendingState] = useState<UserRowPendingState>(
     INITIAL_USER_ROW_PENDING_STATE
   );
+  const [patchedById, setPatchedById] = useState<Record<string, UserRowPatch>>({});
+  const [removedUserIds, setRemovedUserIds] = useState<Set<string>>(new Set());
   const [actionError, setActionError] = useState<{
     userId: string;
     message: string;
   } | null>(null);
-  const [, startTransition] = useTransition();
 
-  function runUserAction(
-    userId: string,
-    action: UserRowPendingActionId,
-    actionFn: () => Promise<{ success: boolean; error?: string }>
-  ): Promise<{ success: boolean; error?: string }> {
+  const rows = mergeUserRowPatches(
+    users.filter((user) => !removedUserIds.has(user.id)),
+    patchedById
+  );
+
+  function beginUserAction(userId: string, action: UserRowPendingActionId): boolean {
     let started = false;
     setPendingState((current) => {
       if (!canBeginUserRowAction(current, userId)) {
@@ -62,39 +77,69 @@ export function AdminUsersTable({ users, currentAdminId }: AdminUsersTableProps)
       started = true;
       return beginUserRowAction(current, userId, action);
     });
+    return started;
+  }
 
-    if (!started) {
+  function clearUserPending(userId: string, action: UserRowPendingActionId) {
+    flushSync(() => {
+      setPendingState((current) =>
+        clearUserRowPendingIfMatch(current, userId, action)
+      );
+    });
+  }
+
+  function applyUserRowPatch(userId: string, patch: UserRowPatch) {
+    setPatchedById((current) => ({
+      ...current,
+      [userId]: {
+        ...current[userId],
+        ...patch,
+      },
+    }));
+  }
+
+  function runUserAction(
+    userId: string,
+    action: UserRowPendingActionId,
+    actionFn: () => Promise<{ success: boolean; error?: string }>,
+    successPatch?: UserRowPatch
+  ): Promise<{ success: boolean; error?: string }> {
+    if (!beginUserAction(userId, action)) {
       return Promise.resolve({
         success: false,
         error: "Another action is already running for this user.",
       });
     }
 
-    const startedUserId = userId;
     setActionError((current) =>
-      current?.userId === startedUserId ? null : current
+      current?.userId === userId ? null : current
     );
 
-    return new Promise((resolve) => {
-      startTransition(async () => {
-        const result = await actionFn();
-        setPendingState((current) => completeUserRowAction(current));
-
+    return runAdminTableAction({
+      run: () => serialAdminServerAction(actionFn),
+      applyOutcome: (result) => {
         if (!result.success) {
           setActionError({
-            userId: startedUserId,
+            userId,
             message: result.error ?? "Action failed.",
           });
-          resolve(result);
           return;
         }
 
         setActionError((current) =>
-          current?.userId === startedUserId ? null : current
+          current?.userId === userId ? null : current
         );
-        router.refresh();
-        resolve(result);
-      });
+
+        if (action === "delete") {
+          setRemovedUserIds((current) => new Set(current).add(userId));
+          return;
+        }
+
+        if (successPatch) {
+          applyUserRowPatch(userId, successPatch);
+        }
+      },
+      clearPending: () => clearUserPending(userId, action),
     });
   }
 
@@ -118,7 +163,7 @@ export function AdminUsersTable({ users, currentAdminId }: AdminUsersTableProps)
         </tr>
       </AdminTableHead>
       <tbody>
-        {users.map((user) => {
+        {rows.map((user) => {
           const rowBusy = isUserRowBusy(pendingState, user.id);
           const rowError =
             actionError?.userId === user.id ? actionError.message : null;
@@ -169,8 +214,11 @@ export function AdminUsersTable({ users, currentAdminId }: AdminUsersTableProps)
                         variant="outline"
                         disabled={rowBusy}
                         onClick={() =>
-                          runUserAction(user.id, "promote", () =>
-                            promoteUserAction(user.id)
+                          runUserAction(
+                            user.id,
+                            "promote",
+                            () => promoteUserAction(user.id),
+                            { role: "ADMIN" }
                           )
                         }
                       >
@@ -182,8 +230,11 @@ export function AdminUsersTable({ users, currentAdminId }: AdminUsersTableProps)
                         variant="outline"
                         disabled={rowBusy || user.id === currentAdminId}
                         onClick={() =>
-                          runUserAction(user.id, "demote", () =>
-                            demoteUserAction(user.id)
+                          runUserAction(
+                            user.id,
+                            "demote",
+                            () => demoteUserAction(user.id),
+                            { role: "USER" }
                           )
                         }
                       >
@@ -195,8 +246,11 @@ export function AdminUsersTable({ users, currentAdminId }: AdminUsersTableProps)
                       variant="outline"
                       disabled={rowBusy || user.id === currentAdminId}
                       onClick={() =>
-                        runUserAction(user.id, suspendAction, () =>
-                          suspendUserAction(user.id, !user.isSuspended)
+                        runUserAction(
+                          user.id,
+                          suspendAction,
+                          () => suspendUserAction(user.id, !user.isSuspended),
+                          { isSuspended: !user.isSuspended }
                         )
                       }
                     >
@@ -221,10 +275,7 @@ export function AdminUsersTable({ users, currentAdminId }: AdminUsersTableProps)
                     )}
                   </div>
                   {rowError ? (
-                    <p
-                      role="alert"
-                      className="text-xs text-rose-200"
-                    >
+                    <p role="alert" className="text-xs text-rose-200">
                       {rowError}
                     </p>
                   ) : null}

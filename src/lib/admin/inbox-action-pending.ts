@@ -56,9 +56,52 @@ export function beginInboxAction(
 }
 
 export function completeInboxAction(
-  state: InboxActionPendingState
+  state: InboxActionPendingState,
+  itemId?: string
 ): InboxActionPendingState {
+  if (itemId && state.pendingAction?.itemId !== itemId) {
+    return state;
+  }
   return INITIAL_INBOX_ACTION_PENDING_STATE;
+}
+
+export function clearInboxPendingIfMatch(
+  state: InboxActionPendingState,
+  itemId: string,
+  action?: InboxPendingActionId
+): InboxActionPendingState {
+  if (state.pendingAction?.itemId !== itemId) {
+    return state;
+  }
+  if (action && state.pendingAction.action !== action) {
+    return state;
+  }
+  return INITIAL_INBOX_ACTION_PENDING_STATE;
+}
+
+export type InboxActionOutcome = { success: boolean; error?: string };
+
+export async function runInboxActionLifecycle(
+  state: InboxActionPendingState,
+  itemId: string,
+  action: InboxPendingActionId,
+  actionFn: () => Promise<InboxActionOutcome>
+): Promise<InboxActionPendingState> {
+  if (!canBeginInboxAction(state, itemId, action)) {
+    return state;
+  }
+
+  let current = beginInboxAction(state, itemId, action);
+  try {
+    await actionFn();
+    current = completeInboxAction(current, itemId);
+    return current;
+  } catch {
+    current = completeInboxAction(current, itemId);
+    return current;
+  } finally {
+    current = clearInboxPendingIfMatch(current, itemId, action);
+  }
 }
 
 export function inboxRemediationActionId(remediation: string): InboxPendingActionId {

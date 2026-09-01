@@ -4,6 +4,7 @@ import {
   beginReadingLinkHealthCheck,
   beginReadingLinkRowAction,
   canBeginReadingLinkRowAction,
+  clearReadingLinkRowPendingIfMatch,
   completeReadingLinkHealthCheck,
   completeReadingLinkRowAction,
   isReadingLinkRowBusy,
@@ -11,6 +12,7 @@ import {
   patchReadingLinkRowById,
   readingLinkHealthBadgeVariant,
   readingLinkHealthBadgeClassName,
+  runReadingLinkHealthCheckLifecycle,
   type ReadingLinkHealthCheckUiState,
 } from "@/lib/admin/reading-link-presentation";
 
@@ -236,5 +238,142 @@ describe("reading link row pending state", () => {
     assert.equal(cleared.pendingLinkId, null);
     assert.equal(cleared.pendingOperation, null);
     assert.equal(cleared.patchedById["link-a"]?.moderationStatus, "REJECTED");
+  });
+});
+
+describe("reading link row action lifecycles", () => {
+  const baseState: ReadingLinkHealthCheckUiState = {
+    pendingLinkId: null,
+    pendingOperation: null,
+    errorsByLinkId: {},
+    patchedById: {},
+  };
+
+  it("ignores a rapid second health check while the first row is in flight", async () => {
+    let resolveFirst: (value: {
+      success: true;
+      linkId: string;
+      healthStatus: string;
+      lastCheckedAt: string | null;
+    }) => void = () => {};
+    const firstOutcome = new Promise<{
+      success: true;
+      linkId: string;
+      healthStatus: string;
+      lastCheckedAt: string | null;
+    }>((resolve) => {
+      resolveFirst = resolve;
+    });
+    let actionCalls = 0;
+
+    const inFlight = runReadingLinkHealthCheckLifecycle(baseState, "link-a", async () => {
+      actionCalls += 1;
+      return await firstOutcome;
+    });
+    const blocked = await runReadingLinkHealthCheckLifecycle(
+      beginReadingLinkHealthCheck(baseState, "link-a"),
+      "link-a",
+      async () => {
+        actionCalls += 1;
+        return {
+          success: true,
+          linkId: "link-a",
+          healthStatus: "HEALTHY",
+          lastCheckedAt: "2026-09-01T00:00:00.000Z",
+        };
+      }
+    );
+
+    assert.equal(actionCalls, 1);
+    assert.equal(isReadingLinkRowBusy(blocked, "link-a"), true);
+    assert.equal(canBeginReadingLinkRowAction(blocked, "link-a"), false);
+
+    resolveFirst({
+      success: true,
+      linkId: "link-a",
+      healthStatus: "BROKEN",
+      lastCheckedAt: "2026-09-01T00:00:00.000Z",
+    });
+    const completed = await inFlight;
+
+    assert.equal(completed.pendingLinkId, null);
+    assert.equal(completed.pendingOperation, null);
+    assert.equal(completed.patchedById["link-a"]?.healthStatus, "BROKEN");
+  });
+
+  it("clears pending after health check success", async () => {
+    const completed = await runReadingLinkHealthCheckLifecycle(
+      baseState,
+      "link-a",
+      async () => ({
+        success: true,
+        linkId: "link-a",
+        healthStatus: "HEALTHY",
+        lastCheckedAt: "2026-09-01T00:00:00.000Z",
+      })
+    );
+
+    assert.equal(completed.pendingLinkId, null);
+    assert.equal(completed.pendingOperation, null);
+  });
+
+  it("clears pending after health check failure", async () => {
+    const completed = await runReadingLinkHealthCheckLifecycle(
+      baseState,
+      "link-a",
+      async () => ({
+        success: false,
+        error: "Network timeout.",
+      })
+    );
+
+    assert.equal(completed.pendingLinkId, null);
+    assert.equal(completed.pendingOperation, null);
+    assert.equal(completed.errorsByLinkId["link-a"], "Network timeout.");
+  });
+
+  it("clears pending when the health check action throws", async () => {
+    const completed = await runReadingLinkHealthCheckLifecycle(
+      baseState,
+      "link-a",
+      async () => {
+        throw new Error("Unexpected failure.");
+      }
+    );
+
+    assert.equal(completed.pendingLinkId, null);
+    assert.equal(completed.pendingOperation, null);
+    assert.equal(completed.errorsByLinkId["link-a"], "Unexpected failure.");
+  });
+
+  it("does not clear another row pending when a stale completion resolves", () => {
+    const busyOnB = beginReadingLinkRowAction(
+      beginReadingLinkRowAction(baseState, "link-a", "health_check"),
+      "link-b",
+      "health_check"
+    );
+    const afterStaleA = completeReadingLinkHealthCheck(busyOnB, "link-a", {
+      success: true,
+      linkId: "link-a",
+      healthStatus: "BROKEN",
+      lastCheckedAt: "2026-09-01T00:00:00.000Z",
+    });
+
+    assert.equal(afterStaleA.pendingLinkId, "link-b");
+    assert.equal(afterStaleA.pendingOperation, "health_check");
+    assert.equal(isReadingLinkRowBusy(afterStaleA, "link-b"), true);
+    assert.equal(isReadingLinkRowBusy(afterStaleA, "link-a"), false);
+    assert.equal(
+      afterStaleA.patchedById["link-a"]?.healthStatus,
+      "BROKEN"
+    );
+  });
+
+  it("force-clears stuck pending state for a matching row", () => {
+    const busy = beginReadingLinkRowAction(baseState, "link-a", "health_check");
+    const cleared = clearReadingLinkRowPendingIfMatch(busy, "link-a", "health_check");
+
+    assert.equal(cleared.pendingLinkId, null);
+    assert.equal(cleared.pendingOperation, null);
   });
 });

@@ -3,11 +3,13 @@ import { describe, it } from "node:test";
 import {
   beginInboxAction,
   canBeginInboxAction,
+  clearInboxPendingIfMatch,
   completeInboxAction,
   inboxRemediationActionId,
   INITIAL_INBOX_ACTION_PENDING_STATE,
   isInboxActionPending,
   isInboxItemBusy,
+  runInboxActionLifecycle,
 } from "@/lib/admin/inbox-action-pending";
 
 describe("inbox action pending state", () => {
@@ -79,5 +81,61 @@ describe("inbox action pending state", () => {
     assert.equal(isInboxItemBusy(pending, "link-a"), true);
     assert.equal(isInboxItemBusy(pending, "link-b"), false);
     assert.equal(canBeginInboxAction(pending, "link-b", "approve_link"), true);
+  });
+});
+
+describe("inbox action lifecycles", () => {
+  it("clears pending after success", async () => {
+    const completed = await runInboxActionLifecycle(
+      INITIAL_INBOX_ACTION_PENDING_STATE,
+      "item-a",
+      "approve_link",
+      async () => ({ success: true })
+    );
+    assert.equal(completed.pendingAction, null);
+  });
+
+  it("clears pending after failure", async () => {
+    const completed = await runInboxActionLifecycle(
+      INITIAL_INBOX_ACTION_PENDING_STATE,
+      "item-b",
+      "hide_review",
+      async () => ({ success: false, error: "Failed." })
+    );
+    assert.equal(completed.pendingAction, null);
+  });
+
+  it("clears pending when the action throws", async () => {
+    const completed = await runInboxActionLifecycle(
+      INITIAL_INBOX_ACTION_PENDING_STATE,
+      "item-c",
+      "hide_comment",
+      async () => {
+        throw new Error("Unexpected.");
+      }
+    );
+    assert.equal(completed.pendingAction, null);
+  });
+
+  it("does not clear another item pending when a stale completion resolves", () => {
+    const busyOnB = beginInboxAction(
+      beginInboxAction(INITIAL_INBOX_ACTION_PENDING_STATE, "item-a", "approve_link"),
+      "item-b",
+      "hide_review"
+    );
+    const afterStaleA = completeInboxAction(busyOnB, "item-a");
+
+    assert.equal(afterStaleA.pendingAction?.itemId, "item-b");
+    assert.equal(isInboxItemBusy(afterStaleA, "item-b"), true);
+  });
+
+  it("force-clears stuck pending for a matching item", () => {
+    const busy = beginInboxAction(
+      INITIAL_INBOX_ACTION_PENDING_STATE,
+      "item-d",
+      "approve_tag"
+    );
+    const cleared = clearInboxPendingIfMatch(busy, "item-d", "approve_tag");
+    assert.equal(cleared.pendingAction, null);
   });
 });
