@@ -41,6 +41,7 @@ export interface ListAuditLogsOptions {
   offset?: number;
   action?: string;
   entityType?: string;
+  entityId?: string;
   actorUsername?: string;
   query?: string;
 }
@@ -60,6 +61,7 @@ export async function listAuditLogs(
     where: {
       ...(options.action ? { action: options.action } : {}),
       ...(options.entityType ? { entityType: options.entityType } : {}),
+      ...(options.entityId ? { entityId: options.entityId } : {}),
       ...(options.actorUsername
         ? {
             actor: {
@@ -101,6 +103,7 @@ export async function countAuditLogs(
     where: {
       ...(options.action ? { action: options.action } : {}),
       ...(options.entityType ? { entityType: options.entityType } : {}),
+      ...(options.entityId ? { entityId: options.entityId } : {}),
       ...(options.actorUsername
         ? {
             actor: {

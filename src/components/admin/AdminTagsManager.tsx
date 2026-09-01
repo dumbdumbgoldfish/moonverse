@@ -155,7 +155,9 @@ export function AdminTagsManager({ tags }: { tags: AdminTagSummary[] }) {
                   <Button
                     size="xs"
                     variant="outline"
+                    disabled={isPending}
                     onClick={() => {
+                      if (isPending) return;
                       setEditingId(tag.id);
                       setName(tag.name);
                       setSlug(tag.slug);

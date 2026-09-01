@@ -124,7 +124,9 @@ export function AdminGenresManager({ genres }: { genres: AdminGenreSummary[] }) 
                   <Button
                     size="xs"
                     variant="outline"
+                    disabled={isPending}
                     onClick={() => {
+                      if (isPending) return;
                       setEditingId(genre.id);
                       setName(genre.name);
                       setSlug(genre.slug);

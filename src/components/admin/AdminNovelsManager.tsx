@@ -312,10 +312,17 @@ export function AdminNovelsManager({
     </form>
   );
 
+  const handleTabChange = (tabId: string) => {
+    if (activeTab === "editor" && tabId !== "editor") {
+      resetForm();
+    }
+    setActiveTab(tabId);
+  };
+
   return (
     <AdminTabs
       activeId={activeTab}
-      onActiveChange={setActiveTab}
+      onActiveChange={handleTabChange}
       tabs={[
         { id: "catalog", label: "Catalogue", badge: novels.length, content: catalogPanel },
         { id: "editor", label: editingId ? "Edit novel" : "Create novel", content: editorPanel },

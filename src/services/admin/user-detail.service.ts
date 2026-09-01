@@ -61,14 +61,10 @@ export async function getAdminUserDetail(
     where: { targetType: "USER", targetId: userId },
   });
 
-  const allAudit = await listAuditLogs(200);
-  const recentAudit = allAudit.filter(
-    (log) =>
-      log.entityId === userId ||
-      (log.meta &&
-        typeof log.meta === "object" &&
-        (log.meta as Record<string, unknown>).userId === userId)
-  );
+  const recentAudit = await listAuditLogs({
+    entityId: userId,
+    limit: 15,
+  });
 
   return {
     id: user.id,
@@ -92,6 +88,6 @@ export async function getAdminUserDetail(
       moderationStatus: review.moderationStatus,
       createdAt: review.createdAt.toISOString(),
     })),
-    recentAudit: recentAudit.slice(0, 15),
+    recentAudit: recentAudit,
   };
 }
