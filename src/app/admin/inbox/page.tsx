@@ -1,3 +1,5 @@
+import { Suspense } from "react";
+import { redirect } from "next/navigation";
 import {
   AdminEmptyState,
   AdminPageHeader,
@@ -6,6 +8,12 @@ import {
 } from "@/components/admin/AdminUi";
 import { AdminInboxTriage } from "@/components/admin/AdminInboxTriage";
 import {
+  buildInboxTriageHref,
+  buildInboxTriageSearchParams,
+  resolveInboxSelection,
+} from "@/lib/admin/inbox-selection";
+import {
+  findInboxPageForSelectedItem,
   getAdminInboxPage,
   getInboxCounts,
   parseInboxKindFilter,
@@ -13,6 +21,8 @@ import {
 
 export const metadata = { title: "Moderation Queue · MoonVerse Admin" };
 export const dynamic = "force-dynamic";
+
+const INBOX_PAGE_SIZE = 50;
 
 interface AdminInboxPageProps {
   searchParams: Promise<{ selected?: string; page?: string; kind?: string }>;
@@ -22,15 +32,61 @@ export default async function AdminInboxPage({
   searchParams,
 }: AdminInboxPageProps) {
   const { selected, page: pageParam, kind: kindParam } = await searchParams;
+  const requestedSelectedId = selected?.trim() || undefined;
   const page = Math.max(1, Number(pageParam) || 1);
   const activeFilter = parseInboxKindFilter(kindParam);
   const inboxFilters = { kind: activeFilter };
+
+  if (requestedSelectedId) {
+    const selectedPage = await findInboxPageForSelectedItem(
+      requestedSelectedId,
+      INBOX_PAGE_SIZE,
+      inboxFilters
+    );
+    if (selectedPage && selectedPage !== page) {
+      redirect(
+        buildInboxTriageHref({
+          kind: activeFilter,
+          page: selectedPage,
+          selected: requestedSelectedId,
+        })
+      );
+    }
+  }
+
   const [result, counts] = await Promise.all([
-    getAdminInboxPage(page, 50, inboxFilters),
+    getAdminInboxPage(page, INBOX_PAGE_SIZE, inboxFilters),
     getInboxCounts(),
   ]);
-  const paginationParams =
-    activeFilter === "all" ? undefined : { kind: activeFilter };
+
+  let selectionWarning: string | undefined;
+  if (
+    requestedSelectedId &&
+    !result.items.some((item) => item.id === requestedSelectedId)
+  ) {
+    const existsInAll = await findInboxPageForSelectedItem(
+      requestedSelectedId,
+      INBOX_PAGE_SIZE,
+      { kind: "all" }
+    );
+    selectionWarning = existsInAll
+      ? "The linked inbox item is not in this filter. Switch to All to view it."
+      : "This inbox item is no longer in the moderation queue.";
+  }
+
+  const selection = resolveInboxSelection(
+    result.items,
+    requestedSelectedId,
+    selectionWarning
+  );
+
+  const paginationParams = buildInboxTriageSearchParams({
+    kind: activeFilter,
+    page: result.page,
+    selected: selection.selectionMatched
+      ? selection.activeSelectedId ?? undefined
+      : undefined,
+  });
 
   return (
     <>
@@ -65,12 +121,14 @@ export default async function AdminInboxPage({
         />
       ) : (
         <>
-          <AdminInboxTriage
-            items={result.items}
-            counts={counts}
-            initialSelectedId={selected}
-            activeFilter={activeFilter}
-          />
+          <Suspense fallback={null}>
+            <AdminInboxTriage
+              items={result.items}
+              counts={counts}
+              activeFilter={activeFilter}
+              selection={selection}
+            />
+          </Suspense>
           <AdminPagination
             page={result.page}
             totalPages={result.totalPages}

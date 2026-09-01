@@ -2,7 +2,7 @@
 
 import { useState, useTransition } from "react";
 import Link from "next/link";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import {
   Check,
   ExternalLink,
@@ -40,9 +40,12 @@ import {
   INBOX_KIND_FILTER_OPTIONS,
   inboxKindFilterCountKey,
   inboxKindFilterEmptyMessage,
-  inboxKindFilterHref,
   type InboxKindFilterId,
 } from "@/lib/admin/inbox-kind-filter";
+import {
+  buildInboxTriageHrefFromSearch,
+  type InboxSelectionResolution,
+} from "@/lib/admin/inbox-selection";
 import {
   getReportRemediationOptions,
   type InboxItem,
@@ -52,8 +55,8 @@ import {
 interface AdminInboxTriageProps {
   items: InboxItem[];
   counts?: Record<InboxItemKind | "total", number>;
-  initialSelectedId?: string;
   activeFilter?: InboxItemKind | "all";
+  selection: InboxSelectionResolution;
 }
 
 const INBOX_PANEL_CLASS =
@@ -68,21 +71,37 @@ function slaTone(hours: number) {
 export function AdminInboxTriage({
   items,
   counts,
-  initialSelectedId,
   activeFilter = "all",
+  selection,
 }: AdminInboxTriageProps) {
   const router = useRouter();
-  const [selectedId, setSelectedId] = useState(
-    initialSelectedId ?? items[0]?.id ?? ""
-  );
+  const searchParams = useSearchParams();
   const [resolution, setResolution] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [isPending, startTransition] = useTransition();
 
-  const selected = items.find((item) => item.id === selectedId) ?? items[0] ?? null;
+  const selected =
+    items.find((item) => item.id === selection.activeSelectedId) ??
+    items[0] ??
+    null;
+
+  function selectItem(itemId: string) {
+    router.push(
+      buildInboxTriageHrefFromSearch(searchParams.toString(), {
+        selected: itemId,
+      }),
+      { scroll: false }
+    );
+  }
 
   function navigateFilter(nextFilter: InboxKindFilterId) {
-    router.push(inboxKindFilterHref(nextFilter));
+    router.push(
+      buildInboxTriageHrefFromSearch(searchParams.toString(), {
+        kind: nextFilter,
+        page: null,
+        selected: null,
+      })
+    );
   }
 
   function filterChipLabel(option: { id: InboxKindFilterId; label: string }): string {
@@ -135,10 +154,10 @@ export function AdminInboxTriage({
               <li key={item.id}>
                 <button
                   type="button"
-                  onClick={() => setSelectedId(item.id)}
+                  onClick={() => selectItem(item.id)}
                   className={cn(
                     "w-full px-4 py-3.5 text-left transition",
-                    selected?.id === item.id
+                    selection.activeSelectedId === item.id
                       ? "bg-gradient-to-r from-[#6e46c7]/20 to-transparent"
                       : "hover:bg-white/[0.04]"
                   )}
@@ -178,6 +197,11 @@ export function AdminInboxTriage({
           <p className="text-sm text-white/70">Select an item to triage.</p>
         ) : (
           <>
+            {selection.selectionWarning ? (
+              <p className="mb-4 text-sm text-amber-200" role="status">
+                {selection.selectionWarning}
+              </p>
+            ) : null}
             <div className="flex flex-wrap items-start justify-between gap-3">
               <div>
                 <Badge className="bg-[#6e46c7]/30 text-[#e6d2a3]">{selected.badge}</Badge>

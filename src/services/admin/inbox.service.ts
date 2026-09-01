@@ -301,6 +301,19 @@ export async function getAdminInboxItems(
   return filtered.sort((a, b) => b.priority - a.priority || b.ageHours - a.ageHours);
 }
 
+export async function findInboxPageForSelectedItem(
+  selectedId: string,
+  pageSize = 50,
+  filters: InboxFilters = {}
+): Promise<number | null> {
+  const items = await getAdminInboxItems(filters);
+  const index = items.findIndex((item) => item.id === selectedId);
+  if (index === -1) {
+    return null;
+  }
+  return Math.floor(index / pageSize) + 1;
+}
+
 export async function getAdminInboxPage(
   page = 1,
   pageSize = 50,
