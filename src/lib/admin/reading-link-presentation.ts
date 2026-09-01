@@ -27,9 +27,17 @@ export function patchReadingLinkRowById<T extends { id: string }>(
 }
 
 export interface ReadingLinkHealthCheckRowPatch {
-  healthStatus: string;
-  lastCheckedAt: string | null;
+  healthStatus?: string;
+  lastCheckedAt?: string | null;
+  moderationStatus?: string;
 }
+
+export type ReadingLinkRowPatch = ReadingLinkHealthCheckRowPatch;
+
+export type ReadingLinkRowPendingOperation =
+  | "health_check"
+  | "approve"
+  | "reject";
 
 export type ReadingLinkHealthCheckOutcome =
   | {
@@ -42,20 +50,95 @@ export type ReadingLinkHealthCheckOutcome =
 
 export interface ReadingLinkHealthCheckUiState {
   pendingLinkId: string | null;
+  pendingOperation: ReadingLinkRowPendingOperation | null;
   errorsByLinkId: Record<string, string>;
-  patchedById: Record<string, ReadingLinkHealthCheckRowPatch>;
+  patchedById: Record<string, ReadingLinkRowPatch>;
+}
+
+export function isReadingLinkRowBusy(
+  state: ReadingLinkHealthCheckUiState,
+  linkId: string
+): boolean {
+  return state.pendingLinkId === linkId;
+}
+
+export function canBeginReadingLinkRowAction(
+  state: ReadingLinkHealthCheckUiState,
+  linkId: string
+): boolean {
+  return !isReadingLinkRowBusy(state, linkId);
+}
+
+export function beginReadingLinkRowAction(
+  state: ReadingLinkHealthCheckUiState,
+  linkId: string,
+  operation: ReadingLinkRowPendingOperation
+): ReadingLinkHealthCheckUiState {
+  if (isReadingLinkRowBusy(state, linkId)) {
+    return state;
+  }
+
+  const next: ReadingLinkHealthCheckUiState = {
+    ...state,
+    pendingLinkId: linkId,
+    pendingOperation: operation,
+  };
+
+  if (operation === "health_check") {
+    const { [linkId]: _removed, ...errorsByLinkId } = state.errorsByLinkId;
+    return { ...next, errorsByLinkId };
+  }
+
+  return next;
+}
+
+export function completeReadingLinkRowAction(
+  state: ReadingLinkHealthCheckUiState,
+  linkId: string,
+  outcome: { success: boolean; error?: string },
+  patch?: ReadingLinkRowPatch
+): ReadingLinkHealthCheckUiState {
+  const next: ReadingLinkHealthCheckUiState = {
+    ...state,
+    pendingLinkId: null,
+    pendingOperation: null,
+  };
+
+  if (!outcome.success) {
+    if (!outcome.error) {
+      return next;
+    }
+    return {
+      ...next,
+      errorsByLinkId: {
+        ...state.errorsByLinkId,
+        [linkId]: outcome.error,
+      },
+    };
+  }
+
+  const { [linkId]: _removed, ...errorsByLinkId } = state.errorsByLinkId;
+  const rowPatch = patch ?? state.patchedById[linkId];
+  return {
+    ...next,
+    errorsByLinkId,
+    patchedById: rowPatch
+      ? {
+          ...state.patchedById,
+          [linkId]: {
+            ...state.patchedById[linkId],
+            ...rowPatch,
+          },
+        }
+      : state.patchedById,
+  };
 }
 
 export function beginReadingLinkHealthCheck(
   state: ReadingLinkHealthCheckUiState,
   linkId: string
 ): ReadingLinkHealthCheckUiState {
-  const { [linkId]: _removed, ...errorsByLinkId } = state.errorsByLinkId;
-  return {
-    ...state,
-    pendingLinkId: linkId,
-    errorsByLinkId,
-  };
+  return beginReadingLinkRowAction(state, linkId, "health_check");
 }
 
 export function completeReadingLinkHealthCheck(
@@ -63,33 +146,20 @@ export function completeReadingLinkHealthCheck(
   linkId: string,
   outcome: ReadingLinkHealthCheckOutcome
 ): ReadingLinkHealthCheckUiState {
-  const next: ReadingLinkHealthCheckUiState = {
+  const clearedPending: ReadingLinkHealthCheckUiState = {
     ...state,
     pendingLinkId: null,
+    pendingOperation: null,
   };
 
   if (outcome.success) {
-    const { [linkId]: _removed, ...errorsByLinkId } = state.errorsByLinkId;
-    return {
-      ...next,
-      errorsByLinkId,
-      patchedById: {
-        ...state.patchedById,
-        [linkId]: {
-          healthStatus: outcome.healthStatus,
-          lastCheckedAt: outcome.lastCheckedAt,
-        },
-      },
-    };
+    return completeReadingLinkRowAction(clearedPending, linkId, outcome, {
+      healthStatus: outcome.healthStatus,
+      lastCheckedAt: outcome.lastCheckedAt,
+    });
   }
 
-  return {
-    ...next,
-    errorsByLinkId: {
-      ...state.errorsByLinkId,
-      [linkId]: outcome.error,
-    },
-  };
+  return completeReadingLinkRowAction(clearedPending, linkId, outcome);
 }
 
 export function mergeReadingLinkRowPatches<T extends { id: string }>(

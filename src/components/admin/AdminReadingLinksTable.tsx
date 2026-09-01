@@ -20,10 +20,16 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import {
   beginReadingLinkHealthCheck,
+  beginReadingLinkRowAction,
+  canBeginReadingLinkRowAction,
   completeReadingLinkHealthCheck,
+  completeReadingLinkRowAction,
+  isReadingLinkRowBusy,
   mergeReadingLinkRowPatches,
   readingLinkHealthBadgeVariant,
   type ReadingLinkHealthCheckUiState,
+  type ReadingLinkRowPatch,
+  type ReadingLinkRowPendingOperation,
 } from "@/lib/admin/reading-link-presentation";
 import { formatDate } from "@/lib/date-utils";
 import { getPlatformLabel } from "@/lib/reading-platforms";
@@ -62,7 +68,8 @@ const statusVariant: Record<
 
 interface ReadingLinkRowActionsProps {
   link: AdminReadingLinkRow;
-  pendingLinkId: string | null;
+  isRowBusy: boolean;
+  pendingOperation: ReadingLinkRowPendingOperation | null;
   healthCheckError: string | null;
   onCheckHealth: (linkId: string) => void;
   onApprove: (linkId: string) => void;
@@ -71,45 +78,45 @@ interface ReadingLinkRowActionsProps {
 
 function ReadingLinkRowActions({
   link,
-  pendingLinkId,
+  isRowBusy,
+  pendingOperation,
   healthCheckError,
   onCheckHealth,
   onApprove,
   onReject,
 }: ReadingLinkRowActionsProps) {
-  const isPending = pendingLinkId === link.id;
-
   return (
     <div className="flex flex-col gap-2">
       <div className="flex flex-wrap gap-2">
-      <Button
-        size="sm"
-        variant="ghost"
-        disabled={isPending}
-        className="rounded-lg"
-        onClick={() => onCheckHealth(link.id)}
-      >
-        {isPending ? "…" : "Check health"}
-      </Button>
-      {link.moderationStatus !== "APPROVED" ? (
         <Button
           size="sm"
-          variant="outline"
-          disabled={isPending}
+          variant="ghost"
+          disabled={isRowBusy}
           className="rounded-lg"
-          onClick={() => onApprove(link.id)}
+          onClick={() => onCheckHealth(link.id)}
         >
-          {isPending ? "…" : "Approve"}
+          {isRowBusy && pendingOperation === "health_check" ? "…" : "Check health"}
         </Button>
-      ) : null}
-      {link.moderationStatus !== "REJECTED" ? (
-        <AdminConfirmDialog
-          title="Reject reading link"
-          description="Hide this source from the public novel list?"
-          confirmLabel="Reject"
-          onConfirm={() => onReject(link.id)}
-        />
-      ) : null}
+        {link.moderationStatus !== "APPROVED" ? (
+          <Button
+            size="sm"
+            variant="outline"
+            disabled={isRowBusy}
+            className="rounded-lg"
+            onClick={() => onApprove(link.id)}
+          >
+            {isRowBusy && pendingOperation === "approve" ? "…" : "Approve"}
+          </Button>
+        ) : null}
+        {link.moderationStatus !== "REJECTED" ? (
+          <AdminConfirmDialog
+            title="Reject reading link"
+            description="Hide this source from the public novel list?"
+            confirmLabel="Reject"
+            disabled={isRowBusy}
+            onConfirm={() => onReject(link.id)}
+          />
+        ) : null}
       </div>
       {healthCheckError ? (
         <p className="text-xs text-destructive" role="alert">
@@ -120,50 +127,74 @@ function ReadingLinkRowActions({
   );
 }
 
+const INITIAL_ROW_STATE: ReadingLinkHealthCheckUiState = {
+  pendingLinkId: null,
+  pendingOperation: null,
+  errorsByLinkId: {},
+  patchedById: {},
+};
+
 export function AdminReadingLinksTable({ links }: AdminReadingLinksTableProps) {
   const router = useRouter();
-  const [healthCheckState, setHealthCheckState] =
-    useState<ReadingLinkHealthCheckUiState>({
-      pendingLinkId: null,
-      errorsByLinkId: {},
-      patchedById: {},
-    });
-  const [pendingLinkId, setPendingLinkId] = useState<string | null>(null);
+  const [rowState, setRowState] =
+    useState<ReadingLinkHealthCheckUiState>(INITIAL_ROW_STATE);
   const [, startTransition] = useTransition();
 
-  const rows = mergeReadingLinkRowPatches(links, healthCheckState.patchedById);
+  const rows = mergeReadingLinkRowPatches(links, rowState.patchedById);
 
-  function runForLink(
+  function runRowAction(
     linkId: string,
+    operation: ReadingLinkRowPendingOperation,
     action: () => Promise<{ success: boolean; error?: string }>,
-    patch?: Partial<AdminReadingLinkRow>
-  ) {
-    setPendingLinkId(linkId);
-    startTransition(async () => {
-      const result = await action();
-      setPendingLinkId(null);
-      if (!result.success) return;
-      if (patch) {
-        setHealthCheckState((current) => ({
-          ...current,
-          patchedById: {
-            ...current.patchedById,
-            [linkId]: {
-              ...current.patchedById[linkId],
-              ...patch,
-            },
-          },
-        }));
+    patch?: ReadingLinkRowPatch
+  ): Promise<{ success: boolean; error?: string }> {
+    let started = false;
+    setRowState((current) => {
+      if (!canBeginReadingLinkRowAction(current, linkId)) {
+        return current;
       }
-      router.refresh();
+      started = true;
+      return beginReadingLinkRowAction(current, linkId, operation);
+    });
+
+    if (!started) {
+      return Promise.resolve({
+        success: false,
+        error: "Another action is already running for this link.",
+      });
+    }
+
+    return new Promise((resolve) => {
+      startTransition(async () => {
+        const result = await action();
+        setRowState((current) =>
+          completeReadingLinkRowAction(current, linkId, result, patch)
+        );
+        if (result.success) {
+          router.refresh();
+        }
+        resolve(result);
+      });
     });
   }
 
   function handleCheckHealth(linkId: string) {
-    setHealthCheckState((current) => beginReadingLinkHealthCheck(current, linkId));
+    let started = false;
+    setRowState((current) => {
+      if (!canBeginReadingLinkRowAction(current, linkId)) {
+        return current;
+      }
+      started = true;
+      return beginReadingLinkHealthCheck(current, linkId);
+    });
+
+    if (!started) {
+      return;
+    }
+
     startTransition(async () => {
       const result = await checkReadingLinkHealthAction(linkId);
-      setHealthCheckState((current) =>
+      setRowState((current) =>
         completeReadingLinkHealthCheck(current, linkId, result)
       );
       if (result.success) {
@@ -250,38 +281,31 @@ export function AdminReadingLinksTable({ links }: AdminReadingLinksTableProps) {
               <ReadingLinkRowActions
                 key={link.id}
                 link={link}
-                pendingLinkId={
-                  pendingLinkId ?? healthCheckState.pendingLinkId
+                isRowBusy={isReadingLinkRowBusy(rowState, link.id)}
+                pendingOperation={
+                  rowState.pendingLinkId === link.id
+                    ? rowState.pendingOperation
+                    : null
                 }
-                healthCheckError={healthCheckState.errorsByLinkId[link.id] ?? null}
+                healthCheckError={rowState.errorsByLinkId[link.id] ?? null}
                 onCheckHealth={handleCheckHealth}
                 onApprove={(linkId) =>
-                  runForLink(
+                  runRowAction(
                     linkId,
+                    "approve",
                     () => approveReadingLinkAction(linkId),
                     { moderationStatus: "APPROVED" }
                   )
                 }
-                onReject={async (linkId) => {
-                  const result = await rejectReadingLinkAction(
+                onReject={(linkId) =>
+                  runRowAction(
                     linkId,
-                    "Rejected by moderator"
-                  );
-                  if (result.success) {
-                    setHealthCheckState((current) => ({
-                      ...current,
-                      patchedById: {
-                        ...current.patchedById,
-                        [linkId]: {
-                          ...current.patchedById[linkId],
-                          moderationStatus: "REJECTED",
-                        },
-                      },
-                    }));
-                    router.refresh();
-                  }
-                  return result;
-                }}
+                    "reject",
+                    () =>
+                      rejectReadingLinkAction(linkId, "Rejected by moderator"),
+                    { moderationStatus: "REJECTED" }
+                  )
+                }
               />
             </AdminTableCell>
           </AdminTableRow>

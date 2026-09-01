@@ -20,6 +20,7 @@ interface AdminConfirmDialogProps {
   description: string;
   confirmLabel?: string;
   variant?: "default" | "destructive";
+  disabled?: boolean;
   onConfirm: () => Promise<{ success: boolean; error?: string }>;
 }
 
@@ -28,6 +29,7 @@ export function AdminConfirmDialog({
   description,
   confirmLabel = "Confirm",
   variant = "destructive",
+  disabled = false,
   onConfirm,
 }: AdminConfirmDialogProps) {
   const router = useRouter();
@@ -63,8 +65,10 @@ export function AdminConfirmDialog({
       <Button
         size="xs"
         variant="outline"
+        disabled={disabled}
         className={cn(variant === "destructive" && ADMIN_BTN_DELETE)}
         onClick={() => {
+          if (disabled) return;
           setError(null);
           setOpen(true);
         }}

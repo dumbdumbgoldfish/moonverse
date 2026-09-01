@@ -2,7 +2,11 @@ import assert from "node:assert/strict";
 import { describe, it } from "node:test";
 import {
   beginReadingLinkHealthCheck,
+  beginReadingLinkRowAction,
+  canBeginReadingLinkRowAction,
   completeReadingLinkHealthCheck,
+  completeReadingLinkRowAction,
+  isReadingLinkRowBusy,
   mergeReadingLinkRowPatches,
   patchReadingLinkRowById,
   readingLinkHealthBadgeVariant,
@@ -86,6 +90,7 @@ describe("patchReadingLinkRowById", () => {
 describe("reading link health check row state", () => {
   const baseState: ReadingLinkHealthCheckUiState = {
     pendingLinkId: null,
+    pendingOperation: null,
     errorsByLinkId: {},
     patchedById: {},
   };
@@ -170,5 +175,58 @@ describe("reading link health check row state", () => {
       succeeded.patchedById["link-a"]?.healthStatus,
       "HEALTHY"
     );
+  });
+});
+
+describe("reading link row pending state", () => {
+  const baseState: ReadingLinkHealthCheckUiState = {
+    pendingLinkId: null,
+    pendingOperation: null,
+    errorsByLinkId: {},
+    patchedById: {},
+  };
+
+  it("marks a row busy while health check is pending", () => {
+    const busy = beginReadingLinkHealthCheck(baseState, "link-a");
+    assert.equal(isReadingLinkRowBusy(busy, "link-a"), true);
+    assert.equal(busy.pendingOperation, "health_check");
+    assert.equal(isReadingLinkRowBusy(busy, "link-b"), false);
+  });
+
+  it("blocks another action on the same busy row", () => {
+    const busy = beginReadingLinkRowAction(baseState, "link-a", "health_check");
+    assert.equal(canBeginReadingLinkRowAction(busy, "link-a"), false);
+
+    const blocked = beginReadingLinkRowAction(busy, "link-a", "approve");
+    assert.deepEqual(blocked, busy);
+  });
+
+  it("keeps other rows available while one row is busy", () => {
+    const busy = beginReadingLinkRowAction(baseState, "link-a", "reject");
+    assert.equal(canBeginReadingLinkRowAction(busy, "link-b"), true);
+    assert.equal(isReadingLinkRowBusy(busy, "link-b"), false);
+  });
+
+  it("clears busy state after moderation failure", () => {
+    const busy = beginReadingLinkRowAction(baseState, "link-a", "approve");
+    const cleared = completeReadingLinkRowAction(busy, "link-a", {
+      success: false,
+      error: "Action failed.",
+    });
+
+    assert.equal(cleared.pendingLinkId, null);
+    assert.equal(cleared.pendingOperation, null);
+    assert.equal(cleared.errorsByLinkId["link-a"], "Action failed.");
+  });
+
+  it("clears busy state after moderation success", () => {
+    const busy = beginReadingLinkRowAction(baseState, "link-a", "reject");
+    const cleared = completeReadingLinkRowAction(busy, "link-a", {
+      success: true,
+    }, { moderationStatus: "REJECTED" });
+
+    assert.equal(cleared.pendingLinkId, null);
+    assert.equal(cleared.pendingOperation, null);
+    assert.equal(cleared.patchedById["link-a"]?.moderationStatus, "REJECTED");
   });
 });
