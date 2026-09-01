@@ -194,6 +194,7 @@ export function NavInlineSearch({
         window.history.replaceState(window.history.state, "", href);
       }
       notifySearchLocation();
+      setPendingQuery(null);
       return;
     }
 
@@ -201,6 +202,7 @@ export function NavInlineSearch({
       mode === "push" ? router.push.bind(router) : router.replace.bind(router);
     navigate(searchHref(cleaned));
     notifySearchLocation();
+    setPendingQuery(null);
   };
 
   const closeSuggest = () => {

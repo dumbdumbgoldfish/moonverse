@@ -9,7 +9,7 @@ import {
   useTransition,
 } from "react";
 import Link from "next/link";
-import { usePathname, useRouter } from "next/navigation";
+import { usePathname } from "next/navigation";
 import { Loader2, Search } from "lucide-react";
 import { WorkPreviewDrawer } from "@/components/browse/WorkPreviewDrawer";
 import { SearchEmptyLanding } from "@/components/search/SearchEmptyLanding";
@@ -27,7 +27,6 @@ import {
   parseSearchType,
   parseTagSlugs,
   relatedSearchSuggestions,
-  searchHref,
   searchBatchSize,
   searchInterpretationLabels,
   searchPagingKind,
@@ -155,7 +154,6 @@ function SearchResultsView({
   initialPage: number;
 }) {
   const pathname = usePathname();
-  const router = useRouter();
   const [, startTransition] = useTransition();
   const requestIdRef = useRef(0);
   const sentinelRef = useRef<HTMLDivElement>(null);
@@ -609,7 +607,7 @@ function SearchResultsView({
                     const term = result.didYouMean ?? "";
                     if (!term) return;
                     remember(term);
-                    router.push(searchHref(term));
+                    applyFilters({ q: term, page: 1 });
                   }}
                 >
                   {result.didYouMean}
@@ -629,7 +627,7 @@ function SearchResultsView({
             popular={result.works}
             onRecent={(query) => {
               remember(query);
-              router.push(searchHref(query));
+              applyFilters({ q: query, page: 1 });
             }}
             onClearRecents={clearRecents}
           />
