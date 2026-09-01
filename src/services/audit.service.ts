@@ -9,8 +9,13 @@ export interface WriteAuditLogInput {
   meta?: Prisma.InputJsonValue;
 }
 
-export async function writeAuditLog(input: WriteAuditLogInput): Promise<void> {
-  await db.moderationAuditLog.create({
+type AuditLogClient = typeof db | Prisma.TransactionClient;
+
+export async function writeAuditLog(
+  input: WriteAuditLogInput,
+  client: AuditLogClient = db
+): Promise<void> {
+  await client.moderationAuditLog.create({
     data: {
       actorId: input.actorId,
       action: input.action,

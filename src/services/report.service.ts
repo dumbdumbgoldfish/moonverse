@@ -1,7 +1,32 @@
-import { NotificationType, ReportStatus, ReportTargetType } from "@prisma/client";
+import {
+  ContentModerationStatus,
+  NotificationType,
+  Prisma,
+  ReportStatus,
+  ReportTargetType,
+  UserRole,
+} from "@prisma/client";
 import { db } from "@/lib/db";
 import { writeAuditLog } from "@/services/audit.service";
 import { createNotification } from "@/services/notification.service";
+
+export type ReportRemediation =
+  | "resolve_only"
+  | "hide_review"
+  | "hide_comment"
+  | "suspend_user";
+
+export interface RemediateAndResolveReportInput {
+  reportId: string;
+  adminId: string;
+  remediation: ReportRemediation;
+  resolution?: string;
+}
+
+interface ReportResolutionNotification {
+  reporterId: string;
+  status: ReportStatus;
+}
 
 export interface ReportSummary {
   id: string;
@@ -202,18 +227,83 @@ export function assertOpenReport(status: ReportStatus): void {
   }
 }
 
-export async function resolveReport(
-  reportId: string,
+async function hideReviewInTransaction(
+  tx: Prisma.TransactionClient,
+  reviewId: string
+): Promise<void> {
+  const review = await tx.review.findUnique({
+    where: { id: reviewId },
+    select: { id: true },
+  });
+  if (!review) throw new Error("Review not found.");
+
+  await tx.review.update({
+    where: { id: reviewId },
+    data: { moderationStatus: ContentModerationStatus.HIDDEN },
+  });
+}
+
+async function hideCommentInTransaction(
+  tx: Prisma.TransactionClient,
+  commentId: string
+): Promise<void> {
+  const comment = await tx.comment.findUnique({
+    where: { id: commentId },
+    select: { id: true },
+  });
+  if (!comment) throw new Error("Comment not found.");
+
+  await tx.comment.update({
+    where: { id: commentId },
+    data: { moderationStatus: ContentModerationStatus.HIDDEN },
+  });
+}
+
+async function suspendUserInTransaction(
+  tx: Prisma.TransactionClient,
+  userId: string,
+  adminId: string,
+  suspended: boolean
+): Promise<void> {
+  if (userId === adminId && suspended) {
+    throw new Error("You cannot suspend your own account.");
+  }
+
+  const user = await tx.user.findUnique({
+    where: { id: userId },
+    select: { role: true },
+  });
+  if (!user) throw new Error("User not found.");
+
+  if (suspended && user.role === UserRole.ADMIN) {
+    const adminCount = await tx.user.count({
+      where: { role: UserRole.ADMIN, isSuspended: false },
+    });
+    if (adminCount <= 1) {
+      throw new Error("Cannot suspend the last active admin.");
+    }
+  }
+
+  await tx.user.update({
+    where: { id: userId },
+    data: { isSuspended: suspended },
+  });
+}
+
+async function closeOpenReportInTransaction(
+  tx: Prisma.TransactionClient,
+  report: {
+    id: string;
+    reporterId: string;
+    targetType: ReportTargetType;
+    targetId: string;
+  },
   adminId: string,
   status: ReportStatus,
   resolution?: string
 ): Promise<void> {
-  const report = await db.report.findUnique({ where: { id: reportId } });
-  if (!report) throw new Error("Report not found.");
-  assertOpenReport(report.status);
-
-  const updated = await db.report.updateMany({
-    where: { id: reportId, status: ReportStatus.OPEN },
+  const updated = await tx.report.updateMany({
+    where: { id: report.id, status: ReportStatus.OPEN },
     data: {
       status,
       resolvedById: adminId,
@@ -224,22 +314,142 @@ export async function resolveReport(
     throw new Error("Report is already closed.");
   }
 
-  await writeAuditLog({
-    actorId: adminId,
-    action: status === ReportStatus.RESOLVED ? "REPORT_RESOLVE" : "REPORT_DISMISS",
-    entityType: "Report",
-    entityId: reportId,
-    meta: { targetType: report.targetType, targetId: report.targetId },
+  await writeAuditLog(
+    {
+      actorId: adminId,
+      action:
+        status === ReportStatus.RESOLVED ? "REPORT_RESOLVE" : "REPORT_DISMISS",
+      entityType: "Report",
+      entityId: report.id,
+      meta: { targetType: report.targetType, targetId: report.targetId },
+    },
+    tx
+  );
+}
+
+async function notifyReporterOfReportResolution(
+  reporterId: string,
+  adminId: string,
+  status: ReportStatus
+): Promise<void> {
+  if (reporterId === adminId) return;
+
+  await createNotification({
+    userId: reporterId,
+    type: NotificationType.REPORT_UPDATE,
+    message:
+      status === ReportStatus.RESOLVED
+        ? "A report you filed has been resolved. Thanks for helping keep MoonVerse safe."
+        : "A report you filed was reviewed and dismissed.",
+  });
+}
+
+/**
+ * Applies remediation and closes the report in one transaction.
+ * Audit logs for remediation and resolution are written inside the same tx.
+ */
+export async function remediateAndResolveReportInTransaction(
+  tx: Prisma.TransactionClient,
+  input: RemediateAndResolveReportInput
+): Promise<ReportResolutionNotification> {
+  const report = await tx.report.findUnique({ where: { id: input.reportId } });
+  if (!report) throw new Error("Report not found.");
+  assertOpenReport(report.status);
+
+  if (input.remediation === "hide_review") {
+    if (report.targetType !== ReportTargetType.REVIEW) {
+      throw new Error("Report target is not a review.");
+    }
+    await hideReviewInTransaction(tx, report.targetId);
+    await writeAuditLog(
+      {
+        actorId: input.adminId,
+        action: "REVIEW_MODERATION_UPDATE",
+        entityType: "Review",
+        entityId: report.targetId,
+        meta: { moderationStatus: ContentModerationStatus.HIDDEN },
+      },
+      tx
+    );
+  } else if (input.remediation === "hide_comment") {
+    if (report.targetType !== ReportTargetType.COMMENT) {
+      throw new Error("Report target is not a comment.");
+    }
+    await hideCommentInTransaction(tx, report.targetId);
+    await writeAuditLog(
+      {
+        actorId: input.adminId,
+        action: "COMMENT_MODERATION_UPDATE",
+        entityType: "Comment",
+        entityId: report.targetId,
+        meta: { moderationStatus: ContentModerationStatus.HIDDEN },
+      },
+      tx
+    );
+  } else if (input.remediation === "suspend_user") {
+    if (report.targetType !== ReportTargetType.USER) {
+      throw new Error("Report target is not a user.");
+    }
+    await suspendUserInTransaction(tx, report.targetId, input.adminId, true);
+    await writeAuditLog(
+      {
+        actorId: input.adminId,
+        action: "USER_SUSPEND",
+        entityType: "User",
+        entityId: report.targetId,
+      },
+      tx
+    );
+  }
+
+  await closeOpenReportInTransaction(
+    tx,
+    report,
+    input.adminId,
+    ReportStatus.RESOLVED,
+    input.resolution
+  );
+
+  return { reporterId: report.reporterId, status: ReportStatus.RESOLVED };
+}
+
+export async function remediateAndResolveReport(
+  input: RemediateAndResolveReportInput
+): Promise<void> {
+  const resolution = await db.$transaction(async (tx) =>
+    remediateAndResolveReportInTransaction(tx, input)
+  );
+  await notifyReporterOfReportResolution(
+    resolution.reporterId,
+    input.adminId,
+    resolution.status
+  );
+}
+
+export async function resolveReport(
+  reportId: string,
+  adminId: string,
+  status: ReportStatus,
+  resolution?: string
+): Promise<void> {
+  const report = await db.report.findUnique({ where: { id: reportId } });
+  if (!report) throw new Error("Report not found.");
+  assertOpenReport(report.status);
+
+  const resolutionMeta = await db.$transaction(async (tx) => {
+    await closeOpenReportInTransaction(
+      tx,
+      report,
+      adminId,
+      status,
+      resolution
+    );
+    return { reporterId: report.reporterId, status };
   });
 
-  if (report.reporterId !== adminId) {
-    await createNotification({
-      userId: report.reporterId,
-      type: NotificationType.REPORT_UPDATE,
-      message:
-        status === ReportStatus.RESOLVED
-          ? "A report you filed has been resolved. Thanks for helping keep MoonVerse safe."
-          : "A report you filed was reviewed and dismissed.",
-    });
-  }
+  await notifyReporterOfReportResolution(
+    resolutionMeta.reporterId,
+    adminId,
+    resolutionMeta.status
+  );
 }
