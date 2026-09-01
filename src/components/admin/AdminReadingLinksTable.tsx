@@ -1,8 +1,8 @@
 "use client";
 
 import Link from "next/link";
+import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
-import { useTransition } from "react";
 import {
   approveReadingLinkAction,
   checkReadingLinkHealthAction,
@@ -54,49 +54,108 @@ const statusVariant: Record<
   REJECTED: "destructive",
 };
 
-function ApproveButton({ linkId }: { linkId: string }) {
-  const router = useRouter();
-  const [pending, startTransition] = useTransition();
-  return (
-    <Button
-      size="sm"
-      variant="outline"
-      disabled={pending}
-      className="rounded-lg"
-      onClick={() =>
-        startTransition(async () => {
-          await approveReadingLinkAction(linkId);
-          router.refresh();
-        })
-      }
-    >
-      {pending ? "…" : "Approve"}
-    </Button>
-  );
+interface ReadingLinkRowActionsProps {
+  link: AdminReadingLinkRow;
+  pendingLinkId: string | null;
+  onCheckHealth: (linkId: string) => void;
+  onApprove: (linkId: string) => void;
+  onReject: (linkId: string) => Promise<{ success: boolean; error?: string }>;
 }
 
-function HealthCheckButton({ linkId }: { linkId: string }) {
-  const router = useRouter();
-  const [pending, startTransition] = useTransition();
+function ReadingLinkRowActions({
+  link,
+  pendingLinkId,
+  onCheckHealth,
+  onApprove,
+  onReject,
+}: ReadingLinkRowActionsProps) {
+  const isPending = pendingLinkId === link.id;
+
   return (
-    <Button
-      size="sm"
-      variant="ghost"
-      disabled={pending}
-      className="rounded-lg"
-      onClick={() =>
-        startTransition(async () => {
-          await checkReadingLinkHealthAction(linkId);
-          router.refresh();
-        })
-      }
-    >
-      {pending ? "…" : "Check health"}
-    </Button>
+    <div className="flex flex-wrap gap-2">
+      <Button
+        size="sm"
+        variant="ghost"
+        disabled={isPending}
+        className="rounded-lg"
+        onClick={() => onCheckHealth(link.id)}
+      >
+        {isPending ? "…" : "Check health"}
+      </Button>
+      {link.moderationStatus !== "APPROVED" ? (
+        <Button
+          size="sm"
+          variant="outline"
+          disabled={isPending}
+          className="rounded-lg"
+          onClick={() => onApprove(link.id)}
+        >
+          {isPending ? "…" : "Approve"}
+        </Button>
+      ) : null}
+      {link.moderationStatus !== "REJECTED" ? (
+        <AdminConfirmDialog
+          title="Reject reading link"
+          description="Hide this source from the public novel list?"
+          confirmLabel="Reject"
+          onConfirm={() => onReject(link.id)}
+        />
+      ) : null}
+    </div>
   );
 }
 
 export function AdminReadingLinksTable({ links }: AdminReadingLinksTableProps) {
+  const router = useRouter();
+  const [patchedById, setPatchedById] = useState<
+    Record<string, Partial<AdminReadingLinkRow>>
+  >({});
+  const [pendingLinkId, setPendingLinkId] = useState<string | null>(null);
+  const [, startTransition] = useTransition();
+
+  const rows = links.map((link) => ({
+    ...link,
+    ...patchedById[link.id],
+  }));
+
+  function applyRowPatch(linkId: string, patch: Partial<AdminReadingLinkRow>) {
+    setPatchedById((current) => ({
+      ...current,
+      [linkId]: { ...current[linkId], ...patch },
+    }));
+  }
+
+  function runForLink(
+    linkId: string,
+    action: () => Promise<{ success: boolean; error?: string }>,
+    patch?: Partial<AdminReadingLinkRow>
+  ) {
+    setPendingLinkId(linkId);
+    startTransition(async () => {
+      const result = await action();
+      setPendingLinkId(null);
+      if (!result.success) return;
+      if (patch) {
+        applyRowPatch(linkId, patch);
+      }
+      router.refresh();
+    });
+  }
+
+  function handleCheckHealth(linkId: string) {
+    setPendingLinkId(linkId);
+    startTransition(async () => {
+      const result = await checkReadingLinkHealthAction(linkId);
+      setPendingLinkId(null);
+      if (!result.success) return;
+      applyRowPatch(result.linkId, {
+        healthStatus: result.healthStatus,
+        lastCheckedAt: result.lastCheckedAt,
+      });
+      router.refresh();
+    });
+  }
+
   return (
     <AdminTableShell minWidth="980px">
       <AdminTableHead>
@@ -109,7 +168,7 @@ export function AdminReadingLinksTable({ links }: AdminReadingLinksTableProps) {
         </tr>
       </AdminTableHead>
       <tbody>
-        {links.map((link) => (
+        {rows.map((link) => (
           <AdminTableRow key={link.id}>
             <AdminTableCell>
               <Link
@@ -172,22 +231,30 @@ export function AdminReadingLinksTable({ links }: AdminReadingLinksTableProps) {
               ) : null}
             </AdminTableCell>
             <AdminTableCell>
-              <div className="flex flex-wrap gap-2">
-                <HealthCheckButton linkId={link.id} />
-                {link.moderationStatus !== "APPROVED" ? (
-                  <ApproveButton linkId={link.id} />
-                ) : null}
-                {link.moderationStatus !== "REJECTED" ? (
-                  <AdminConfirmDialog
-                    title="Reject reading link"
-                    description="Hide this source from the public novel list?"
-                    confirmLabel="Reject"
-                    onConfirm={() =>
-                      rejectReadingLinkAction(link.id, "Rejected by moderator")
-                    }
-                  />
-                ) : null}
-              </div>
+              <ReadingLinkRowActions
+                key={link.id}
+                link={link}
+                pendingLinkId={pendingLinkId}
+                onCheckHealth={handleCheckHealth}
+                onApprove={(linkId) =>
+                  runForLink(
+                    linkId,
+                    () => approveReadingLinkAction(linkId),
+                    { moderationStatus: "APPROVED" }
+                  )
+                }
+                onReject={async (linkId) => {
+                  const result = await rejectReadingLinkAction(
+                    linkId,
+                    "Rejected by moderator"
+                  );
+                  if (result.success) {
+                    applyRowPatch(linkId, { moderationStatus: "REJECTED" });
+                    router.refresh();
+                  }
+                  return result;
+                }}
+              />
             </AdminTableCell>
           </AdminTableRow>
         ))}

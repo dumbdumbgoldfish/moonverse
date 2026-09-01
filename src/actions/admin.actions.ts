@@ -25,6 +25,7 @@ import {
 } from "@/services/admin/reviews.service";
 import {
   approveReadingLink,
+  applyReadingLinkHealthCheck,
   rejectReadingLink,
 } from "@/services/reading-link.service";
 import {
@@ -453,36 +454,44 @@ export async function rejectReadingLinkAction(
   });
 }
 
+export type ReadingLinkHealthCheckActionResult =
+  | {
+      success: true;
+      linkId: string;
+      healthStatus: string;
+      lastCheckedAt: string | null;
+    }
+  | { success: false; error: string };
+
 export async function checkReadingLinkHealthAction(
   linkId: string
-): Promise<AdminActionResult> {
-  return runAdminAction(async (adminId) => {
-    const link = await db.readingLink.findUnique({ where: { id: linkId } });
-    if (!link) throw new Error("Reading link not found.");
-
-    const { checkReadingLinkHealth } = await import(
-      "@/lib/reading-link/health-check"
-    );
-    const result = await checkReadingLinkHealth(link.url);
-    await db.readingLink.update({
-      where: { id: linkId },
-      data: {
-        healthStatus: result.healthStatus,
-        lastStatusCode: result.lastStatusCode,
-        lastCheckedAt: result.checkedAt,
-      },
-    });
+): Promise<ReadingLinkHealthCheckActionResult> {
+  try {
+    const adminId = await requireAdminUserId();
+    const updated = await applyReadingLinkHealthCheck(linkId);
     await writeAuditLog({
       actorId: adminId,
       action: "READING_LINK_HEALTH_CHECK",
       entityType: "ReadingLink",
-      entityId: linkId,
+      entityId: updated.id,
       meta: {
-        healthStatus: result.healthStatus,
-        lastStatusCode: result.lastStatusCode,
+        healthStatus: updated.healthStatus,
+        lastStatusCode: updated.lastStatusCode,
       },
     });
-  });
+    revalidateAdmin();
+    return {
+      success: true,
+      linkId: updated.id,
+      healthStatus: updated.healthStatus,
+      lastCheckedAt: updated.lastCheckedAt?.toISOString() ?? null,
+    };
+  } catch (error) {
+    if (error instanceof Error) {
+      return { success: false, error: error.message };
+    }
+    return { success: false, error: "Action failed." };
+  }
 }
 
 export async function createFeaturedNovelAction(input: {

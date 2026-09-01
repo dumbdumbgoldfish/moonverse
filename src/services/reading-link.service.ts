@@ -318,7 +318,7 @@ export async function listReadingLinksForModeration(options?: {
       status === "ALL"
         ? undefined
         : { moderationStatus: status },
-    orderBy: [{ createdAt: "desc" }],
+    orderBy: [{ createdAt: "desc" }, { id: "desc" }],
     take: options?.limit ?? 100,
     include: {
       novel: { select: { id: true, title: true, author: true } },
@@ -326,6 +326,31 @@ export async function listReadingLinksForModeration(options?: {
         select: { id: true, username: true, displayName: true },
       },
       submittedViaReview: { select: { id: true, title: true } },
+    },
+  });
+}
+
+export async function applyReadingLinkHealthCheck(linkId: string) {
+  const link = await db.readingLink.findUnique({ where: { id: linkId } });
+  if (!link) {
+    throw new Error("Reading link not found.");
+  }
+
+  const { checkReadingLinkHealth } = await import("@/lib/reading-link/health-check");
+  const result = await checkReadingLinkHealth(link.url);
+
+  return db.readingLink.update({
+    where: { id: link.id },
+    data: {
+      healthStatus: result.healthStatus,
+      lastStatusCode: result.lastStatusCode,
+      lastCheckedAt: result.checkedAt,
+    },
+    select: {
+      id: true,
+      healthStatus: true,
+      lastCheckedAt: true,
+      lastStatusCode: true,
     },
   });
 }
