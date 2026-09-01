@@ -85,6 +85,28 @@ export interface InboxFilters {
   kind?: InboxItemKind | "all";
 }
 
+export const INBOX_KIND_FILTER_VALUES: InboxItemKind[] = [
+  "report",
+  "review_flagged",
+  "comment_flagged",
+  "reading_link",
+  "reading_link_unhealthy",
+  "tag_suggestion",
+];
+
+export function parseInboxKindFilter(value?: string | null): InboxItemKind | "all" {
+  if (!value || value === "all") return "all";
+  return INBOX_KIND_FILTER_VALUES.includes(value as InboxItemKind)
+    ? (value as InboxItemKind)
+    : "all";
+}
+
+export function inboxKindFilterCountKey(
+  kind: InboxItemKind | "all"
+): InboxItemKind | "total" {
+  return kind === "all" ? "total" : kind;
+}
+
 export function paginateAdminInboxItems<T>(
   items: T[],
   page = 1,

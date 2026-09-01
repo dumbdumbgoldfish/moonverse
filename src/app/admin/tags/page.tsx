@@ -22,7 +22,7 @@ export default async function AdminTagsPage() {
         <p className="mb-6 rounded-xl border border-[#f9db7e]/30 bg-[#f9db7e]/10 px-4 py-3 text-sm text-[#fef08a]">
           {pendingTagSuggestions} pending tag suggestion
           {pendingTagSuggestions === 1 ? "" : "s"} —{" "}
-          <Link href="/admin/inbox" className="font-semibold text-[#f9db7e] underline underline-offset-2 hover:text-[#fde68a]">
+          <Link href="/admin/inbox?kind=tag_suggestion" className="font-semibold text-[#f9db7e] underline underline-offset-2 hover:text-[#fde68a]">
             review in moderation queue
           </Link>
           .

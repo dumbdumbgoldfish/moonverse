@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState, useTransition } from "react";
+import { useState, useTransition } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import {
@@ -45,6 +45,7 @@ import {
 interface AdminInboxTriageProps {
   items: InboxItem[];
   initialSelectedId?: string;
+  activeFilter?: InboxItemKind | "all";
 }
 
 const FILTER_OPTIONS: Array<{ id: InboxItemKind | "all"; label: string }> = [
@@ -68,9 +69,9 @@ function slaTone(hours: number) {
 export function AdminInboxTriage({
   items,
   initialSelectedId,
+  activeFilter = "all",
 }: AdminInboxTriageProps) {
   const router = useRouter();
-  const [filter, setFilter] = useState<InboxItemKind | "all">("all");
   const [selectedId, setSelectedId] = useState(
     initialSelectedId ?? items[0]?.id ?? ""
   );
@@ -78,14 +79,23 @@ export function AdminInboxTriage({
   const [error, setError] = useState<string | null>(null);
   const [isPending, startTransition] = useTransition();
 
-  const filtered = useMemo(
-    () =>
-      filter === "all" ? items : items.filter((item) => item.kind === filter),
-    [filter, items]
-  );
+  const selected = items.find((item) => item.id === selectedId) ?? items[0] ?? null;
 
-  const selected =
-    filtered.find((item) => item.id === selectedId) ?? filtered[0] ?? null;
+  function navigateFilter(nextFilter: InboxItemKind | "all") {
+    const params = new URLSearchParams();
+    if (nextFilter !== "all") {
+      params.set("kind", nextFilter);
+    }
+    const qs = params.toString();
+    router.push(qs ? `/admin/inbox?${qs}` : "/admin/inbox");
+  }
+
+  function filterEmptyMessage(): string {
+    if (activeFilter === "tag_suggestion") {
+      return "No pending tag suggestions in the moderation queue.";
+    }
+    return "Queue clear — nothing needs attention in this filter.";
+  }
 
   function run(action: () => Promise<{ success: boolean; error?: string }>) {
     setError(null);
@@ -108,11 +118,11 @@ export function AdminInboxTriage({
             <button
               key={option.id}
               type="button"
-              onClick={() => setFilter(option.id)}
+              onClick={() => navigateFilter(option.id)}
               className={cn(
                 ADMIN_FILTER_CHIP_BASE,
                 "text-[11px]",
-                filter === option.id ? ADMIN_FILTER_CHIP_ACTIVE : ADMIN_FILTER_CHIP_IDLE
+                activeFilter === option.id ? ADMIN_FILTER_CHIP_ACTIVE : ADMIN_FILTER_CHIP_IDLE
               )}
             >
               {option.label}
@@ -120,12 +130,12 @@ export function AdminInboxTriage({
           ))}
         </div>
         <ul className="min-h-0 flex-1 divide-y divide-white/[0.06] overflow-y-auto">
-          {filtered.length === 0 ? (
+          {items.length === 0 ? (
             <li className="px-4 py-12 text-center text-sm text-white/70">
-              Queue clear — nothing needs attention in this filter.
+              {filterEmptyMessage()}
             </li>
           ) : (
-            filtered.map((item) => (
+            items.map((item) => (
               <li key={item.id}>
                 <button
                   type="button"

@@ -5,24 +5,32 @@ import {
   AdminStatCard,
 } from "@/components/admin/AdminUi";
 import { AdminInboxTriage } from "@/components/admin/AdminInboxTriage";
-import { getAdminInboxPage, getInboxCounts } from "@/services/admin/inbox.service";
+import {
+  getAdminInboxPage,
+  getInboxCounts,
+  parseInboxKindFilter,
+} from "@/services/admin/inbox.service";
 
 export const metadata = { title: "Moderation Queue · MoonVerse Admin" };
 export const dynamic = "force-dynamic";
 
 interface AdminInboxPageProps {
-  searchParams: Promise<{ selected?: string; page?: string }>;
+  searchParams: Promise<{ selected?: string; page?: string; kind?: string }>;
 }
 
 export default async function AdminInboxPage({
   searchParams,
 }: AdminInboxPageProps) {
-  const { selected, page: pageParam } = await searchParams;
+  const { selected, page: pageParam, kind: kindParam } = await searchParams;
   const page = Math.max(1, Number(pageParam) || 1);
+  const activeFilter = parseInboxKindFilter(kindParam);
+  const inboxFilters = { kind: activeFilter };
   const [result, counts] = await Promise.all([
-    getAdminInboxPage(page),
+    getAdminInboxPage(page, 50, inboxFilters),
     getInboxCounts(),
   ]);
+  const paginationParams =
+    activeFilter === "all" ? undefined : { kind: activeFilter };
 
   return (
     <>
@@ -50,7 +58,7 @@ export default async function AdminInboxPage({
         />
       </div>
 
-      {result.items.length === 0 ? (
+      {counts.total === 0 ? (
         <AdminEmptyState
           title="Queue clear"
           description="No open moderation items. Use Reports or entity pages to browse historical records."
@@ -60,13 +68,14 @@ export default async function AdminInboxPage({
           <AdminInboxTriage
             items={result.items}
             initialSelectedId={selected}
+            activeFilter={activeFilter}
           />
           <AdminPagination
             page={result.page}
             totalPages={result.totalPages}
             total={result.total}
             basePath="/admin/inbox"
-            params={{}}
+            params={paginationParams}
           />
         </>
       )}
