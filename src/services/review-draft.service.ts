@@ -84,6 +84,16 @@ export async function getReviewDraft(
   return parseDraftPayload(draft.id, draft.payload);
 }
 
+export async function getReviewDraftOwnerId(
+  draftId: string
+): Promise<string | null> {
+  const row = await db.reviewDraft.findUnique({
+    where: { id: draftId },
+    select: { userId: true },
+  });
+  return row?.userId ?? null;
+}
+
 export async function deleteReviewDraftById(
   userId: string,
   draftId: string

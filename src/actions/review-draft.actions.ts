@@ -1,11 +1,25 @@
 "use server";
 
+import { revalidatePath } from "next/cache";
 import { auth } from "@/lib/auth";
 import type { ReviewDraftV1 } from "@/lib/review-draft";
+import {
+  isDraftReadyToPublish,
+  validateDraftReadingUrls,
+} from "@/lib/review-draft";
+import {
+  canUserPublishDraft,
+  mapReviewDraftToCreatePayload,
+} from "@/lib/review-draft-publish";
+import {
+  createReviewAction,
+  type CreateReviewActionResult,
+} from "@/actions/review.actions";
 import {
   deleteReviewDraft,
   deleteReviewDraftById,
   getReviewDraft,
+  getReviewDraftOwnerId,
   listReviewDrafts,
   upsertReviewDraft,
 } from "@/services/review-draft.service";
@@ -60,6 +74,54 @@ export async function deleteServerReviewDraftAction(
     return { success: true };
   } catch {
     return { success: false };
+  }
+}
+
+/** Publish a saved draft from My Reviews without opening Writing Studio. */
+export async function publishReviewDraftAction(
+  draft: ReviewDraftV1
+): Promise<CreateReviewActionResult> {
+  try {
+    const userId = await requireUserId();
+
+    if (!draft.id?.trim()) {
+      return { success: false, error: "Draft id is required." };
+    }
+
+    const ownerId = await getReviewDraftOwnerId(draft.id);
+    if (!canUserPublishDraft(userId, ownerId)) {
+      return { success: false, error: "You can only publish your own drafts." };
+    }
+
+    if (!isDraftReadyToPublish(draft)) {
+      return {
+        success: false,
+        error: "Complete your draft before publishing.",
+      };
+    }
+
+    const readingUrlError = validateDraftReadingUrls(draft);
+    if (readingUrlError) {
+      return { success: false, error: readingUrlError };
+    }
+
+    const result = await createReviewAction(mapReviewDraftToCreatePayload(draft));
+
+    if (result.success) {
+      await deleteReviewDraftById(userId, draft.id);
+      revalidatePath("/my-reviews");
+      revalidatePath(`/reviews/${result.reviewId}`);
+    }
+
+    return result;
+  } catch (error) {
+    if (error instanceof Error) {
+      return { success: false, error: error.message };
+    }
+    return {
+      success: false,
+      error: "Failed to publish review. Please try again.",
+    };
   }
 }
 

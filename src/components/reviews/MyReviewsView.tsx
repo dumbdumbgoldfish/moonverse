@@ -14,6 +14,7 @@ import {
 import { MyReviewsArchive } from "@/components/reviews/my-reviews/MyReviewsArchive";
 import { toDraftListItem } from "@/components/reviews/my-reviews/draft-card-utils";
 import { MyReviewsDraftCarousel } from "@/components/reviews/my-reviews/MyReviewsDraftCarousel";
+import { ReviewDeleteConfirmDialog } from "@/components/reviews/ReviewDeleteConfirmDialog";
 import type { ReviewDraftListItem } from "@/components/reviews/my-reviews/draft-card-utils";
 import {
   DeskPrimaryButton,
@@ -27,6 +28,7 @@ import {
 import {
   deleteServerReviewDraftAction,
   listServerReviewDraftsAction,
+  publishReviewDraftAction,
 } from "@/actions/review-draft.actions";
 import { deleteReviewAction } from "@/actions/review.actions";
 import {
@@ -61,9 +63,17 @@ export function MyReviewsView({ userId, reviews }: MyReviewsViewProps) {
   const [draftsLoading, setDraftsLoading] = useState(true);
   const [confirmClearId, setConfirmClearId] = useState<string | null>(null);
   const [clearingDraft, setClearingDraft] = useState(false);
+  const [publishingDraftId, setPublishingDraftId] = useState<string | null>(
+    null
+  );
+  const [publishError, setPublishError] = useState<string | null>(null);
+  const [publishSuccess, setPublishSuccess] = useState<string | null>(null);
   const [tab, setTab] = useState<TabId>("all");
   const [deletingReviewId, setDeletingReviewId] = useState<string | null>(null);
   const [deleteError, setDeleteError] = useState<string | null>(null);
+  const [pendingDeleteReviewId, setPendingDeleteReviewId] = useState<
+    string | null
+  >(null);
   const [hiddenReviewIds, setHiddenReviewIds] = useState<Set<string>>(
     () => new Set()
   );
@@ -115,22 +125,67 @@ export function MyReviewsView({ userId, reviews }: MyReviewsViewProps) {
     setClearingDraft(false);
   }
 
-  async function handleDeleteReview(reviewId: string) {
-    if (
-      !window.confirm("Delete this review? This cannot be undone.")
-    ) {
-      return;
+  async function handlePublishDraft(draftId: string) {
+    if (publishingDraftId) return;
+
+    const item = drafts.find((draft) => draft.id === draftId);
+    if (!item) return;
+
+    setPublishError(null);
+    setPublishSuccess(null);
+    setPublishingDraftId(draftId);
+
+    try {
+      const result = await publishReviewDraftAction(item.draft);
+
+      if (!result.success) {
+        if (result.reviewId) {
+          deleteReviewDraft(userId, draftId);
+          setDrafts((current) =>
+            current.filter((draft) => draft.id !== draftId)
+          );
+          setPublishSuccess(
+            "You already published a review for this novel. The draft was removed."
+          );
+          router.refresh();
+          return;
+        }
+        setPublishError(result.error);
+        return;
+      }
+
+      deleteReviewDraft(userId, draftId);
+      setDrafts((current) => current.filter((draft) => draft.id !== draftId));
+      const title = item.draft.reviewTitle.trim() || "Your review";
+      setPublishSuccess(`${title} is now published.`);
+      router.refresh();
+    } finally {
+      setPublishingDraftId(null);
     }
+  }
+
+  function requestDeleteReview(reviewId: string) {
+    setDeleteError(null);
+    setPendingDeleteReviewId(reviewId);
+  }
+
+  async function confirmDeleteReview() {
+    if (!pendingDeleteReviewId) return;
 
     setDeleteError(null);
-    setDeletingReviewId(reviewId);
+    setDeletingReviewId(pendingDeleteReviewId);
     try {
-      const result = await deleteReviewAction(reviewId, { redirectTo: null });
+      const result = await deleteReviewAction(pendingDeleteReviewId, {
+        redirectTo: null,
+      });
       if (!result.success) {
         setDeleteError(result.error);
         return;
       }
-      setHiddenReviewIds((current) => new Set(current).add(reviewId));
+      setHiddenReviewIds((current) =>
+        new Set(current).add(pendingDeleteReviewId)
+      );
+      setPendingDeleteReviewId(null);
       router.refresh();
     } finally {
       setDeletingReviewId(null);
@@ -219,6 +274,12 @@ export function MyReviewsView({ userId, reviews }: MyReviewsViewProps) {
             loading={!isClient || draftsLoading}
             confirmClearId={confirmClearId}
             clearing={clearingDraft}
+            publishingDraftId={publishingDraftId}
+            publishError={publishError}
+            publishSuccess={publishSuccess}
+            onPublish={(draftId) => {
+              void handlePublishDraft(draftId);
+            }}
             onRequestClear={setConfirmClearId}
             onCancelClear={() => setConfirmClearId(null)}
             onConfirmClear={() => {
@@ -235,11 +296,24 @@ export function MyReviewsView({ userId, reviews }: MyReviewsViewProps) {
               reviews={visibleReviews}
               deletingReviewId={deletingReviewId}
               deleteError={deleteError}
-              onDelete={handleDeleteReview}
+              onDelete={requestDeleteReview}
             />
           </section>
         ) : null}
       </main>
+
+      <ReviewDeleteConfirmDialog
+        open={pendingDeleteReviewId !== null}
+        onOpenChange={(open) => {
+          if (!open) setPendingDeleteReviewId(null);
+        }}
+        onConfirm={confirmDeleteReview}
+        isDeleting={
+          pendingDeleteReviewId !== null &&
+          deletingReviewId === pendingDeleteReviewId
+        }
+        error={deleteError}
+      />
     </div>
   );
 }

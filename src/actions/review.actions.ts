@@ -197,6 +197,7 @@ export async function createReviewAction(
     revalidatePath("/search");
     revalidatePath("/");
     revalidatePath(`/novels/${novelId}`);
+    revalidatePath("/my-reviews");
 
     return { success: true, reviewId: review.id };
   } catch (error) {

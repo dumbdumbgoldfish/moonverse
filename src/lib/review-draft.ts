@@ -1,4 +1,5 @@
 import { isNovelCoverDataUrl } from "@/lib/novel-cover";
+import { isSafeHttpsUrl, LIMITS } from "@/lib/validation";
 
 export interface ReviewDraftV1 {
   id: string;
@@ -183,6 +184,37 @@ export function isMeaningfulReviewDraft(
   if (draft.reviewBody.trim()) return true;
   if (draft.containsSpoilers) return true;
   return false;
+}
+
+/** True when the draft has enough content to publish without opening Writing Studio. */
+export function isDraftReadyToPublish(draft: ReviewDraftV1): boolean {
+  const hasNovel =
+    draft.novelMode === "existing"
+      ? Boolean(draft.selectedNovelId.trim())
+      : Boolean(
+          draft.novelTitle.trim() &&
+            draft.novelAuthor.trim() &&
+            draft.selectedGenreIds.length > 0
+        );
+  const hasReview =
+    draft.rating > 0 &&
+    draft.reviewTitle.trim().length >= LIMITS.reviewTitle.min &&
+    draft.reviewBody.trim().length >= LIMITS.reviewBody.min;
+
+  return hasNovel && hasReview;
+}
+
+export function cleanedDraftReadingUrls(draft: ReviewDraftV1): string[] {
+  return draft.readingLinks.map((url) => url.trim()).filter(Boolean);
+}
+
+export function validateDraftReadingUrls(draft: ReviewDraftV1): string | null {
+  for (const raw of cleanedDraftReadingUrls(draft)) {
+    if (!isSafeHttpsUrl(raw)) {
+      return "Every reading source must be a valid HTTPS URL.";
+    }
+  }
+  return null;
 }
 
 export function loadReviewDrafts(userId: string): ReviewDraftV1[] {

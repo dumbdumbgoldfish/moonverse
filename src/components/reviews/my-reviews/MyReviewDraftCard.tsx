@@ -12,7 +12,6 @@ import {
 import {
   draftNovelLabel,
   draftProgressPercent,
-  draftPublishHref,
   draftResumeHref,
   draftStatusLabel,
   formatDraftSavedAt,
@@ -25,6 +24,8 @@ interface MyReviewDraftCardProps {
   item: ReviewDraftListItem;
   confirmClear: boolean;
   clearing: boolean;
+  publishing: boolean;
+  onPublish: () => void;
   onRequestClear: () => void;
   onCancelClear: () => void;
   onConfirmClear: () => void;
@@ -35,6 +36,8 @@ export function MyReviewDraftCard({
   item,
   confirmClear,
   clearing,
+  publishing,
+  onPublish,
   onRequestClear,
   onCancelClear,
   onConfirmClear,
@@ -143,11 +146,13 @@ export function MyReviewDraftCard({
         <div className="mt-3 flex flex-col gap-2">
           {readyToPublish ? (
             <DeskPrimaryButton
+              type="button"
               deskSize="xs"
               className="w-full justify-center"
-              render={<Link href={draftPublishHref(draft)} />}
+              disabled={publishing || clearing}
+              onClick={onPublish}
             >
-              Publish
+              {publishing ? "Publishing…" : "Publish"}
             </DeskPrimaryButton>
           ) : null}
           <DeskSecondaryButton

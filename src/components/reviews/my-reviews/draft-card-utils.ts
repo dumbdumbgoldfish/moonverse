@@ -1,5 +1,8 @@
-import { LIMITS } from "@/lib/validation";
 import type { ReviewDraftV1 } from "@/lib/review-draft";
+import { isDraftReadyToPublish } from "@/lib/review-draft";
+import { LIMITS } from "@/lib/validation";
+
+export { isDraftReadyToPublish };
 
 export interface ReviewDraftListItem {
   id: string;
@@ -25,23 +28,6 @@ export function draftPublishHref(draft: ReviewDraftV1): string {
     draft: draft.id,
   });
   return `/reviews/new?${params.toString()}`;
-}
-
-export function isDraftReadyToPublish(draft: ReviewDraftV1): boolean {
-  const hasNovel =
-    draft.novelMode === "existing"
-      ? Boolean(draft.selectedNovelId)
-      : Boolean(
-          draft.novelTitle.trim() &&
-            draft.novelAuthor.trim() &&
-            draft.selectedGenreIds.length > 0
-        );
-  const hasReview =
-    draft.rating > 0 &&
-    draft.reviewTitle.trim().length >= LIMITS.reviewTitle.min &&
-    draft.reviewBody.trim().length >= LIMITS.reviewBody.min;
-
-  return hasNovel && hasReview;
 }
 
 export function draftStatusLabel(draft: ReviewDraftV1): string {

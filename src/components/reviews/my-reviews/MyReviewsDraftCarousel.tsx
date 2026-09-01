@@ -40,6 +40,10 @@ interface MyReviewsDraftCarouselProps {
   loading: boolean;
   confirmClearId: string | null;
   clearing: boolean;
+  publishingDraftId: string | null;
+  publishError: string | null;
+  publishSuccess: string | null;
+  onPublish: (draftId: string) => void;
   onRequestClear: (draftId: string) => void;
   onCancelClear: () => void;
   onConfirmClear: () => void;
@@ -50,6 +54,10 @@ export function MyReviewsDraftCarousel({
   loading,
   confirmClearId,
   clearing,
+  publishingDraftId,
+  publishError,
+  publishSuccess,
+  onPublish,
   onRequestClear,
   onCancelClear,
   onConfirmClear,
@@ -94,6 +102,22 @@ export function MyReviewsDraftCarousel({
         </div>
       ) : (
         <div className="rounded-2xl border border-amber-200/70 bg-white/80 p-3 shadow-[0_16px_40px_-34px_rgba(180,83,9,0.28)] sm:p-4">
+          {publishError ? (
+            <p
+              className="mb-3 rounded-xl border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-800"
+              role="alert"
+            >
+              {publishError}
+            </p>
+          ) : null}
+          {publishSuccess ? (
+            <p
+              className="mb-3 rounded-xl border border-emerald-200 bg-emerald-50 px-3 py-2 text-sm text-emerald-900"
+              role="status"
+            >
+              {publishSuccess}
+            </p>
+          ) : null}
           <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
             <div>
               <p className="font-serif text-lg font-bold text-night-blue">
@@ -143,6 +167,8 @@ export function MyReviewsDraftCarousel({
                 item={item}
                 confirmClear={confirmClearId === item.id}
                 clearing={clearing && confirmClearId === item.id}
+                publishing={publishingDraftId === item.id}
+                onPublish={() => onPublish(item.id)}
                 onRequestClear={() => onRequestClear(item.id)}
                 onCancelClear={onCancelClear}
                 onConfirmClear={onConfirmClear}
