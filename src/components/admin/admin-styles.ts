@@ -72,6 +72,10 @@ export const ADMIN_TABLE_CELL_CLASS = "px-3.5 py-2.5 align-top text-sm text-whit
 export const ADMIN_FORM_CARD_CLASS =
   "relative space-y-3.5 overflow-hidden rounded-[1rem] border border-white/10 bg-[#1c1729] p-4 text-white shadow-[0_14px_36px_-28px_rgba(0,0,0,0.4)] sm:p-5";
 
+/** Light-surface inputs inside dark admin cards (select, datetime-local, etc.). */
+export const ADMIN_LIGHT_FIELD_CLASS =
+  "h-10 w-full min-w-0 rounded-xl border border-white/15 bg-white px-3 text-sm text-[#14111f] shadow-[0_10px_24px_-18px_rgba(110,70,199,0.12)] outline-none transition-colors [color-scheme:light] placeholder:text-[#7a7284] focus-visible:border-[#6e46c7]/40 focus-visible:ring-2 focus-visible:ring-[#6e46c7]/25 disabled:cursor-not-allowed disabled:opacity-50";
+
 export const ADMIN_SIDEBAR_PANEL_CLASS = ADMIN_SIDEBAR_CLASS;
 
 export const ADMIN_CONTENT_PANEL_CLASS = "";

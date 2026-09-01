@@ -7,6 +7,7 @@ import {
   deleteFeaturedNovelAction,
 } from "@/actions/admin.actions";
 import { AdminConfirmDialog } from "@/components/admin/AdminConfirmDialog";
+import { ADMIN_LIGHT_FIELD_CLASS } from "@/components/admin/admin-styles";
 import {
   AdminFormCard,
   AdminTableCell,
@@ -15,10 +16,16 @@ import {
   AdminTableShell,
   AdminTableTh,
 } from "@/components/admin/AdminUi";
+import { NovelSearchPicker } from "@/components/reviews/NovelSearchPicker";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import {
+  datetimeLocalToIso,
+  formatNovelSelectLabel,
+  findNovelSelectOption,
+} from "@/lib/admin/featured-novel-form";
 import { formatDate } from "@/lib/date-utils";
 import type { AdminFeaturedNovelItem } from "@/services/featured.service";
 import type { NovelSelectOption } from "@/services/novel.service";
@@ -39,6 +46,8 @@ export function AdminFeaturedManager({
   const [slot, setSlot] = useState("0");
   const [endsAt, setEndsAt] = useState("");
 
+  const selectedNovel = findNovelSelectOption(novels, novelId);
+
   function handleSubmit(event: React.FormEvent) {
     event.preventDefault();
     setError(null);
@@ -48,11 +57,17 @@ export function AdminFeaturedManager({
       return;
     }
 
+    const endsAtIso = datetimeLocalToIso(endsAt);
+    if (endsAtIso === null) {
+      setError("Enter a valid end date and time, or leave the field empty.");
+      return;
+    }
+
     startTransition(async () => {
       const result = await createFeaturedNovelAction({
         novelId,
         slot: Number(slot) || 0,
-        endsAt: endsAt ? new Date(endsAt).toISOString() : undefined,
+        endsAt: endsAtIso,
       });
       if (!result.success) {
         setError(result.error);
@@ -72,53 +87,56 @@ export function AdminFeaturedManager({
         description="Spotlight titles on the home and discover surfaces."
       >
         <form onSubmit={handleSubmit} className="space-y-4">
-        {error && (
-          <p className="text-sm text-destructive" role="alert">
-            {error}
-          </p>
-        )}
-        <div className="grid gap-4 sm:grid-cols-3">
-          <div className="space-y-2 sm:col-span-2">
-            <Label htmlFor="featured-novel">Novel</Label>
-            <select
-              id="featured-novel"
-              value={novelId}
-              onChange={(e) => setNovelId(e.target.value)}
-              disabled={isPending}
-              className="h-10 w-full rounded-xl border border-[#241630]/15 bg-white px-3 text-sm shadow-[0_10px_24px_-18px_rgba(110,70,199,0.12)]"
-            >
-              <option value="">Select a novel…</option>
-              {novels.map((novel) => (
-                <option key={novel.id} value={novel.id}>
-                  {novel.title} {novel.author ? `:  ${novel.author}` : ""}
-                </option>
-              ))}
-            </select>
+          {error ? (
+            <p className="text-sm text-destructive" role="alert">
+              {error}
+            </p>
+          ) : null}
+          <div className="grid gap-4 sm:grid-cols-3">
+            <div className="space-y-2 sm:col-span-2">
+              <Label htmlFor="featured-novel-search">Novel</Label>
+              <NovelSearchPicker
+                novels={novels}
+                value={novelId}
+                onChange={setNovelId}
+                disabled={isPending}
+              />
+              {selectedNovel ? (
+                <p className="text-xs text-[#e9d5ff]" role="status">
+                  Selected for spotlight:{" "}
+                  <span className="font-medium text-white">
+                    {formatNovelSelectLabel(selectedNovel)}
+                  </span>
+                </p>
+              ) : null}
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="featured-slot">Slot (order)</Label>
+              <Input
+                id="featured-slot"
+                type="number"
+                value={slot}
+                onChange={(e) => setSlot(e.target.value)}
+                disabled={isPending}
+                className={ADMIN_LIGHT_FIELD_CLASS}
+              />
+            </div>
+            <div className="space-y-2 sm:col-span-2">
+              <Label htmlFor="featured-ends">Ends at (optional)</Label>
+              <input
+                id="featured-ends"
+                type="datetime-local"
+                step={60}
+                value={endsAt}
+                onChange={(e) => setEndsAt(e.target.value)}
+                disabled={isPending}
+                className={ADMIN_LIGHT_FIELD_CLASS}
+              />
+            </div>
           </div>
-          <div className="space-y-2">
-            <Label htmlFor="featured-slot">Slot (order)</Label>
-            <Input
-              id="featured-slot"
-              type="number"
-              value={slot}
-              onChange={(e) => setSlot(e.target.value)}
-              disabled={isPending}
-            />
-          </div>
-          <div className="space-y-2 sm:col-span-2">
-            <Label htmlFor="featured-ends">Ends at (optional)</Label>
-            <Input
-              id="featured-ends"
-              type="datetime-local"
-              value={endsAt}
-              onChange={(e) => setEndsAt(e.target.value)}
-              disabled={isPending}
-            />
-          </div>
-        </div>
-        <Button type="submit" disabled={isPending}>
-          {isPending ? "Saving…" : "Add to spotlight"}
-        </Button>
+          <Button type="submit" disabled={isPending}>
+            {isPending ? "Saving…" : "Add to spotlight"}
+          </Button>
         </form>
       </AdminFormCard>
 
