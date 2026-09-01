@@ -7,7 +7,6 @@ import { BrowseProofRail } from "@/components/browse/BrowseProofRail";
 import { BrowseRankingExplainer } from "@/components/browse/BrowseRankingExplainer";
 import { WEB_NOVEL_GENRES } from "@/lib/genres";
 import { LITERARY_PAGE_BG } from "@/lib/literary-salon";
-import { DISCOVERY_MOOD_CHIPS } from "@/lib/moonie/constants";
 import { SITE_SHELL_CLASS } from "@/lib/site-shell";
 import { getBrowseHubPayload } from "@/services/browse-hub.service";
 import { cn } from "@/lib/utils";
@@ -72,7 +71,7 @@ export default async function BrowseHubPage() {
 
         <BrowseFullIndex genres={WEB_NOVEL_GENRES} />
 
-        <BrowseMoodStrip moods={DISCOVERY_MOOD_CHIPS} />
+        <BrowseMoodStrip />
       </div>
     </main>
   );
