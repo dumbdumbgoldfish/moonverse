@@ -29,6 +29,7 @@ import {
   resolveReviewerReviewFollowUpTarget,
   resolveReviewerReviewOrdinalFromMessage,
 } from "@/lib/moonie/reviewer-review-intent";
+import { rankedReviewsFromStoredMeta } from "@/lib/moonie/ranked-review-context";
 import { pickStoredMoonieMetaField } from "@/lib/moonie/persist-assistant-turn";
 import { latestPendingClarification } from "@/lib/moonie/pending-clarification";
 
@@ -441,6 +442,30 @@ function lastReferencedReviewer(
   return focused;
 }
 
+/** Most recent single-review card — used for "the reviewer" follow-ups without a reviewer session. */
+function reviewerResultFromLastDisplayedSingleReview(
+  messages: StoredMessage[]
+): MoonieReviewerResult | null {
+  for (let i = messages.length - 1; i >= 0; i -= 1) {
+    const entry = messages[i];
+    if (entry.role !== "assistant") continue;
+    const reviews = rankedReviewsFromStoredMeta(entry.meta);
+    if (reviews.length === 0) continue;
+    if (reviews.length > 1) return null;
+    const review = reviews[0]!;
+    const username = review.reviewerUsername?.trim();
+    return {
+      id: review.id,
+      displayName: review.reviewerName,
+      username: username ?? review.reviewerName,
+      avatarInitials: review.reviewerName.slice(0, 2).toUpperCase(),
+      reviewCount: 0,
+      followerCount: 0,
+    };
+  }
+  return null;
+}
+
 export function resolveActiveReviewer(options: {
   messages: StoredMessage[];
   reviewerSession: MoonieReviewerSession | null;
@@ -723,6 +748,24 @@ export function buildConversationContext(
     contextNovelTitle: options?.contextNovelTitle,
     currentMessage: options?.currentMessage,
   });
+
+  if (
+    options?.currentMessage &&
+    messageReferencesActiveReviewer(options.currentMessage) &&
+    (!reviewerSession || reviewerSession.reviewers.length === 0)
+  ) {
+    const fromSingleReview = reviewerResultFromLastDisplayedSingleReview(
+      messages
+    );
+    if (fromSingleReview) {
+      reviewerSession = {
+        reviewers: [fromSingleReview],
+        rankBy: "reviews",
+        queryType: "lookup",
+        activeReviewerId: fromSingleReview.id,
+      };
+    }
+  }
 
   const activeReviewer = resolveActiveReviewer({
     messages,

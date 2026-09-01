@@ -39,6 +39,7 @@ import {
   messageReferencesActiveReviewer,
 } from "@/lib/moonie/reviewer-intent";
 import { parseSimilarityRequest } from "@/lib/moonie/similarity-request";
+import { buildConversationContext } from "@/lib/moonie/conversation-context";
 import type { MoonieRankedReview } from "@/types/moonie";
 
 function sampleRankedReviews(): MoonieRankedReview[] {
@@ -167,6 +168,23 @@ describe("moonie QA regression — ranked review context", () => {
     });
     assert.equal(single.review?.reviewerName, "Alice");
     assert.equal(single.ambiguous, false);
+  });
+
+  it("promotes single displayed review author for tell me about the reviewer", () => {
+    const review = session.reviews[0]!;
+    const ctx = buildConversationContext(
+      [
+        { role: "user", content: "Give me 1 review of The Hidden Oracle" },
+        {
+          role: "assistant",
+          content: "Here is one review.",
+          meta: { rankedReviews: [review] },
+        },
+      ],
+      { currentMessage: "Tell me about the reviewer" }
+    );
+    assert.equal(ctx.activeReviewerUsername, review.reviewerUsername);
+    assert.equal(ctx.activeReviewerDisplayName, review.reviewerName);
   });
 
   it("marks ambiguous this-review when multiple cards are shown", () => {
