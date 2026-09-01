@@ -1,4 +1,5 @@
 import { auth } from "@/lib/auth";
+import { buildLoginRedirectUrl } from "@/lib/auth-login-redirect";
 import { NextResponse } from "next/server";
 import type { Session } from "next-auth";
 import type { NextRequest } from "next/server";
@@ -28,9 +29,7 @@ export default auth((req: AuthRequest) => {
   const isLoggedIn = !!req.auth;
 
   if (isProtectedPath(pathname) && !isLoggedIn) {
-    const loginUrl = new URL("/login", req.nextUrl.origin);
-    loginUrl.searchParams.set("callbackUrl", pathname);
-    return NextResponse.redirect(loginUrl);
+    return NextResponse.redirect(buildLoginRedirectUrl(req.url, pathname));
   }
 
   return NextResponse.next();
