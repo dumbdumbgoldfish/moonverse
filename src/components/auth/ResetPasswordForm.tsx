@@ -3,12 +3,12 @@
 import { Suspense, useEffect, useState } from "react";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
-import { signIn } from "next-auth/react";
 import { AuthAlert } from "@/components/auth/AuthAlert";
 import { AuthPanel } from "@/components/auth/AuthPanel";
 import { AuthTrustRow } from "@/components/auth/AuthTrustRow";
 import { PasswordField } from "@/components/auth/PasswordField";
 import { writeRememberedIdentifier } from "@/lib/auth-remember";
+import { applyResetPasswordSuccess } from "@/lib/reset-password-success";
 import { closeMooniePanel } from "@/lib/moonie/panel-open-state";
 import { scorePassword } from "@/lib/password-strength";
 import { cn } from "@/lib/utils";
@@ -88,27 +88,11 @@ function ResetPasswordFormContent() {
       return;
     }
 
-    const email = typeof data?.email === "string" ? data.email.toLowerCase().trim() : "";
-    if (email) {
-      const signInResult = await signIn("credentials", {
-        email,
-        password,
-        redirect: false,
-      });
-      if (!signInResult?.error) {
-        writeRememberedIdentifier(email);
-        closeMooniePanel();
-        router.push("/home");
-        router.refresh();
-        return;
-      }
-    }
-
-    router.push(
-      email
-        ? `/login?reset=1&email=${encodeURIComponent(email)}`
-        : "/login?reset=1"
-    );
+    applyResetPasswordSuccess(data?.email, {
+      rememberEmail: writeRememberedIdentifier,
+      closePanel: closeMooniePanel,
+      navigate: (path) => router.push(path),
+    });
   }
 
   if (!token) {
