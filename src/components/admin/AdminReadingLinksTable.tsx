@@ -18,7 +18,13 @@ import {
 } from "@/components/admin/AdminUi";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { readingLinkHealthBadgeVariant } from "@/lib/admin/reading-link-presentation";
+import {
+  beginReadingLinkHealthCheck,
+  completeReadingLinkHealthCheck,
+  mergeReadingLinkRowPatches,
+  readingLinkHealthBadgeVariant,
+  type ReadingLinkHealthCheckUiState,
+} from "@/lib/admin/reading-link-presentation";
 import { formatDate } from "@/lib/date-utils";
 import { getPlatformLabel } from "@/lib/reading-platforms";
 
@@ -57,6 +63,7 @@ const statusVariant: Record<
 interface ReadingLinkRowActionsProps {
   link: AdminReadingLinkRow;
   pendingLinkId: string | null;
+  healthCheckError: string | null;
   onCheckHealth: (linkId: string) => void;
   onApprove: (linkId: string) => void;
   onReject: (linkId: string) => Promise<{ success: boolean; error?: string }>;
@@ -65,6 +72,7 @@ interface ReadingLinkRowActionsProps {
 function ReadingLinkRowActions({
   link,
   pendingLinkId,
+  healthCheckError,
   onCheckHealth,
   onApprove,
   onReject,
@@ -72,7 +80,8 @@ function ReadingLinkRowActions({
   const isPending = pendingLinkId === link.id;
 
   return (
-    <div className="flex flex-wrap gap-2">
+    <div className="flex flex-col gap-2">
+      <div className="flex flex-wrap gap-2">
       <Button
         size="sm"
         variant="ghost"
@@ -101,29 +110,28 @@ function ReadingLinkRowActions({
           onConfirm={() => onReject(link.id)}
         />
       ) : null}
+      </div>
+      {healthCheckError ? (
+        <p className="text-xs text-destructive" role="alert">
+          {healthCheckError}
+        </p>
+      ) : null}
     </div>
   );
 }
 
 export function AdminReadingLinksTable({ links }: AdminReadingLinksTableProps) {
   const router = useRouter();
-  const [patchedById, setPatchedById] = useState<
-    Record<string, Partial<AdminReadingLinkRow>>
-  >({});
+  const [healthCheckState, setHealthCheckState] =
+    useState<ReadingLinkHealthCheckUiState>({
+      pendingLinkId: null,
+      errorsByLinkId: {},
+      patchedById: {},
+    });
   const [pendingLinkId, setPendingLinkId] = useState<string | null>(null);
   const [, startTransition] = useTransition();
 
-  const rows = links.map((link) => ({
-    ...link,
-    ...patchedById[link.id],
-  }));
-
-  function applyRowPatch(linkId: string, patch: Partial<AdminReadingLinkRow>) {
-    setPatchedById((current) => ({
-      ...current,
-      [linkId]: { ...current[linkId], ...patch },
-    }));
-  }
+  const rows = mergeReadingLinkRowPatches(links, healthCheckState.patchedById);
 
   function runForLink(
     linkId: string,
@@ -136,23 +144,31 @@ export function AdminReadingLinksTable({ links }: AdminReadingLinksTableProps) {
       setPendingLinkId(null);
       if (!result.success) return;
       if (patch) {
-        applyRowPatch(linkId, patch);
+        setHealthCheckState((current) => ({
+          ...current,
+          patchedById: {
+            ...current.patchedById,
+            [linkId]: {
+              ...current.patchedById[linkId],
+              ...patch,
+            },
+          },
+        }));
       }
       router.refresh();
     });
   }
 
   function handleCheckHealth(linkId: string) {
-    setPendingLinkId(linkId);
+    setHealthCheckState((current) => beginReadingLinkHealthCheck(current, linkId));
     startTransition(async () => {
       const result = await checkReadingLinkHealthAction(linkId);
-      setPendingLinkId(null);
-      if (!result.success) return;
-      applyRowPatch(result.linkId, {
-        healthStatus: result.healthStatus,
-        lastCheckedAt: result.lastCheckedAt,
-      });
-      router.refresh();
+      setHealthCheckState((current) =>
+        completeReadingLinkHealthCheck(current, linkId, result)
+      );
+      if (result.success) {
+        router.refresh();
+      }
     });
   }
 
@@ -234,7 +250,10 @@ export function AdminReadingLinksTable({ links }: AdminReadingLinksTableProps) {
               <ReadingLinkRowActions
                 key={link.id}
                 link={link}
-                pendingLinkId={pendingLinkId}
+                pendingLinkId={
+                  pendingLinkId ?? healthCheckState.pendingLinkId
+                }
+                healthCheckError={healthCheckState.errorsByLinkId[link.id] ?? null}
                 onCheckHealth={handleCheckHealth}
                 onApprove={(linkId) =>
                   runForLink(
@@ -249,7 +268,16 @@ export function AdminReadingLinksTable({ links }: AdminReadingLinksTableProps) {
                     "Rejected by moderator"
                   );
                   if (result.success) {
-                    applyRowPatch(linkId, { moderationStatus: "REJECTED" });
+                    setHealthCheckState((current) => ({
+                      ...current,
+                      patchedById: {
+                        ...current.patchedById,
+                        [linkId]: {
+                          ...current.patchedById[linkId],
+                          moderationStatus: "REJECTED",
+                        },
+                      },
+                    }));
                     router.refresh();
                   }
                   return result;

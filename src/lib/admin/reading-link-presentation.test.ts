@@ -1,8 +1,12 @@
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
 import {
+  beginReadingLinkHealthCheck,
+  completeReadingLinkHealthCheck,
+  mergeReadingLinkRowPatches,
   patchReadingLinkRowById,
   readingLinkHealthBadgeVariant,
+  type ReadingLinkHealthCheckUiState,
 } from "@/lib/admin/reading-link-presentation";
 
 describe("readingLinkHealthBadgeVariant", () => {
@@ -76,5 +80,95 @@ describe("patchReadingLinkRowById", () => {
     });
     assert.equal(rejected[0].moderationStatus, "REJECTED");
     assert.equal(rejected[1].moderationStatus, "APPROVED");
+  });
+});
+
+describe("reading link health check row state", () => {
+  const baseState: ReadingLinkHealthCheckUiState = {
+    pendingLinkId: null,
+    errorsByLinkId: {},
+    patchedById: {},
+  };
+
+  const rows: Array<{
+    id: string;
+    healthStatus: string;
+    lastCheckedAt: string | null;
+  }> = [
+    {
+      id: "link-a",
+      healthStatus: "UNKNOWN",
+      lastCheckedAt: null,
+    },
+    {
+      id: "link-b",
+      healthStatus: "UNKNOWN",
+      lastCheckedAt: null,
+    },
+  ];
+
+  it("patches only the clicked row on success", () => {
+    const started = beginReadingLinkHealthCheck(baseState, "link-a");
+    const completed = completeReadingLinkHealthCheck(started, "link-a", {
+      success: true,
+      linkId: "link-a",
+      healthStatus: "BROKEN",
+      lastCheckedAt: "2026-09-01T00:00:00.000Z",
+    });
+    const merged = mergeReadingLinkRowPatches(rows, completed.patchedById);
+
+    assert.equal(completed.pendingLinkId, null);
+    assert.equal(merged[0].healthStatus, "BROKEN");
+    assert.equal(merged[0].lastCheckedAt, "2026-09-01T00:00:00.000Z");
+    assert.equal(merged[1].healthStatus, "UNKNOWN");
+    assert.equal(merged[1].lastCheckedAt, null);
+  });
+
+  it("stores a row-scoped error when the health check fails", () => {
+    const started = beginReadingLinkHealthCheck(baseState, "link-a");
+    const completed = completeReadingLinkHealthCheck(started, "link-a", {
+      success: false,
+      error: "Network timeout.",
+    });
+
+    assert.equal(completed.pendingLinkId, null);
+    assert.equal(completed.errorsByLinkId["link-a"], "Network timeout.");
+    assert.equal(completed.errorsByLinkId["link-b"], undefined);
+    assert.deepEqual(completed.patchedById, {});
+  });
+
+  it("clears loading after failure", () => {
+    const started = beginReadingLinkHealthCheck(baseState, "link-b");
+    assert.equal(started.pendingLinkId, "link-b");
+
+    const completed = completeReadingLinkHealthCheck(started, "link-b", {
+      success: false,
+      error: "Service unavailable.",
+    });
+    assert.equal(completed.pendingLinkId, null);
+  });
+
+  it("allows retry after failure and clears the prior error on success", () => {
+    const failed = completeReadingLinkHealthCheck(
+      beginReadingLinkHealthCheck(baseState, "link-a"),
+      "link-a",
+      { success: false, error: "Network timeout." }
+    );
+    const retrying = beginReadingLinkHealthCheck(failed, "link-a");
+    assert.equal(retrying.errorsByLinkId["link-a"], undefined);
+    assert.equal(retrying.pendingLinkId, "link-a");
+
+    const succeeded = completeReadingLinkHealthCheck(retrying, "link-a", {
+      success: true,
+      linkId: "link-a",
+      healthStatus: "HEALTHY",
+      lastCheckedAt: "2026-09-01T01:00:00.000Z",
+    });
+
+    assert.equal(succeeded.errorsByLinkId["link-a"], undefined);
+    assert.equal(
+      succeeded.patchedById["link-a"]?.healthStatus,
+      "HEALTHY"
+    );
   });
 });
