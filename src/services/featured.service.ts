@@ -1,4 +1,5 @@
 import { db } from "@/lib/db";
+import { insertFeaturedNovelIfNoOverlap } from "@/lib/admin/featured-novel-create";
 import { resolveCoverUrl } from "@/lib/review-utils";
 
 export interface FeaturedNovelItem {
@@ -85,14 +86,17 @@ export async function createFeaturedNovel(
   });
   if (!novel) throw new Error("Novel not found.");
 
-  await db.featuredNovel.create({
-    data: {
+  const startsAt = input.startsAt ?? new Date();
+  const endsAt = input.endsAt ?? null;
+
+  await db.$transaction(async (tx) => {
+    await insertFeaturedNovelIfNoOverlap(tx, {
       novelId: input.novelId,
       slot: input.slot ?? 0,
-      startsAt: input.startsAt ?? new Date(),
-      endsAt: input.endsAt ?? null,
+      startsAt,
+      endsAt,
       createdById: input.createdById,
-    },
+    });
   });
 }
 
