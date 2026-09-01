@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useState, useTransition } from "react";
 import { Pencil, Trash2 } from "lucide-react";
 import { deleteReviewAction } from "@/actions/review.actions";
+import { ReviewDeleteConfirmDialog } from "@/components/reviews/ReviewDeleteConfirmDialog";
 import { Button } from "@/components/ui/button";
 
 interface ReviewOwnerActionsProps {
@@ -11,14 +12,11 @@ interface ReviewOwnerActionsProps {
 }
 
 export function ReviewOwnerActions({ reviewId }: ReviewOwnerActionsProps) {
+  const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const [isDeleting, startDelete] = useTransition();
   const [error, setError] = useState<string | null>(null);
 
-  function handleDelete() {
-    if (!window.confirm("Delete this review? This cannot be undone.")) {
-      return;
-    }
-
+  function handleConfirmDelete() {
     setError(null);
     startDelete(async () => {
       const result = await deleteReviewAction(reviewId, {
@@ -47,16 +45,27 @@ export function ReviewOwnerActions({ reviewId }: ReviewOwnerActionsProps) {
         variant="outline"
         className="rounded-full text-destructive hover:bg-destructive/10"
         disabled={isDeleting}
-        onClick={handleDelete}
+        onClick={() => {
+          setError(null);
+          setDeleteDialogOpen(true);
+        }}
       >
         <Trash2 data-icon="inline-start" aria-hidden />
-        {isDeleting ? "Deleting…" : "Delete"}
+        Delete
       </Button>
-      {error ? (
+      {error && !deleteDialogOpen ? (
         <p className="w-full text-xs font-medium text-destructive" role="alert">
           {error}
         </p>
       ) : null}
+
+      <ReviewDeleteConfirmDialog
+        open={deleteDialogOpen}
+        onOpenChange={setDeleteDialogOpen}
+        onConfirm={handleConfirmDelete}
+        isDeleting={isDeleting}
+        error={error}
+      />
     </div>
   );
 }

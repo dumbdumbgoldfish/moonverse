@@ -5,6 +5,7 @@ import { createPortal } from "react-dom";
 import Link from "next/link";
 import { Bookmark, MoreHorizontal, PencilLine, Trash2 } from "lucide-react";
 import { deleteReviewAction } from "@/actions/review.actions";
+import { ReviewDeleteConfirmDialog } from "@/components/reviews/ReviewDeleteConfirmDialog";
 import { cn } from "@/lib/utils";
 
 interface CommunityPostMenuProps {
@@ -17,6 +18,8 @@ export function CommunityPostMenu({ reviewId, onSave }: CommunityPostMenuProps) 
   const menuRef = useRef<HTMLDivElement>(null);
   const [open, setOpen] = useState(false);
   const [coords, setCoords] = useState({ top: 0, left: 0 });
+  const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
+  const [deleteError, setDeleteError] = useState<string | null>(null);
   const [isDeleting, startDelete] = useTransition();
 
   useLayoutEffect(() => {
@@ -124,17 +127,9 @@ export function CommunityPostMenu({ reviewId, onSave }: CommunityPostMenuProps) 
                 disabled={isDeleting}
                 className="flex w-full items-center gap-2.5 px-3 py-2 text-left text-[13px] font-semibold text-destructive hover:bg-red-50"
                 onClick={() => {
-                  if (
-                    !window.confirm(
-                      "Delete this review? This cannot be undone."
-                    )
-                  ) {
-                    return;
-                  }
-                  startDelete(async () => {
-                    await deleteReviewAction(reviewId);
-                  });
+                  setDeleteError(null);
                   setOpen(false);
+                  setDeleteDialogOpen(true);
                 }}
               >
                 <Trash2 className="size-4" aria-hidden />
@@ -144,6 +139,24 @@ export function CommunityPostMenu({ reviewId, onSave }: CommunityPostMenuProps) 
             document.body
           )
         : null}
+
+      <ReviewDeleteConfirmDialog
+        open={deleteDialogOpen}
+        onOpenChange={setDeleteDialogOpen}
+        onConfirm={() => {
+          setDeleteError(null);
+          startDelete(async () => {
+            const result = await deleteReviewAction(reviewId);
+            if (!result.success) {
+              setDeleteError(result.error);
+              return;
+            }
+            setDeleteDialogOpen(false);
+          });
+        }}
+        isDeleting={isDeleting}
+        error={deleteError}
+      />
     </div>
   );
 }

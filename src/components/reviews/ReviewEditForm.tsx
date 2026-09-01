@@ -22,6 +22,7 @@ import {
 import { WritingStudioMobileActions } from "@/components/reviews/write/WritingStudioMobileActions";
 import { WritingStudioMobileSheet } from "@/components/reviews/write/WritingStudioMobileSheet";
 import { WritingStudioPublishDrawer } from "@/components/reviews/write/WritingStudioPublishDrawer";
+import { ReviewDeleteConfirmDialog } from "@/components/reviews/ReviewDeleteConfirmDialog";
 import { useWritingStudioCommandPalette } from "@/components/reviews/write/useWritingStudioCommandPalette";
 import type { WritingStudioCommand } from "@/components/reviews/write/writing-studio-commands";
 import type { ChecklistItem } from "@/components/reviews/write/writing-studio.types";
@@ -43,6 +44,7 @@ export function ReviewEditForm({ review }: ReviewEditFormProps) {
   const isPending = isSaving || isDeleting;
   const [error, setError] = useState<string | null>(null);
   const [publishDrawerOpen, setPublishDrawerOpen] = useState(false);
+  const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const [focusMode, setFocusMode] = useState(false);
   const [rating, setRating] = useState(review.rating);
   const [title, setTitle] = useState(review.title);
@@ -178,12 +180,7 @@ export function ReviewEditForm({ review }: ReviewEditFormProps) {
     }
   }
 
-  async function handleDelete() {
-    const confirmed = window.confirm(
-      "Are you sure you want to delete this review? This action cannot be undone."
-    );
-    if (!confirmed) return;
-
+  async function confirmDelete() {
     setError(null);
     setIsDeleting(true);
     try {
@@ -327,7 +324,10 @@ export function ReviewEditForm({ review }: ReviewEditFormProps) {
               <Button
                 type="button"
                 variant="destructive"
-                onClick={handleDelete}
+                onClick={() => {
+                  setError(null);
+                  setDeleteDialogOpen(true);
+                }}
                 disabled={isPending}
                 className="min-h-11 rounded-xl"
               >
@@ -470,6 +470,14 @@ export function ReviewEditForm({ review }: ReviewEditFormProps) {
         open={commandPalette.open}
         onOpenChange={commandPalette.setOpen}
         commands={studioCommands}
+      />
+
+      <ReviewDeleteConfirmDialog
+        open={deleteDialogOpen}
+        onOpenChange={setDeleteDialogOpen}
+        onConfirm={confirmDelete}
+        isDeleting={isDeleting}
+        error={error}
       />
     </div>
   );

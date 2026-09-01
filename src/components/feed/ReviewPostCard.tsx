@@ -12,6 +12,7 @@ import {
   EyeOff,
 } from "lucide-react";
 import { deleteReviewAction } from "@/actions/review.actions";
+import { ReviewDeleteConfirmDialog } from "@/components/reviews/ReviewDeleteConfirmDialog";
 import { NovelAttachment } from "@/components/feed/NovelAttachment";
 import { ReviewExcerpt } from "@/components/feed/ReviewExcerpt";
 import { ReviewActionBar } from "@/components/feed/ReviewActionBar";
@@ -55,6 +56,8 @@ export function ReviewPostCard({
   const [commentCount, setCommentCount] = useState(review.commentCount);
   const [expandedAll, setExpandedAll] = useState(false);
   const [loadingAll, setLoadingAll] = useState(false);
+  const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
+  const [deleteError, setDeleteError] = useState<string | null>(null);
   const [isDeleting, startDelete] = useTransition();
 
   const isOwner = Boolean(
@@ -251,16 +254,9 @@ export function ReviewPostCard({
                       disabled={isDeleting}
                       className="flex w-full items-center gap-2 px-3 py-2 text-left text-sm text-destructive hover:bg-red-50"
                       onClick={() => {
-                        if (
-                          !window.confirm(
-                            "Delete this review? This cannot be undone."
-                          )
-                        ) {
-                          return;
-                        }
-                        startDelete(async () => {
-                          await deleteReviewAction(review.id);
-                        });
+                        setDeleteError(null);
+                        setMenuOpen(false);
+                        setDeleteDialogOpen(true);
                       }}
                     >
                       <Trash2 className="size-4" aria-hidden />
@@ -392,6 +388,25 @@ export function ReviewPostCard({
           }}
         />
       </div>
+
+      <ReviewDeleteConfirmDialog
+        open={deleteDialogOpen}
+        onOpenChange={setDeleteDialogOpen}
+        onConfirm={() => {
+          setDeleteError(null);
+          startDelete(async () => {
+            const result = await deleteReviewAction(review.id);
+            if (!result.success) {
+              setDeleteError(result.error);
+              return;
+            }
+            setDeleteDialogOpen(false);
+            router.refresh();
+          });
+        }}
+        isDeleting={isDeleting}
+        error={deleteError}
+      />
     </article>
   );
 }
