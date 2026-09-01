@@ -39,12 +39,7 @@ export default async function AdminDashboardPage() {
     getModerationQueueBreakdown(),
   ]);
 
-  const queueTotal =
-    attention.openReports +
-    attention.pendingReadingLinks +
-    attention.pendingTagSuggestions +
-    attention.autoFlaggedReviews +
-    attention.autoFlaggedComments;
+  const queueTotal = attention.queueTotal;
 
   const attentionItems = [
     { href: "/admin/inbox", label: "Queue items", value: queueTotal },
@@ -53,6 +48,11 @@ export default async function AdminDashboardPage() {
       href: "/admin/reading-links",
       label: "Pending links",
       value: attention.pendingReadingLinks,
+    },
+    {
+      href: "/admin/inbox?kind=reading_link_unhealthy",
+      label: "Unhealthy links",
+      value: attention.unhealthyReadingLinks,
     },
     {
       href: "/admin/reviews?status=AUTO_FLAGGED",

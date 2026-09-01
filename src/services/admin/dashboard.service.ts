@@ -1,5 +1,5 @@
 import { db } from "@/lib/db";
-import { countOpenReports } from "@/services/report.service";
+import { getInboxCounts } from "@/services/admin/inbox.service";
 import type {
   AdminDashboardAttention,
   AdminDashboardStats,
@@ -21,28 +21,16 @@ export async function getAdminDashboardStats(): Promise<AdminDashboardStats> {
 }
 
 export async function getAdminDashboardAttention(): Promise<AdminDashboardAttention> {
-  const [
-    openReports,
-    pendingReadingLinks,
-    pendingTagSuggestions,
-    autoFlaggedReviews,
-    autoFlaggedComments,
-  ] = await Promise.all([
-    countOpenReports(),
-    db.readingLink.count({
-      where: { moderationStatus: { in: ["PENDING", "NEEDS_REVIEW"] } },
-    }),
-    db.tagSuggestion.count({ where: { status: "PENDING" } }),
-    db.review.count({ where: { moderationStatus: "AUTO_FLAGGED" } }),
-    db.comment.count({ where: { moderationStatus: "AUTO_FLAGGED" } }),
-  ]);
+  const counts = await getInboxCounts();
 
   return {
-    openReports,
-    pendingReadingLinks,
-    pendingTagSuggestions,
-    autoFlaggedReviews,
-    autoFlaggedComments,
+    openReports: counts.report,
+    pendingReadingLinks: counts.reading_link,
+    unhealthyReadingLinks: counts.reading_link_unhealthy,
+    pendingTagSuggestions: counts.tag_suggestion,
+    autoFlaggedReviews: counts.review_flagged,
+    autoFlaggedComments: counts.comment_flagged,
+    queueTotal: counts.total,
   };
 }
 

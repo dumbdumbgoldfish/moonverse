@@ -17,9 +17,11 @@ export interface AdminDashboardStats {
 export interface AdminDashboardAttention {
   openReports: number;
   pendingReadingLinks: number;
+  unhealthyReadingLinks: number;
   pendingTagSuggestions: number;
   autoFlaggedReviews: number;
   autoFlaggedComments: number;
+  queueTotal: number;
 }
 
 export interface AdminReviewSummary {

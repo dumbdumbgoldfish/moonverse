@@ -3,6 +3,7 @@ import {
   ReportStatus,
   ReportTargetType,
 } from "@prisma/client";
+import { computeModerationQueueTotal } from "@/lib/admin/moderation-queue-counts";
 import { db } from "@/lib/db";
 import { listReports, type ReportSummary } from "@/services/report.service";
 
@@ -344,19 +345,20 @@ export async function getInboxCounts(): Promise<Record<InboxItemKind | "total", 
     db.tagSuggestion.count({ where: { status: "PENDING" } }),
   ]);
   const counts: Record<InboxItemKind | "total", number> = {
-    total:
-      report +
-      reviewFlagged +
-      commentFlagged +
-      readingLink +
-      readingLinkUnhealthy +
-      tagSuggestion,
     report,
     review_flagged: reviewFlagged,
     comment_flagged: commentFlagged,
     reading_link: readingLink,
     reading_link_unhealthy: readingLinkUnhealthy,
     tag_suggestion: tagSuggestion,
+    total: computeModerationQueueTotal({
+      report,
+      review_flagged: reviewFlagged,
+      comment_flagged: commentFlagged,
+      reading_link: readingLink,
+      reading_link_unhealthy: readingLinkUnhealthy,
+      tag_suggestion: tagSuggestion,
+    }),
   };
   return counts;
 }

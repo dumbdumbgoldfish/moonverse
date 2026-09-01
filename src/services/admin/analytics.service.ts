@@ -1,4 +1,9 @@
 import { db } from "@/lib/db";
+import {
+  buildModerationQueueBreakdown,
+  type ModerationQueueBreakdownItem,
+} from "@/lib/admin/moderation-queue-counts";
+import { getInboxCounts } from "@/services/admin/inbox.service";
 
 export interface AdminAnalyticsSnapshot {
   newUsers7d: number;
@@ -73,11 +78,7 @@ export interface DailySeriesPoint {
   comments: number;
 }
 
-export interface QueueBreakdownItem {
-  key: string;
-  label: string;
-  count: number;
-}
+export type QueueBreakdownItem = ModerationQueueBreakdownItem;
 
 export interface LabelCount {
   label: string;
@@ -130,29 +131,8 @@ export async function getAdminDailySeries(days = 14): Promise<DailySeriesPoint[]
 
 /** Open moderation workload by queue type (only non-zero counts). */
 export async function getModerationQueueBreakdown(): Promise<QueueBreakdownItem[]> {
-  const [
-    openReports,
-    autoFlaggedReviews,
-    autoFlaggedComments,
-    pendingReadingLinks,
-    pendingTagSuggestions,
-  ] = await Promise.all([
-    db.report.count({ where: { status: "OPEN" } }),
-    db.review.count({ where: { moderationStatus: "AUTO_FLAGGED" } }),
-    db.comment.count({ where: { moderationStatus: "AUTO_FLAGGED" } }),
-    db.readingLink.count({
-      where: { moderationStatus: { in: ["PENDING", "NEEDS_REVIEW"] } },
-    }),
-    db.tagSuggestion.count({ where: { status: "PENDING" } }),
-  ]);
-
-  return [
-    { key: "reports", label: "Reports", count: openReports },
-    { key: "reviews", label: "Flagged reviews", count: autoFlaggedReviews },
-    { key: "comments", label: "Flagged comments", count: autoFlaggedComments },
-    { key: "links", label: "Reading links", count: pendingReadingLinks },
-    { key: "tags", label: "Tag suggestions", count: pendingTagSuggestions },
-  ].filter((item) => item.count > 0);
+  const counts = await getInboxCounts();
+  return buildModerationQueueBreakdown(counts);
 }
 
 /** Open reports grouped by reason (top reasons first). */
