@@ -1,5 +1,4 @@
 import { Suspense } from "react";
-import type { ReadingLinkModerationStatus } from "@prisma/client";
 import { AdminReadingLinksTable } from "@/components/admin/AdminReadingLinksTable";
 import {
   AdminEmptyState,
@@ -7,6 +6,11 @@ import {
   AdminPageHeader,
   AdminSection,
 } from "@/components/admin/AdminUi";
+import {
+  parseReadingLinkModerationStatusFilter,
+  readingLinkModerationFilterHref,
+  type ReadingLinkModerationFilterValue,
+} from "@/lib/admin/reading-link-moderation-filter";
 import { listReadingLinksForModeration } from "@/services/reading-link.service";
 
 export const metadata = { title: "Admin Reading Links · MoonVerse" };
@@ -16,7 +20,7 @@ interface PageProps {
 }
 
 const FILTERS: Array<{
-  value: ReadingLinkModerationStatus | "ALL";
+  value: ReadingLinkModerationFilterValue;
   label: string;
 }> = [
   { value: "ALL", label: "All" },
@@ -28,9 +32,7 @@ const FILTERS: Array<{
 
 export default async function AdminReadingLinksPage({ searchParams }: PageProps) {
   const { status: raw } = await searchParams;
-  const status = (FILTERS.find((f) => f.value === raw)?.value ?? "PENDING") as
-    | ReadingLinkModerationStatus
-    | "ALL";
+  const status = parseReadingLinkModerationStatusFilter(raw);
 
   const links = await listReadingLinksForModeration({ status, limit: 150 });
 
@@ -58,10 +60,7 @@ export default async function AdminReadingLinksPage({ searchParams }: PageProps)
         <AdminSection title="Moderation status" className="mb-6">
           <AdminFilterChips
             items={FILTERS.map((filter) => ({
-              href:
-                filter.value === "PENDING"
-                  ? "/admin/reading-links"
-                  : `/admin/reading-links?status=${filter.value}`,
+              href: readingLinkModerationFilterHref(filter.value),
               label: filter.label,
               active: status === filter.value,
             }))}

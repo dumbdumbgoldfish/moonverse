@@ -1,4 +1,5 @@
 import { ReadingLinkModerationStatus, type Prisma } from "@prisma/client";
+import { buildReadingLinkModerationWhere } from "@/lib/admin/reading-link-moderation-filter";
 import { db } from "@/lib/db";
 import { normalizeReadingUrl } from "@/lib/normalize-url";
 import {
@@ -314,10 +315,7 @@ export async function listReadingLinksForModeration(options?: {
 }) {
   const status = options?.status ?? "ALL";
   return db.readingLink.findMany({
-    where:
-      status === "ALL"
-        ? undefined
-        : { moderationStatus: status },
+    where: buildReadingLinkModerationWhere(status),
     orderBy: [{ createdAt: "desc" }, { id: "desc" }],
     take: options?.limit ?? 100,
     include: {
