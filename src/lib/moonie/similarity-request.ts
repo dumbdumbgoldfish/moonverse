@@ -11,7 +11,7 @@ export interface ParsedSimilarityRequest {
 }
 
 const SIMILARITY_LEAD_RE =
-  /^(?:find|recommend|suggest|show|give)\s+(?:me\s+)?(?:(?:the\s+)?(?:novels?|books?)\s+)?(?:like|similar\s+to)\s+/i;
+  /^(?:find|recommend|suggest|show|give)\s+(?:me\s+)?(?:(?:the\s+)?(?:\d{1,2}|one|two|three|four|five|six|seven|eight|nine|ten)\s+)?(?:(?:novels?|books?)\s+)?(?:like|similar\s+to)\s+/i;
 
 const READING_LINK_ON_RESULTS_RE =
   /\b(?:with\s+)?(?:verified\s+)?(?:official\s+)?reading\s+links?\b/i;
