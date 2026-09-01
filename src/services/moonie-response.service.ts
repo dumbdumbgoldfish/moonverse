@@ -39,6 +39,7 @@ import {
   isTopBestCatalogueSelectionRequest,
   isReviewFollowUpMessage,
   isNovelContextFollowUpMessage,
+  isNovelOverviewFollowUpMessage,
   messageReferencesActiveNovel,
   isConfirmCandidateMessage,
   isDirectTitleLookupMessage,
@@ -976,7 +977,7 @@ export async function handleMoonieRequest(
           responseKind: "novel_bundle",
           consumesQuota: true,
           spoilerMode,
-          analyticsIntent: "NOVEL_OVERVIEW",
+          analyticsIntent: "novel_overview",
         };
       }
     }
@@ -1006,7 +1007,31 @@ export async function handleMoonieRequest(
         responseKind: "chat",
         consumesQuota: true,
         spoilerMode,
-        analyticsIntent: "NOVEL_OVERVIEW",
+        analyticsIntent: "novel_overview",
+      };
+    }
+  }
+
+  if (
+    isNovelOverviewFollowUpMessage(ctx.message) &&
+    conversationContext.activeNovelId &&
+    !extractNovelQuery(ctx.message) &&
+    !extractReviewNovelQuery(ctx.message)
+  ) {
+    const bundle = await buildNovelBundle({
+      novelId: conversationContext.activeNovelId,
+      userId: ctx.userId,
+      spoilerMode,
+    });
+    if (bundle.overview) {
+      return {
+        reply: formatNovelBundleReply({ overview: bundle.overview }),
+        recommendations: bundle.recommendation ? [bundle.recommendation] : [],
+        novelOverview: bundle.overview,
+        responseKind: "novel_bundle",
+        consumesQuota: true,
+        spoilerMode,
+        analyticsIntent: "novel_overview",
       };
     }
   }
@@ -1579,15 +1604,24 @@ export async function handleMoonieRequest(
 
   const bareReviewRequest = resolveBareReviewRequest(ctx.message);
 
+  if (bareReviewRequest) {
+    return attach({
+      reply: formatBareReviewRequestClarification(bareReviewRequest.count),
+      recommendations: [],
+      responseKind: "chat",
+      consumesQuota: false,
+      spoilerMode,
+    }, "NOVEL_REVIEWS");
+  }
+
   if (
-    bareReviewRequest ||
-    (intents.includes("NOVEL_REVIEWS") &&
-      !extractReviewNovelQuery(ctx.message) &&
-      !isReviewFollowUpMessage(ctx.message) &&
-      !isPluralNovelReviewReference(ctx.message) &&
-      !isAmbiguousPluralNovelReviewReference(ctx.message))
+    intents.includes("NOVEL_REVIEWS") &&
+    !extractReviewNovelQuery(ctx.message) &&
+    !isReviewFollowUpMessage(ctx.message) &&
+    !isPluralNovelReviewReference(ctx.message) &&
+    !isAmbiguousPluralNovelReviewReference(ctx.message)
   ) {
-    const reviewCount = bareReviewRequest?.count ?? 10;
+    const reviewCount = 10;
     if (
       !conversationContext.activeNovelId ||
       isNovelLookupContextSuppressed(ctx.messages)

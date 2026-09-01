@@ -308,6 +308,8 @@ export function extractExplicitNovelLookupFragment(message: string): string | nu
 
 /** User named a novel-like phrase that is placeholder or not a usable catalogue title. */
 export function isExplicitUnresolvableNovelLookup(message: string): boolean {
+  if (isNovelOverviewFollowUpMessage(message)) return false;
+
   const fragment = extractExplicitNovelLookupFragment(message);
   if (!fragment) return false;
   if (
@@ -380,7 +382,10 @@ export function resolveBareReviewRequest(
 
 export function formatBareReviewRequestClarification(count: number): string {
   if (count <= 1) {
-    return "Which novel would you like a review for?";
+    return "Which novel would you like to see reviews for?";
+  }
+  if (count === 10) {
+    return "Which novel would you like to see reviews for?";
   }
   return `Which novel would you like ${count} reviews for?`;
 }

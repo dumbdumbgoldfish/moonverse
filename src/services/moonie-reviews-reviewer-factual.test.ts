@@ -162,7 +162,7 @@ describe("moonie reviews and reviewer factual retrieval", () => {
     });
 
     assert.match(who.reply, /reviewer/i);
-    assert.ok((who.rankedReviews?.length ?? 0) > 0);
+    assert.ok((who.reviewerResults?.length ?? 0) > 0);
     for (const review of who.rankedReviews ?? []) {
       assert.equal(review.novelId, sample.novelId);
     }
