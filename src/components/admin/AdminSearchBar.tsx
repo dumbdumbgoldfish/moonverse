@@ -2,6 +2,7 @@
 
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { Search } from "lucide-react";
+import { buildAdminSearchSubmitUrl } from "@/lib/admin/admin-search-params";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { cn } from "@/lib/utils";
@@ -29,12 +30,15 @@ export function AdminSearchBar({
       onSubmit={(event) => {
         event.preventDefault();
         const data = new FormData(event.currentTarget);
-        const q = String(data.get(paramName) ?? "").trim();
-        const params = new URLSearchParams(searchParams.toString());
-        if (q) params.set(paramName, q);
-        else params.delete(paramName);
-        const qs = params.toString();
-        router.push(qs ? `${pathname}?${qs}` : pathname);
+        const q = String(data.get(paramName) ?? "");
+        router.push(
+          buildAdminSearchSubmitUrl(
+            pathname,
+            searchParams.toString(),
+            paramName,
+            q
+          )
+        );
       }}
     >
       <label htmlFor={`admin-search-${paramName}`} className="sr-only">
