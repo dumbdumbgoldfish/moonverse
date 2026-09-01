@@ -9,6 +9,7 @@ import type { MooniePersonalizationSettings } from "@/lib/moonie/personalization
 import { DEFAULT_PERSONALIZATION_SETTINGS } from "@/lib/moonie/personalization";
 import { userAttachmentFromPersisted } from "@/lib/moonie/user-message-attachment";
 import { hydrateStoredAssistantMeta } from "@/lib/moonie/persist-assistant-turn";
+import { sortMoonieMessagesChronologically } from "@/lib/moonie/message-order";
 import { MOONIE_MAX_PINNED_CONVERSATIONS } from "@/lib/moonie/constants";
 
 export type MoonieActionResult =
@@ -330,6 +331,7 @@ function mapStoredMoonieMessage(message: {
     catalogueStat: hydrated.catalogueStat,
     rankingMetric: hydrated.rankingMetric,
     requestedCount: hydrated.requestedCount,
+    explicitCountedReviews: hydrated.explicitCountedReviews,
   };
 }
 
@@ -412,7 +414,7 @@ export async function loadMoonieConversationAction(
     const conversation = await db.moonieConversation.findFirst({
       where: { id: conversationId, userId },
       include: {
-        messages: { orderBy: { createdAt: "asc" } },
+        messages: { orderBy: [{ createdAt: "asc" }, { id: "asc" }] },
       },
     });
     if (!conversation) {
@@ -421,7 +423,9 @@ export async function loadMoonieConversationAction(
     return {
       success: true,
       conversationId: conversation.id,
-      messages: conversation.messages.map(mapStoredMoonieMessage),
+      messages: sortMoonieMessagesChronologically(conversation.messages).map(
+        mapStoredMoonieMessage
+      ),
     };
   } catch (error) {
     return {
@@ -449,7 +453,7 @@ export async function loadLatestMoonieConversationAction(): Promise<
       where: { userId },
       orderBy: { updatedAt: "desc" },
       include: {
-        messages: { orderBy: { createdAt: "asc" } },
+        messages: { orderBy: [{ createdAt: "asc" }, { id: "asc" }] },
       },
     });
     if (!conversation || conversation.messages.length === 0) {
@@ -458,7 +462,9 @@ export async function loadLatestMoonieConversationAction(): Promise<
     return {
       success: true,
       conversationId: conversation.id,
-      messages: conversation.messages.map(mapStoredMoonieMessage),
+      messages: sortMoonieMessagesChronologically(conversation.messages).map(
+        mapStoredMoonieMessage
+      ),
     };
   } catch (error) {
     return {

@@ -21,6 +21,7 @@ import {
   moonieRequestLikelyConsumesQuota,
 } from "@/lib/moonie/guest-quota-enforcement";
 import { collectPriorRecommendedNovelIds, type ConversationReplayMessage } from "@/lib/moonie/conversation-context";
+import { sortMoonieMessagesChronologically } from "@/lib/moonie/message-order";
 import { logMoonieDevQuotaToolsStatus } from "@/lib/moonie/dev-quota";
 import { MOONIE_IMAGE_BASE64_MAX_CHARS } from "@/lib/image-upload-limits";
 import { validateMoonieMessage } from "@/lib/validation";
@@ -228,6 +229,7 @@ async function persistAssistantTurn(options: {
     options.userAttachmentMeta,
     options.clientTurnId
   );
+  const userCreatedAt = new Date();
 
   await db.$transaction([
     db.moonieMessage.create({
@@ -236,6 +238,7 @@ async function persistAssistantTurn(options: {
         role: "user",
         content: options.message,
         meta: userMeta,
+        createdAt: userCreatedAt,
       },
     }),
     db.moonieMessage.create({
@@ -247,6 +250,7 @@ async function persistAssistantTurn(options: {
           options.result,
           options.clientTurnId
         ),
+        createdAt: new Date(userCreatedAt.getTime() + 1),
       },
     }),
     db.moonieConversation.update({
@@ -407,7 +411,7 @@ export async function POST(request: Request) {
     const existingConversation = parsed.data.conversationId
       ? await db.moonieConversation.findFirst({
           where: { id: parsed.data.conversationId, userId },
-          include: { messages: { orderBy: { createdAt: "asc" } } },
+          include: { messages: { orderBy: [{ createdAt: "asc" }, { id: "asc" }] } },
         })
       : null;
     const conversation =
@@ -417,9 +421,12 @@ export async function POST(request: Request) {
         include: { messages: true },
       }));
     const conversationId = conversation.id;
+    const orderedMessages = sortMoonieMessagesChronologically(
+      conversation.messages
+    );
 
     const storedResponse = findStoredMoonieTurnResponse(
-      conversation.messages,
+      orderedMessages,
       parsed.data.clientTurnId
     );
     if (storedResponse) {
@@ -433,7 +440,7 @@ export async function POST(request: Request) {
     }
 
     const seekingUnseen = isUnseenRecommendationRequest(message);
-    const priorIds = priorRecommendedNovelIds(conversation.messages);
+    const priorIds = priorRecommendedNovelIds(orderedMessages);
     const explicitExcludeIds = [
       ...new Set(parsed.data.excludeNovelIds ?? []),
     ];
@@ -448,7 +455,7 @@ export async function POST(request: Request) {
 
     const result = await handleMoonieRequest({
       message,
-      messages: conversation.messages,
+      messages: orderedMessages,
       userId,
       isLoggedIn: true,
       excludeNovelIds: excludeIds,
