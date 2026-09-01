@@ -11,8 +11,10 @@ import {
   moonieDeskScrollStorageKey,
   deskHrefIsExplicitNewChat,
   readMoonieDeskConversationId,
+  readMoonieDeskConversationIdFromWindow,
   readMoonieDeskRouteFromLocation,
   readMoonieDeskRouteFromSearch,
+  readMoonieDeskRouteFromWindow,
   readMoonieDeskScrollTop,
   replaceMoonieDeskUrl,
   writeMoonieDeskUrl,
@@ -86,6 +88,43 @@ describe("readMoonieDeskRouteFromLocation", () => {
       readMoonieDeskRouteFromLocation("/moonie", "?new=1").newChat,
       true
     );
+  });
+});
+
+describe("readMoonieDeskRouteFromWindow", () => {
+  afterEach(() => {
+    Reflect.deleteProperty(globalThis, "window");
+  });
+
+  it("reads the address bar on /moonie even when fallback says new chat", () => {
+    Object.defineProperty(globalThis, "window", {
+      value: {
+        location: {
+          pathname: "/moonie",
+          search: "?conversation=conv-restore",
+        },
+      },
+      configurable: true,
+    });
+    const staleFallback = { newChat: true, conversationId: undefined, prompt: undefined };
+    assert.deepEqual(readMoonieDeskRouteFromWindow(staleFallback), {
+      newChat: false,
+      conversationId: "conv-restore",
+      prompt: undefined,
+    });
+    assert.equal(
+      readMoonieDeskConversationIdFromWindow(),
+      "conv-restore"
+    );
+  });
+
+  it("returns fallback when window is unavailable", () => {
+    const fallback = {
+      newChat: false,
+      conversationId: "conv-ssr",
+      prompt: undefined,
+    };
+    assert.deepEqual(readMoonieDeskRouteFromWindow(fallback), fallback);
   });
 });
 

@@ -114,6 +114,14 @@ describe("response completion preserves the transcript", () => {
     );
   });
 
+  it("does not wipe a conversation desk when the address bar still has conversation", () => {
+    const hook = source("../../hooks/use-moonie-chat.ts");
+    const deskRoute = source("../../components/moonie/MoonieDeskRoute.tsx");
+    assert.match(hook, /readMoonieDeskConversationIdFromWindow\(\)\) return/);
+    assert.match(hook, /urlRoute\.conversationId/);
+    assert.match(deskRoute, /readDeskRouteServerSnapshot/);
+  });
+
   it("clears the desk when the signed-in account changes", () => {
     const hook = source("../../hooks/use-moonie-chat.ts");
     assert.match(hook, /sessionOwnerRef/);

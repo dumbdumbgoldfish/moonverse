@@ -84,6 +84,28 @@ export function readMoonieDeskRouteFromSearch(
  * Keep the last on-desk route so View novel cannot flip the mounted desk
  * into a new chat and replace the conversation history entry.
  */
+export function readMoonieDeskRouteFromWindow(
+  fallback?: MoonieDeskRouteState
+): MoonieDeskRouteState {
+  if (typeof window === "undefined") {
+    return fallback ?? EMPTY_DESK_ROUTE;
+  }
+  return readMoonieDeskRouteFromLocation(
+    window.location.pathname,
+    window.location.search,
+    fallback
+  );
+}
+
+export function readMoonieDeskConversationIdFromWindow(): string | undefined {
+  if (typeof window === "undefined") return undefined;
+  const search = window.location.search;
+  const params = new URLSearchParams(
+    search.startsWith("?") ? search.slice(1) : search
+  );
+  return readMoonieDeskConversationId(params);
+}
+
 export function readMoonieDeskRouteFromLocation(
   pathname: string,
   search: string,

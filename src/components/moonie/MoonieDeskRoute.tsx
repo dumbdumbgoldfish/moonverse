@@ -50,6 +50,17 @@ let moonieDeskRouteMounts = 0;
  * The server snapshot is "unknown", not new-chat. Claiming `?new=1` before
  * the address bar is read would wipe a remounted `?conversation=` desk.
  */
+function readDeskRouteServerSnapshot(
+  serverRoute: MoonieDeskRouteState
+): MoonieDeskRouteState {
+  if (typeof window === "undefined") return serverRoute;
+  return readMoonieDeskRouteFromLocation(
+    window.location.pathname,
+    window.location.search,
+    serverRoute
+  );
+}
+
 export function MoonieDeskRoute({
   displayName,
   serverRoute = EMPTY_DESK_ROUTE,
@@ -57,7 +68,7 @@ export function MoonieDeskRoute({
   const route = useSyncExternalStore(
     subscribeMoonieDeskLocation,
     readDeskRouteFromLocation,
-    () => serverRoute
+    () => readDeskRouteServerSnapshot(serverRoute)
   );
   const [deskMountEpoch, setDeskMountEpoch] = useState(0);
 

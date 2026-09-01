@@ -21,6 +21,8 @@ import {
   hasActiveMoonieNewChatIntent,
   markMoonieNewChatIntent,
   readMoonieDeskConversationId,
+  readMoonieDeskConversationIdFromWindow,
+  readMoonieDeskRouteFromWindow,
   writeMoonieDeskUrl,
   shouldRestoreLatestMoonieConversation,
 } from "@/lib/moonie/conversation-url";
@@ -733,6 +735,16 @@ export function useMoonieChat({
       dismissedConversationRef.current = null;
       skipLatestRestoreRef.current = false;
     }
+    if (
+      initialConversationId &&
+      dismissedConversationRef.current === initialConversationId
+    ) {
+      const urlId = readMoonieDeskConversationIdFromWindow();
+      if (urlId === initialConversationId) {
+        dismissedConversationRef.current = null;
+        skipLatestRestoreRef.current = false;
+      }
+    }
   }, [deskRouteEnabled, initialConversationId]);
 
   useEffect(() => {
@@ -797,7 +809,12 @@ export function useMoonieChat({
     }
 
     if (dismissedConversationRef.current === targetId) {
-      return;
+      const urlId = readMoonieDeskConversationIdFromWindow();
+      if (urlId === targetId) {
+        dismissedConversationRef.current = null;
+      } else {
+        return;
+      }
     }
 
     if (
@@ -882,6 +899,7 @@ export function useMoonieChat({
     ) {
       return;
     }
+    if (readMoonieDeskConversationIdFromWindow()) return;
     if (deskNewChat && sessionUserId) {
       markMoonieNewChatIntent(sessionUserId);
     }
@@ -895,6 +913,7 @@ export function useMoonieChat({
     if (typeof window === "undefined" || window.location.pathname !== "/moonie") {
       return;
     }
+    if (readMoonieDeskConversationIdFromWindow()) return;
     const currentHref = `${window.location.pathname}${window.location.search}`;
     if (!deskHrefIsExplicitNewChat(currentHref)) return;
 
@@ -939,7 +958,10 @@ export function useMoonieChat({
     ) {
       return;
     }
+    const urlRoute = readMoonieDeskRouteFromWindow();
     const isExplicitNewChat =
+      !urlRoute.conversationId &&
+      urlRoute.newChat &&
       deskNewChat &&
       !initialConversationId &&
       deskHrefIsExplicitNewChat(
