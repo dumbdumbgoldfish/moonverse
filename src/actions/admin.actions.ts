@@ -30,6 +30,7 @@ import {
 } from "@/services/reading-link.service";
 import {
   deleteUserSafely,
+  assertCanDemoteAdminTarget,
   demoteAdminToUser,
   promoteUserToAdmin,
   setUserSuspended,
@@ -108,6 +109,7 @@ export async function promoteUserAction(userId: string): Promise<AdminActionResu
 
 export async function demoteUserAction(userId: string): Promise<AdminActionResult> {
   return runAdminAction(async (adminId) => {
+    assertCanDemoteAdminTarget(adminId, userId);
     await demoteAdminToUser(userId);
     await writeAuditLog({
       actorId: adminId,

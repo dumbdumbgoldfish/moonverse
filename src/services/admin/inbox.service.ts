@@ -104,6 +104,21 @@ export function parseInboxKindFilter(value?: string | null): InboxItemKind | "al
 
 export { inboxKindFilterCountKey } from "@/lib/admin/inbox-kind-filter";
 
+/** Max rows fetched per inbox kind when building the merged priority queue. */
+export const INBOX_PER_KIND_CAP = 1000;
+
+export function sortInboxItems(items: InboxItem[]): InboxItem[] {
+  return [...items].sort(
+    (a, b) => b.priority - a.priority || b.ageHours - a.ageHours
+  );
+}
+
+export interface InboxFetchOptions {
+  perKindLimit?: number;
+  /** When set, only load rows for this kind (or all kinds). */
+  loadKind?: InboxItemKind | "all";
+}
+
 export function paginateAdminInboxItems<T>(
   items: T[],
   page = 1,
@@ -122,8 +137,15 @@ export function paginateAdminInboxItems<T>(
 }
 
 export async function getAdminInboxItems(
-  filters: InboxFilters = {}
+  filters: InboxFilters = {},
+  fetchOptions: InboxFetchOptions = {}
 ): Promise<InboxItem[]> {
+  const activeKind = filters.kind ?? "all";
+  const loadKind = fetchOptions.loadKind ?? activeKind;
+  const limit = fetchOptions.perKindLimit;
+  const shouldLoad = (kind: InboxItemKind) =>
+    loadKind === "all" || loadKind === kind;
+
   const [
     openReports,
     flaggedReviews,
@@ -132,44 +154,61 @@ export async function getAdminInboxItems(
     unhealthyLinks,
     tagSuggestions,
   ] = await Promise.all([
-    listReports({ status: ReportStatus.OPEN }),
-    db.review.findMany({
-      where: { moderationStatus: ContentModerationStatus.AUTO_FLAGGED },
-      orderBy: { createdAt: "desc" },
-      include: {
-        user: { select: { username: true } },
-        novel: { select: { title: true } },
-      },
-    }),
-    db.comment.findMany({
-      where: { moderationStatus: ContentModerationStatus.AUTO_FLAGGED },
-      orderBy: { createdAt: "desc" },
-      include: {
-        user: { select: { username: true } },
-        review: { select: { id: true } },
-      },
-    }),
-    db.readingLink.findMany({
-      where: { moderationStatus: { in: ["PENDING", "NEEDS_REVIEW"] } },
-      orderBy: { createdAt: "desc" },
-      include: { novel: { select: { title: true } } },
-    }),
-    db.readingLink.findMany({
-      where: {
-        moderationStatus: "APPROVED",
-        healthStatus: { in: ["BROKEN", "REDIRECTED", "STALE", "UNKNOWN"] },
-      },
-      orderBy: { updatedAt: "desc" },
-      include: { novel: { select: { title: true } } },
-    }),
-    db.tagSuggestion.findMany({
-      where: { status: "PENDING" },
-      orderBy: { createdAt: "desc" },
-      include: {
-        suggestedBy: { select: { username: true } },
-        novel: { select: { title: true } },
-      },
-    }),
+    shouldLoad("report")
+      ? listReports({ status: ReportStatus.OPEN, take: limit })
+      : Promise.resolve([] as ReportSummary[]),
+    shouldLoad("review_flagged")
+      ? db.review.findMany({
+          where: { moderationStatus: ContentModerationStatus.AUTO_FLAGGED },
+          orderBy: { createdAt: "desc" },
+          ...(limit !== undefined ? { take: limit } : {}),
+          include: {
+            user: { select: { username: true } },
+            novel: { select: { title: true } },
+          },
+        })
+      : Promise.resolve([]),
+    shouldLoad("comment_flagged")
+      ? db.comment.findMany({
+          where: { moderationStatus: ContentModerationStatus.AUTO_FLAGGED },
+          orderBy: { createdAt: "desc" },
+          ...(limit !== undefined ? { take: limit } : {}),
+          include: {
+            user: { select: { username: true } },
+            review: { select: { id: true } },
+          },
+        })
+      : Promise.resolve([]),
+    shouldLoad("reading_link")
+      ? db.readingLink.findMany({
+          where: { moderationStatus: { in: ["PENDING", "NEEDS_REVIEW"] } },
+          orderBy: { createdAt: "desc" },
+          ...(limit !== undefined ? { take: limit } : {}),
+          include: { novel: { select: { title: true } } },
+        })
+      : Promise.resolve([]),
+    shouldLoad("reading_link_unhealthy")
+      ? db.readingLink.findMany({
+          where: {
+            moderationStatus: "APPROVED",
+            healthStatus: { in: ["BROKEN", "REDIRECTED", "STALE", "UNKNOWN"] },
+          },
+          orderBy: { updatedAt: "desc" },
+          ...(limit !== undefined ? { take: limit } : {}),
+          include: { novel: { select: { title: true } } },
+        })
+      : Promise.resolve([]),
+    shouldLoad("tag_suggestion")
+      ? db.tagSuggestion.findMany({
+          where: { status: "PENDING" },
+          orderBy: { createdAt: "desc" },
+          ...(limit !== undefined ? { take: limit } : {}),
+          include: {
+            suggestedBy: { select: { username: true } },
+            novel: { select: { title: true } },
+          },
+        })
+      : Promise.resolve([]),
   ]);
 
   const items: InboxItem[] = [];
@@ -294,11 +333,11 @@ export async function getAdminInboxItems(
   }
 
   const filtered =
-    filters.kind && filters.kind !== "all"
-      ? items.filter((item) => item.kind === filters.kind)
+    activeKind !== "all"
+      ? items.filter((item) => item.kind === activeKind)
       : items;
 
-  return filtered.sort((a, b) => b.priority - a.priority || b.ageHours - a.ageHours);
+  return sortInboxItems(filtered);
 }
 
 export async function findInboxPageForSelectedItem(
@@ -306,12 +345,37 @@ export async function findInboxPageForSelectedItem(
   pageSize = 50,
   filters: InboxFilters = {}
 ): Promise<number | null> {
-  const items = await getAdminInboxItems(filters);
-  const index = items.findIndex((item) => item.id === selectedId);
-  if (index === -1) {
-    return null;
+  const activeKind = filters.kind ?? "all";
+  const counts = await getInboxCounts();
+  const expectedTotal =
+    activeKind === "all" ? counts.total : counts[activeKind];
+
+  let perKindLimit = pageSize;
+  while (perKindLimit <= INBOX_PER_KIND_CAP) {
+    const items = await getAdminInboxItems(filters, {
+      perKindLimit,
+      loadKind: activeKind,
+    });
+    const index = items.findIndex((item) => item.id === selectedId);
+    if (index !== -1) {
+      return Math.floor(index / pageSize) + 1;
+    }
+
+    if (activeKind !== "all") {
+      if (items.length < Math.min(perKindLimit, expectedTotal)) {
+        return null;
+      }
+    } else if (items.length >= expectedTotal) {
+      return null;
+    }
+
+    if (perKindLimit >= INBOX_PER_KIND_CAP) {
+      return null;
+    }
+    perKindLimit = Math.min(perKindLimit + pageSize, INBOX_PER_KIND_CAP);
   }
-  return Math.floor(index / pageSize) + 1;
+
+  return null;
 }
 
 export async function getAdminInboxPage(
@@ -319,11 +383,31 @@ export async function getAdminInboxPage(
   pageSize = 50,
   filters: InboxFilters = {}
 ) {
-  return paginateAdminInboxItems(
-    await getAdminInboxItems(filters),
-    page,
-    pageSize
+  const activeKind = filters.kind ?? "all";
+  const safePage = Math.max(1, page);
+  const counts = await getInboxCounts();
+  const total = activeKind === "all" ? counts.total : counts[activeKind];
+  const perKindLimit = Math.min(
+    safePage * pageSize,
+    total,
+    INBOX_PER_KIND_CAP
   );
+
+  const sorted = await getAdminInboxItems(filters, {
+    perKindLimit,
+    loadKind: activeKind,
+  });
+
+  const start = (safePage - 1) * pageSize;
+  const items = sorted.slice(start, start + pageSize);
+
+  return {
+    items,
+    page: safePage,
+    pageSize,
+    total,
+    totalPages: Math.max(1, Math.ceil(total / pageSize)),
+  };
 }
 
 export async function getInboxCounts(): Promise<Record<InboxItemKind | "total", number>> {

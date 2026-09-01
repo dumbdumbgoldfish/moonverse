@@ -1,4 +1,5 @@
 import { ReadingLinkModerationStatus, type Prisma } from "@prisma/client";
+import { ADMIN_LIST_PAGE_SIZE } from "@/components/admin/admin-styles";
 import { buildReadingLinkModerationWhere } from "@/lib/admin/reading-link-moderation-filter";
 import { db } from "@/lib/db";
 import { normalizeReadingUrl } from "@/lib/normalize-url";
@@ -311,21 +312,38 @@ export async function submitReadingLinksFromReview(input: {
 
 export async function listReadingLinksForModeration(options?: {
   status?: ReadingLinkModerationStatus | "ALL";
-  limit?: number;
+  page?: number;
+  pageSize?: number;
 }) {
   const status = options?.status ?? "ALL";
-  return db.readingLink.findMany({
-    where: buildReadingLinkModerationWhere(status),
-    orderBy: [{ createdAt: "desc" }, { id: "desc" }],
-    take: options?.limit ?? 100,
-    include: {
-      novel: { select: { id: true, title: true, author: true } },
-      submittedByUser: {
-        select: { id: true, username: true, displayName: true },
+  const pageSize = options?.pageSize ?? ADMIN_LIST_PAGE_SIZE;
+  const safePage = Math.max(1, options?.page ?? 1);
+  const where = buildReadingLinkModerationWhere(status);
+
+  const [total, links] = await Promise.all([
+    db.readingLink.count({ where }),
+    db.readingLink.findMany({
+      where,
+      orderBy: [{ createdAt: "desc" }, { id: "desc" }],
+      skip: (safePage - 1) * pageSize,
+      take: pageSize,
+      include: {
+        novel: { select: { id: true, title: true, author: true } },
+        submittedByUser: {
+          select: { id: true, username: true, displayName: true },
+        },
+        submittedViaReview: { select: { id: true, title: true } },
       },
-      submittedViaReview: { select: { id: true, title: true } },
-    },
-  });
+    }),
+  ]);
+
+  return {
+    items: links,
+    total,
+    page: safePage,
+    pageSize,
+    totalPages: Math.max(1, Math.ceil(total / pageSize)),
+  };
 }
 
 export async function applyReadingLinkHealthCheck(linkId: string) {

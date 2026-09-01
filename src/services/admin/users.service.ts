@@ -91,6 +91,15 @@ export async function promoteUserToAdmin(userId: string): Promise<void> {
   });
 }
 
+export function assertCanDemoteAdminTarget(
+  actingAdminId: string,
+  targetUserId: string
+): void {
+  if (actingAdminId === targetUserId) {
+    throw new Error("You cannot demote your own account.");
+  }
+}
+
 export async function demoteAdminToUser(userId: string): Promise<void> {
   const adminCount = await countAdmins();
   const user = await db.user.findUnique({

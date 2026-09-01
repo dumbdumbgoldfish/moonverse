@@ -116,6 +116,8 @@ export async function createReport(input: CreateReportInput): Promise<void> {
 export interface ListReportsOptions {
   status?: ReportStatus | "ALL";
   targetType?: ReportTargetType | "ALL";
+  skip?: number;
+  take?: number;
 }
 
 export async function listReports(
@@ -131,6 +133,8 @@ export async function listReports(
         : {}),
     },
     orderBy: [{ status: "asc" }, { createdAt: "desc" }],
+    ...(options.skip !== undefined ? { skip: options.skip } : {}),
+    ...(options.take !== undefined ? { take: options.take } : {}),
     include: {
       reporter: { select: { username: true } },
       resolvedBy: { select: { username: true } },

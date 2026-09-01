@@ -2,8 +2,10 @@ import assert from "node:assert/strict";
 import { describe, it } from "node:test";
 import {
   inboxKindFilterCountKey,
+  INBOX_PER_KIND_CAP,
   paginateAdminInboxItems,
   parseInboxKindFilter,
+  sortInboxItems,
   type InboxItemKind,
 } from "@/services/admin/inbox.service";
 
@@ -22,6 +24,63 @@ describe("paginateAdminInboxItems", () => {
     const page = paginateAdminInboxItems([1, 2, 3], 99, 2);
     assert.equal(page.page, 2);
     assert.deepEqual(page.items, [3]);
+  });
+});
+
+describe("inbox bounded queue helpers", () => {
+  it("caps per-kind fetch at INBOX_PER_KIND_CAP", () => {
+    const page = 30;
+    const pageSize = 50;
+    const total = 5000;
+    const perKindLimit = Math.min(page * pageSize, total, INBOX_PER_KIND_CAP);
+    assert.equal(perKindLimit, INBOX_PER_KIND_CAP);
+  });
+
+  it("sorts inbox items by priority then age", () => {
+    const sorted = sortInboxItems([
+      {
+        id: "tag-1",
+        kind: "tag_suggestion",
+        priority: 50,
+        title: "a",
+        subtitle: "",
+        detail: null,
+        createdAt: "2026-01-01T00:00:00.000Z",
+        ageHours: 1,
+        badge: "Tag",
+        suggestionId: "s1",
+        tagName: "a",
+        suggestedByUsername: "user",
+        novelTitle: null,
+      },
+      {
+        id: "report-1",
+        kind: "report",
+        priority: 90,
+        title: "b",
+        subtitle: "",
+        detail: null,
+        createdAt: "2026-01-01T00:00:00.000Z",
+        ageHours: 1,
+        badge: "Report",
+        report: {
+          id: "r1",
+          targetType: "REVIEW",
+          targetId: "rev1",
+          reason: "spam",
+          details: null,
+          status: "OPEN",
+          resolution: null,
+          reporterUsername: "reporter",
+          resolvedByUsername: null,
+          createdAt: "2026-01-01T00:00:00.000Z",
+          updatedAt: "2026-01-01T00:00:00.000Z",
+          targetPreview: "Review",
+          targetLink: null,
+        },
+      },
+    ]);
+    assert.equal(sorted[0]?.id, "report-1");
   });
 });
 

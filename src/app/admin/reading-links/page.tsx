@@ -4,6 +4,7 @@ import {
   AdminEmptyState,
   AdminFilterChips,
   AdminPageHeader,
+  AdminPagination,
   AdminSection,
 } from "@/components/admin/AdminUi";
 import {
@@ -16,7 +17,7 @@ import { listReadingLinksForModeration } from "@/services/reading-link.service";
 export const metadata = { title: "Admin Reading Links · MoonVerse" };
 
 interface PageProps {
-  searchParams: Promise<{ status?: string }>;
+  searchParams: Promise<{ status?: string; page?: string }>;
 }
 
 const FILTERS: Array<{
@@ -31,12 +32,13 @@ const FILTERS: Array<{
 ];
 
 export default async function AdminReadingLinksPage({ searchParams }: PageProps) {
-  const { status: raw } = await searchParams;
+  const { status: raw, page: pageParam } = await searchParams;
   const status = parseReadingLinkModerationStatusFilter(raw);
+  const page = Math.max(1, Number(pageParam) || 1);
 
-  const links = await listReadingLinksForModeration({ status, limit: 150 });
+  const result = await listReadingLinksForModeration({ status, page });
 
-  const rows = links.map((link) => ({
+  const rows = result.items.map((link) => ({
     id: link.id,
     url: link.url,
     platform: link.platform,
@@ -49,6 +51,9 @@ export default async function AdminReadingLinksPage({ searchParams }: PageProps)
     submittedByUser: link.submittedByUser,
     submittedViaReview: link.submittedViaReview,
   }));
+
+  const paginationParams =
+    status !== "ALL" ? { status } : undefined;
 
   return (
     <>
@@ -73,7 +78,16 @@ export default async function AdminReadingLinksPage({ searchParams }: PageProps)
           description="User-submitted sources awaiting review will show up here."
         />
       ) : (
-        <AdminReadingLinksTable links={rows} />
+        <>
+          <AdminReadingLinksTable links={rows} />
+          <AdminPagination
+            page={result.page}
+            totalPages={result.totalPages}
+            total={result.total}
+            basePath="/admin/reading-links"
+            params={paginationParams}
+          />
+        </>
       )}
     </>
   );
