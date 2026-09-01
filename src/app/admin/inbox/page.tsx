@@ -67,6 +67,7 @@ export default async function AdminInboxPage({
         <>
           <AdminInboxTriage
             items={result.items}
+            counts={counts}
             initialSelectedId={selected}
             activeFilter={activeFilter}
           />

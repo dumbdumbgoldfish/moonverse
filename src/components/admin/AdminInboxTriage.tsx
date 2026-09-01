@@ -37,6 +37,13 @@ import {
   ADMIN_FILTER_CHIP_ROW_CLASS,
 } from "@/components/admin/admin-styles";
 import {
+  INBOX_KIND_FILTER_OPTIONS,
+  inboxKindFilterCountKey,
+  inboxKindFilterEmptyMessage,
+  inboxKindFilterHref,
+  type InboxKindFilterId,
+} from "@/lib/admin/inbox-kind-filter";
+import {
   getReportRemediationOptions,
   type InboxItem,
   type InboxItemKind,
@@ -44,18 +51,10 @@ import {
 
 interface AdminInboxTriageProps {
   items: InboxItem[];
+  counts?: Record<InboxItemKind | "total", number>;
   initialSelectedId?: string;
   activeFilter?: InboxItemKind | "all";
 }
-
-const FILTER_OPTIONS: Array<{ id: InboxItemKind | "all"; label: string }> = [
-  { id: "all", label: "All" },
-  { id: "report", label: "Reports" },
-  { id: "review_flagged", label: "Reviews" },
-  { id: "comment_flagged", label: "Comments" },
-  { id: "reading_link", label: "Links" },
-  { id: "tag_suggestion", label: "Tags" },
-];
 
 const INBOX_PANEL_CLASS =
   "flex min-h-0 flex-col overflow-hidden rounded-[1.15rem] border border-white/10 bg-[#1c1729] text-white shadow-[0_20px_48px_-32px_rgba(0,0,0,0.45)]";
@@ -68,6 +67,7 @@ function slaTone(hours: number) {
 
 export function AdminInboxTriage({
   items,
+  counts,
   initialSelectedId,
   activeFilter = "all",
 }: AdminInboxTriageProps) {
@@ -81,20 +81,16 @@ export function AdminInboxTriage({
 
   const selected = items.find((item) => item.id === selectedId) ?? items[0] ?? null;
 
-  function navigateFilter(nextFilter: InboxItemKind | "all") {
-    const params = new URLSearchParams();
-    if (nextFilter !== "all") {
-      params.set("kind", nextFilter);
-    }
-    const qs = params.toString();
-    router.push(qs ? `/admin/inbox?${qs}` : "/admin/inbox");
+  function navigateFilter(nextFilter: InboxKindFilterId) {
+    router.push(inboxKindFilterHref(nextFilter));
   }
 
-  function filterEmptyMessage(): string {
-    if (activeFilter === "tag_suggestion") {
-      return "No pending tag suggestions in the moderation queue.";
+  function filterChipLabel(option: { id: InboxKindFilterId; label: string }): string {
+    if (!counts) {
+      return option.label;
     }
-    return "Queue clear — nothing needs attention in this filter.";
+    const count = counts[inboxKindFilterCountKey(option.id)];
+    return `${option.label} (${count})`;
   }
 
   function run(action: () => Promise<{ success: boolean; error?: string }>) {
@@ -114,7 +110,7 @@ export function AdminInboxTriage({
     <AdminWorkspace>
       <div className={INBOX_PANEL_CLASS}>
         <div className={cn(ADMIN_FILTER_CHIP_ROW_CLASS, "border-b border-white/10 bg-white/[0.04]")}>
-          {FILTER_OPTIONS.map((option) => (
+          {INBOX_KIND_FILTER_OPTIONS.map((option) => (
             <button
               key={option.id}
               type="button"
@@ -125,14 +121,14 @@ export function AdminInboxTriage({
                 activeFilter === option.id ? ADMIN_FILTER_CHIP_ACTIVE : ADMIN_FILTER_CHIP_IDLE
               )}
             >
-              {option.label}
+              {filterChipLabel(option)}
             </button>
           ))}
         </div>
         <ul className="min-h-0 flex-1 divide-y divide-white/[0.06] overflow-y-auto">
           {items.length === 0 ? (
             <li className="px-4 py-12 text-center text-sm text-white/70">
-              {filterEmptyMessage()}
+              {inboxKindFilterEmptyMessage(activeFilter)}
             </li>
           ) : (
             items.map((item) => (

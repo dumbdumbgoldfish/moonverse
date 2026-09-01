@@ -28,6 +28,7 @@ describe("paginateAdminInboxItems", () => {
 describe("inbox kind filter", () => {
   it("parses known moderation kinds and rejects unknown values", () => {
     assert.equal(parseInboxKindFilter("tag_suggestion"), "tag_suggestion");
+    assert.equal(parseInboxKindFilter("reading_link_unhealthy"), "reading_link_unhealthy");
     assert.equal(parseInboxKindFilter("all"), "all");
     assert.equal(parseInboxKindFilter(undefined), "all");
     assert.equal(parseInboxKindFilter("tags"), "all");
@@ -35,6 +36,10 @@ describe("inbox kind filter", () => {
 
   it("maps filter keys to inbox count keys", () => {
     assert.equal(inboxKindFilterCountKey("tag_suggestion"), "tag_suggestion");
+    assert.equal(
+      inboxKindFilterCountKey("reading_link_unhealthy"),
+      "reading_link_unhealthy"
+    );
     assert.equal(inboxKindFilterCountKey("all"), "total");
   });
 

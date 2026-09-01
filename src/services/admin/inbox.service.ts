@@ -102,11 +102,7 @@ export function parseInboxKindFilter(value?: string | null): InboxItemKind | "al
     : "all";
 }
 
-export function inboxKindFilterCountKey(
-  kind: InboxItemKind | "all"
-): InboxItemKind | "total" {
-  return kind === "all" ? "total" : kind;
-}
+export { inboxKindFilterCountKey } from "@/lib/admin/inbox-kind-filter";
 
 export function paginateAdminInboxItems<T>(
   items: T[],
