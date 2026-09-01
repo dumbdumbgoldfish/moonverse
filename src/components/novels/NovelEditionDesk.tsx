@@ -67,6 +67,7 @@ export function NovelEditionDesk({
           novelId={novel.id}
           reviews={reviews}
           ratingFilter={ratingFilter}
+          isLoggedIn={isLoggedIn}
         />
 
         <MoonieNovelRecommendations

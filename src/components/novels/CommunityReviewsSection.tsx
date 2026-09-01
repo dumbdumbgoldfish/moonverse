@@ -6,6 +6,7 @@ import { MessageSquareText, PenLine } from "lucide-react";
 import { CommunityReviewCard } from "@/components/novels/CommunityReviewCard";
 import { NovelCarouselArrow } from "@/components/novels/NovelCarouselArrow";
 import { MV_FILTER_ACTIVE, MV_PRIMARY_BTN } from "@/lib/novels/salon-surface";
+import { buildWriteReviewHref } from "@/lib/write-entry";
 import { reviewDecideScore } from "@/lib/novels/verdict";
 import { cn } from "@/lib/utils";
 import type { ReviewListItem } from "@/types/review";
@@ -16,6 +17,7 @@ interface CommunityReviewsSectionProps {
   novelId: string;
   reviews: ReviewListItem[];
   ratingFilter: number | null;
+  isLoggedIn?: boolean;
 }
 
 function useCardsPerPage() {
@@ -42,7 +44,9 @@ export function CommunityReviewsSection({
   novelId,
   reviews,
   ratingFilter,
+  isLoggedIn = false,
 }: CommunityReviewsSectionProps) {
+  const writeHref = buildWriteReviewHref({ novelId, isLoggedIn });
   const [sort, setSort] = useState<ReviewSortOption>("decide");
   const [spoilerFree, setSpoilerFree] = useState(false);
   const [fading, setFading] = useState(false);
@@ -141,7 +145,7 @@ export function CommunityReviewsSection({
           </p>
         </div>
         <Link
-          href={`/reviews/new?novelId=${novelId}`}
+          href={writeHref}
           className={cn(MV_PRIMARY_BTN, "min-h-10 px-4 text-sm font-bold")}
         >
           <PenLine className="size-4" aria-hidden />
@@ -249,7 +253,7 @@ export function CommunityReviewsSection({
               : "Clear the star filter or spoiler-free toggle to see more arguments."}
           </p>
           <Link
-            href={`/reviews/new?novelId=${novelId}`}
+            href={writeHref}
             className={cn(MV_PRIMARY_BTN, "mt-4 min-h-10 px-5 text-sm font-bold")}
           >
             Write a review

@@ -4,6 +4,7 @@ import Link from "next/link";
 import { PenLine } from "lucide-react";
 import { AskMoonieButton } from "@/components/moonie/AskMoonieButton";
 import { moonieLoggedInEntryHref } from "@/lib/moonie/open-moonie";
+import { buildWriteReviewHref } from "@/lib/write-entry";
 import { MV_PRIMARY_BTN } from "@/lib/novels/salon-surface";
 import { cn } from "@/lib/utils";
 
@@ -16,6 +17,8 @@ export function NovelDecisionBar({
   novelId,
   isLoggedIn,
 }: NovelDecisionBarProps) {
+  const writeHref = buildWriteReviewHref({ novelId, isLoggedIn });
+
   return (
     <div
       className={cn(
@@ -27,11 +30,7 @@ export function NovelDecisionBar({
     >
       <div className="mx-auto flex max-w-[1440px] items-center gap-2">
         <Link
-          href={
-            isLoggedIn
-              ? `/reviews/new?novelId=${novelId}`
-              : `/login?callbackUrl=/reviews/new?novelId=${novelId}`
-          }
+          href={writeHref}
           className={cn(MV_PRIMARY_BTN, "min-h-11 flex-1 px-3 text-sm font-bold")}
         >
           <PenLine className="size-4" aria-hidden />

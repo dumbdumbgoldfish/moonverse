@@ -14,7 +14,6 @@ import {
   SALON_GLOW_PURPLE,
   SALON_SURFACE,
 } from "@/lib/novels/salon-surface";
-import { moonieEntryHref } from "@/lib/moonie/open-moonie";
 import { isMissingCoverUrl } from "@/lib/review-utils";
 import { cn } from "@/lib/utils";
 import type { NovelRecommendation } from "@/types/review";
@@ -83,7 +82,6 @@ function MoonieMatchCard({ novel }: { novel: NovelRecommendation }) {
 
 export function MoonieNovelRecommendations({
   recommendations,
-  title,
 }: MoonieNovelRecommendationsProps) {
   const railRef = useRef<HTMLDivElement>(null);
 
@@ -95,14 +93,11 @@ export function MoonieNovelRecommendations({
     [recommendations]
   );
 
-  const prompts = [
-    { label: "Completed", prompt: `Recommend completed novels similar to ${title}` },
-    {
-      label: "Official source",
-      prompt: `Recommend novels like ${title} with an official reading link`,
-    },
-    { label: "Less angst", prompt: `Recommend novels like ${title} but less angst` },
-  ];
+  const recommendationLabels = [
+    "Completed",
+    "Official source",
+    "Less angst",
+  ] as const;
 
   const scrollRail = (direction: -1 | 1) => {
     const el = railRef.current;
@@ -146,17 +141,16 @@ export function MoonieNovelRecommendations({
           </div>
         </div>
         <div className="flex flex-wrap gap-2">
-          {prompts.map((item) => (
-            <Link
-              key={item.label}
-              href={moonieEntryHref(item.prompt)}
+          {recommendationLabels.map((label) => (
+            <span
+              key={label}
               className={cn(
                 SALON_CHIP,
-                "px-3.5 py-2 text-xs hover:border-[#E8C36A]/40 hover:bg-white/[0.08]"
+                "cursor-default px-3.5 py-2 text-xs"
               )}
             >
-              {item.label}
-            </Link>
+              {label}
+            </span>
           ))}
         </div>
       </div>

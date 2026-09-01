@@ -1,5 +1,6 @@
 import { redirect } from "next/navigation";
 import { auth } from "@/lib/auth";
+import { buildAuthenticatedWriteReviewHref } from "@/lib/write-entry";
 import { WriteGateModalView } from "@/components/write/WriteGateModalView";
 
 export const metadata = {
@@ -7,9 +8,16 @@ export const metadata = {
   description: "Create an account to write web novel reviews on MoonVerse.",
 };
 
-export default async function WriteGatePage() {
+export default async function WriteGatePage({
+  searchParams,
+}: {
+  searchParams: Promise<{ novelId?: string }>;
+}) {
+  const { novelId } = await searchParams;
   const session = await auth();
-  if (session?.user?.id) redirect("/reviews/new");
+  if (session?.user?.id) {
+    redirect(buildAuthenticatedWriteReviewHref(novelId));
+  }
 
-  return <WriteGateModalView />;
+  return <WriteGateModalView novelId={novelId} />;
 }

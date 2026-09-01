@@ -11,6 +11,7 @@ import {
   MV_PRIMARY_BTN,
   SALON_OUTLINE_BTN,
 } from "@/lib/novels/salon-surface";
+import { buildWriteReviewHref } from "@/lib/write-entry";
 import { cn } from "@/lib/utils";
 
 interface NovelActionsProps {
@@ -30,6 +31,7 @@ export function NovelActions({
 }: NovelActionsProps) {
   const [shareFeedback, setShareFeedback] = useState(false);
   const dark = tone === "dark";
+  const writeHref = buildWriteReviewHref({ novelId, isLoggedIn });
 
   const handleShare = async () => {
     const url = window.location.href;
@@ -55,7 +57,7 @@ export function NovelActions({
           className="min-h-10 px-5 text-[13px] font-bold"
         />
         <Link
-          href={`/reviews/new?novelId=${novelId}`}
+          href={writeHref}
           className={cn(MV_PRIMARY_BTN, "min-h-10 px-4 text-[13px] font-bold")}
         >
           <PenLine className="size-3.5" aria-hidden />
@@ -85,7 +87,7 @@ export function NovelActions({
   return (
     <div className="flex flex-wrap items-center gap-2">
       <Link
-        href={`/reviews/new?novelId=${novelId}`}
+        href={writeHref}
         className={cn(MV_PRIMARY_BTN, "min-h-10 px-4 text-sm font-bold")}
       >
         <PenLine className="size-4" aria-hidden />

@@ -7,6 +7,8 @@ import {
   Star,
 } from "lucide-react";
 import { MoonieMascot } from "@/components/brand/MoonieMascot";
+import { buildGuestLoginHref, buildGuestRegisterHref } from "@/lib/auth-login-redirect";
+import { buildAuthenticatedWriteReviewHref } from "@/lib/write-entry";
 import { Button } from "@/components/ui/button";
 
 const BENEFITS = [
@@ -15,7 +17,11 @@ const BENEFITS = [
   { icon: Sparkles, label: "Improve Moonie recommendations" },
 ];
 
-export function WriteGateModalView() {
+export function WriteGateModalView({ novelId }: { novelId?: string }) {
+  const postAuthCallback = buildAuthenticatedWriteReviewHref(novelId);
+  const registerHref = buildGuestRegisterHref(postAuthCallback);
+  const loginHref = buildGuestLoginHref(postAuthCallback);
+
   return (
     <div className="flex flex-1 flex-col bg-gradient-to-b from-[#fbf7ff] via-white to-[#fff8ed]">
       <main className="flex flex-1 items-start justify-center px-4 py-7 sm:items-center sm:py-10">
@@ -84,14 +90,14 @@ export function WriteGateModalView() {
             <div className="mt-5 space-y-2.5">
               <Button
                 className="mv-nav-signup h-11 min-h-[44px] w-full rounded-full border-0 text-sm font-bold text-white"
-                render={<Link href="/register" />}
+                render={<Link href={registerHref} />}
               >
                 Create a free account
               </Button>
               <Button
                 variant="outline"
                 className="mv-nav-login h-11 min-h-[44px] w-full rounded-full text-sm font-bold"
-                render={<Link href="/login" />}
+                render={<Link href={loginHref} />}
               >
                 Log in
               </Button>

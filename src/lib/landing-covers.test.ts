@@ -11,6 +11,7 @@ describe("landing curated covers", () => {
       "Dungeon Crawler Carl",
       "He Who Fights With Monsters",
       "Sovereign of the Three Realms",
+      "Reverend Insanity",
     ];
 
     for (const title of cases) {
@@ -18,6 +19,12 @@ describe("landing curated covers", () => {
       assert.equal(isMissingCoverUrl(resolved), false, title);
       assert.ok(curatedCoverUrlForTitle(title) || resolved, title);
     }
+  });
+
+  it("matches novel detail hero resolution when DB cover is missing", () => {
+    const resolved = resolveCoverUrl(null, { title: "Sovereign of the Three Realms" });
+    assert.equal(isMissingCoverUrl(resolved), false);
+    assert.notEqual(resolved, "");
   });
 
   it("does not use the broken Lord of the Mysteries web-serial wikimedia path", () => {
