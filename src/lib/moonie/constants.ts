@@ -10,7 +10,7 @@ export const MOONIE_DAILY_LIMIT = MOONIE_DAILY_DISCOVERY_LIMIT;
 export const MOONIE_QUICK_PROMPTS = [
   "A completed slow-burn romance with a clever heroine.",
   "Dark cultivation, found family, but no tragic ending.",
-  "Something similar to this novel, but shorter.",
+  "Something similar to this novel, but with a lighter tone.",
   "Comforting found-family fantasy I can binge.",
 ] as const;
 

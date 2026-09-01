@@ -244,7 +244,6 @@ function hardFilters(
   const language = hasHardInclusionConstraints(hard)
     ? hard!.language
     : prefs.language;
-  const length = hasHardInclusionConstraints(hard) ? hard!.length : prefs.length;
 
   if (status === "completed") {
     and.push(prismaConstraintEligibleCompletedStatus());
@@ -256,10 +255,6 @@ function hardFilters(
     and.push({
       originalLanguage: { contains: language, mode: "insensitive" },
     });
-  }
-
-  if (length === "short" || length === "medium" || length === "long") {
-    and.push(lengthClause(length));
   }
 
   if (hard?.requireOfficialReadingLink) {

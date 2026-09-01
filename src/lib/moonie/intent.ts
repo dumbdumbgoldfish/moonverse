@@ -444,13 +444,11 @@ const READING_SOURCE_FOLLOW_UP_PATTERNS = [
 
 const HARD_CONSTRAINT_FOLLOW_UP_COMMAND_RE = [
   /^show me completed(?:\s+(?!novels\b)[\w][\w&'/-]*(?:\s+(?:and|or)\s+[\w][\w&'/-]*)*)?\s+novels[.!?]*$/i,
-  /^show me short(?:\s+(?:completed|ongoing))?(?:\s+(?!novels\b)[\w][\w&'/-]*(?:\s+(?:and|or)\s+[\w][\w&'/-]*)*)?\s+novels[.!?]*$/i,
   /^show me more(?:\s+(?!novels\b)[\w][\w&'/-]*(?:\s+(?:and|or)\s+[\w][\w&'/-]*)*)?\s+novels[.!?]*$/i,
 ] as const;
 
 const HARD_CONSTRAINT_FOLLOW_UP_LEGACY_RE = [
   /^want completed .+ only, or are ongoing stories fine\??$/i,
-  /^want shorter or longer .+ next\??$/i,
   /^want a spoiler-safe look at these .+ picks, or more plot detail\??$/i,
 ] as const;
 

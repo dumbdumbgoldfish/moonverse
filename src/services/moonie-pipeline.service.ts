@@ -8,6 +8,11 @@ import {
 import { createOpenAiChatCompletion, hasOpenAiApiKey } from "@/lib/moonie/openai";
 import { explanationResponseSchema } from "@/lib/moonie/preference-schema";
 import { buildFollowUpQuestion } from "@/lib/moonie/preferences";
+import { stripLengthFromHardConstraints } from "@/lib/moonie/hard-constraints";
+import {
+  mentionsNovelLengthConstraint,
+  prependNovelLengthTransparency,
+} from "@/lib/moonie/output-format";
 import { moonieDisplayCoverUrl } from "@/lib/review-utils";
 import { matchPercent, confidenceFromMatchPercent } from "@/lib/moonie/ranking";
 import { spoilerConstraintForOpenAI } from "@/lib/moonie/spoiler-mode";
@@ -118,8 +123,7 @@ export async function findCandidateNovels(options: {
   const hasRestrictivePrefs =
     options.prefs.genres.length > 0 ||
     options.prefs.status ||
-    options.prefs.language ||
-    options.prefs.length;
+    options.prefs.language;
 
   if (
     candidates.length < 5 &&
@@ -388,8 +392,23 @@ export async function buildGroundedRecommendations(options: {
   sortBy?: MoonieDiscoverySort;
 }): Promise<MoonieRecommendResponse> {
   const requestPrefs = options.requestPrefs ?? options.prefs;
+  const hardConstraints = options.hardConstraints
+    ? stripLengthFromHardConstraints(options.hardConstraints)
+    : options.hardConstraints;
+  const pipelineOptions = { ...options, hardConstraints };
+  const queryText = options.queryText ?? "";
+  const finalizeResponse = (
+    response: MoonieRecommendResponse
+  ): MoonieRecommendResponse => ({
+    ...response,
+    reply: prependNovelLengthTransparency(
+      response.reply,
+      mentionsNovelLengthConstraint(queryText)
+    ),
+  });
+
   const candidates = await findCandidateNovels({
-    ...options,
+    ...pipelineOptions,
     limit: 30,
   });
 
@@ -404,7 +423,7 @@ export async function buildGroundedRecommendations(options: {
   }
   const verified = filterNovelsByHardConstraints(
     deduped,
-    options.hardConstraints
+    hardConstraints
   );
   const sortBy =
     options.sortBy ?? resolveNovelDiscoverySort(options.queryText ?? "");
@@ -418,7 +437,7 @@ export async function buildGroundedRecommendations(options: {
       : sortHybridCandidates(diverse, sortBy);
   const hasPreviouslyShownMatches =
     (options.previouslyShownNovelIds?.length ?? 0) > 0;
-  const eligibility = hasHardInclusionConstraints(options.hardConstraints)
+  const eligibility = hasHardInclusionConstraints(hardConstraints)
     ? await (async () => {
         const hidden = options.userId
           ? await getHiddenNovelIds(options.userId)
@@ -433,7 +452,7 @@ export async function buildGroundedRecommendations(options: {
             prefs: options.prefs,
             excludeNovelIds: [...new Set([...explicitOnly, ...hidden])],
             strictGenreFilter: options.strictGenreFilter,
-            hardConstraints: options.hardConstraints!,
+            hardConstraints: hardConstraints!,
           }),
           countConstraintEligibleNovels({
             prefs: options.prefs,
@@ -441,12 +460,12 @@ export async function buildGroundedRecommendations(options: {
               ...new Set([...(options.excludeNovelIds ?? []), ...hidden]),
             ],
             strictGenreFilter: options.strictGenreFilter,
-            hardConstraints: options.hardConstraints!,
+            hardConstraints: hardConstraints!,
           }),
-          options.hardConstraints?.status
+          hardConstraints?.status
             ? countUnverifiedHardStatusMatches({
                 prefs: options.prefs,
-                hardConstraints: options.hardConstraints,
+                hardConstraints,
                 excludeNovelIds: [...new Set([...explicitOnly, ...hidden])],
                 strictGenreFilter: options.strictGenreFilter,
               })
@@ -464,9 +483,9 @@ export async function buildGroundedRecommendations(options: {
               "I found eligible novels for those criteria, but couldn't verify a recommendation batch just now. Please try again shortly.",
             summary: "Could not verify this batch yet",
           }
-        : hasHardInclusionConstraints(options.hardConstraints)
+        : hasHardInclusionConstraints(hardConstraints)
           ? buildHardConstraintExhaustionCopy({
-          hard: options.hardConstraints!,
+          hard: hardConstraints!,
           seekingUnseen:
             Boolean(options.seekingUnseen) &&
             Boolean(eligibility?.totalEligible),
@@ -494,14 +513,14 @@ export async function buildGroundedRecommendations(options: {
     const emptyReason =
       eligibility && eligibility.unseenEligible > 0
         ? ("retrieval_incomplete" as const)
-        : hasHardInclusionConstraints(options.hardConstraints)
+        : hasHardInclusionConstraints(hardConstraints)
           ? emptyReasonFromHardConstraintCopy(noResults)
           : options.seekingUnseen && hasPreviouslyShownMatches
             ? ("unseen_exhausted" as const)
             : options.hasExplicitExclusions
               ? ("excluded_exhausted" as const)
               : ("no_matches" as const);
-    return {
+    return finalizeResponse({
       reply: noResults.reply,
       summary: noResults.summary,
       recommendations: [],
@@ -511,7 +530,7 @@ export async function buildGroundedRecommendations(options: {
         : null,
       state: "no_results",
       emptyReason,
-    };
+    });
   }
 
   const recommendations: MoonieRecommendation[] = [];
@@ -607,7 +626,7 @@ export async function buildGroundedRecommendations(options: {
     }
   }
 
-  const hard = options.hardConstraints;
+  const hard = hardConstraints;
   const followUp = hasHardInclusionConstraints(hard)
     ? buildHardConstraintFollowUp(hard!)
     : buildFollowUpQuestion(options.prefs);
@@ -621,7 +640,7 @@ export async function buildGroundedRecommendations(options: {
       const hasMoreEligible =
         (eligibility?.unseenEligible ?? recommendations.length) >
         recommendations.length;
-      return {
+      return finalizeResponse({
         reply: hasMoreEligible
           ? `I verified ${recommendations.length} additional unseen MoonVerse novel${recommendations.length === 1 ? "" : "s"} matching ${label} in this batch. You asked for ${take}; more eligible catalogue records remain, but this retrieval did not verify them yet.`
           : `I found ${recommendations.length} additional unseen verified MoonVerse novel${recommendations.length === 1 ? "" : "s"} matching ${label}. That is fewer than the ${take} requested because no other unseen verified matches remain under those criteria.`,
@@ -631,7 +650,7 @@ export async function buildGroundedRecommendations(options: {
         followUpQuestion: hasMoreEligible
           ? "Try this request again"
           : "Show all previous recommendations again",
-      };
+      });
     }
     const copy = buildHardConstraintMatchCopy({
       matchCount: recommendations.length,
@@ -639,13 +658,13 @@ export async function buildGroundedRecommendations(options: {
       explicitCount: options.take ?? null,
       hard: hard!,
     });
-    return {
+    return finalizeResponse({
       reply: copy.reply,
       summary: copy.summary,
       recommendations,
       interpretedPreferences: requestPrefs,
       followUpQuestion: followUp,
-    };
+    });
   }
 
   const hasTasteSignals =
@@ -655,13 +674,13 @@ export async function buildGroundedRecommendations(options: {
     hasPreviouslyShownMatches &&
     recommendations.length < take
   ) {
-    return {
+    return finalizeResponse({
       reply: `I found ${recommendations.length} additional unseen verified MoonVerse novel${recommendations.length === 1 ? "" : "s"}. That is fewer than the ${take} requested because no other unseen verified matches remain under the same criteria.`,
       summary: `${recommendations.length} additional unseen matches`,
       recommendations,
       interpretedPreferences: requestPrefs,
       followUpQuestion: "Show all previous recommendations again",
-    };
+    });
   }
   const summaryParts = [
     `I matched ${recommendations.length} MoonVerse novel${recommendations.length === 1 ? "" : "s"}`,
@@ -683,13 +702,13 @@ export async function buildGroundedRecommendations(options: {
       ? " Tell me a genre, mood, or trope to sharpen the next round."
       : "";
 
-  return {
+  return finalizeResponse({
     reply: `${summaryParts.join(" ")}. These are real MoonVerse catalogue titles — I won't invent novels or reading links.${coldStartNote}`,
     summary: summaryParts.join(" "),
     recommendations,
     interpretedPreferences: requestPrefs,
     followUpQuestion: followUp,
-  };
+  });
 }
 
 /** Optional AI polish: explain only over provided candidate IDs. */
@@ -793,7 +812,7 @@ export async function polishExplanationsWithOpenAI(
           : safeFollowUp;
     }
 
-    return {
+    const polishedResponse: MoonieRecommendResponse = {
       ...grounded,
       reply: keepGroundedReply
         ? grounded.reply
@@ -806,6 +825,14 @@ export async function polishExplanationsWithOpenAI(
           ),
       followUpQuestion,
       recommendations: polished,
+    };
+
+    return {
+      ...polishedResponse,
+      reply: prependNovelLengthTransparency(
+        polishedResponse.reply,
+        mentionsNovelLengthConstraint(message)
+      ),
     };
   } catch {
     return grounded;

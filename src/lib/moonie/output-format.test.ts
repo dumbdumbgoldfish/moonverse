@@ -3,6 +3,8 @@ import { describe, it } from "node:test";
 import {
   containsOutputFormatBrevityCue,
   mentionsNovelLengthConstraint,
+  NOVEL_LENGTH_UNSUPPORTED_NOTICE,
+  prependNovelLengthTransparency,
 } from "./output-format";
 import { buildCurrentTurnHardConstraints } from "./hard-constraints";
 import { buildMoonieShelfPrompt } from "@/lib/discover";
@@ -35,7 +37,17 @@ describe("output format vs novel length", () => {
     const hard = buildCurrentTurnHardConstraints(
       "Recommend short novels in the MoonVerse catalog"
     );
-    assert.equal(hard.length, "short");
+    assert.equal(hard.length, null);
+  });
+
+  it("prepends transparency when user asks for length filtering", () => {
+    const message = "Recommend short novels in the MoonVerse catalog";
+    const reply = prependNovelLengthTransparency(
+      "Here are some romance picks.",
+      mentionsNovelLengthConstraint(message)
+    );
+    assert.match(reply, new RegExp(NOVEL_LENGTH_UNSUPPORTED_NOTICE));
+    assert.match(reply, /romance picks/);
   });
 
   it("preserves both short novels and brief explanations independently", () => {
@@ -44,7 +56,7 @@ describe("output format vs novel length", () => {
     assert.equal(mentionsNovelLengthConstraint(message), true);
     assert.equal(containsOutputFormatBrevityCue(message), true);
     const hard = buildCurrentTurnHardConstraints(message);
-    assert.equal(hard.length, "short");
+    assert.equal(hard.length, null);
   });
 
   it("treats briefly explain as output format only", () => {

@@ -170,7 +170,6 @@ export function formatSessionPreferenceSummary(
   }
 
   if (prefs.language) parts.push(prefs.language);
-  if (prefs.length) parts.push(`${prefs.length} length`);
 
   if (parts.length === 0) return null;
   return [...new Set(parts)].slice(0, 5).join(" · ");

@@ -54,7 +54,7 @@ describe("stored Moonie history hydration", () => {
     const legacyMeta = {
       responseKind: "chat",
       response: {
-        reply: "I could not find any MoonVerse novels that match completed, short length.",
+        reply: "I could not find any MoonVerse novels that match completed.",
         responseKind: "chat",
         state: "no_results",
         emptyReason: "unknown_status",

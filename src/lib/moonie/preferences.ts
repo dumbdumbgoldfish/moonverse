@@ -207,7 +207,6 @@ export function extractPreferencesFromMessage(
   const mood = new Set(prior?.mood ?? []);
   let status = prior?.status ?? null;
   let language = prior?.language ?? null;
-  let length = prior?.length ?? null;
 
   for (const [genre, aliases] of Object.entries(GENRE_ALIASES)) {
     if (includesAny(text, aliases)) genres.add(genre);
@@ -294,13 +293,6 @@ export function extractPreferencesFromMessage(
   if (text.includes("korean") || text.includes("kr novel")) language = "ko";
   if (text.includes("japanese") || text.includes("jp novel")) language = "ja";
 
-  if (mentionsNovelLengthConstraint(text)) {
-    length = "short";
-  }
-  if (text.includes("long") && (text.includes("novel") || text.includes("epic") || text.includes("chapter"))) {
-    length = "long";
-  }
-
   return {
     genres: [...genres],
     tags: [...tags],
@@ -308,7 +300,7 @@ export function extractPreferencesFromMessage(
     status,
     mood: [...mood],
     language,
-    length,
+    length: null,
     influencedBy: prior?.influencedBy ?? [],
   };
 }

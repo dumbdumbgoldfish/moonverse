@@ -125,12 +125,12 @@ describe("Moonie constraint-relaxation dispatch", () => {
     {
       role: "user",
       content:
-        "Show me short completed found family or slice-of-life novels",
+        "Show me completed found family or slice-of-life novels",
     },
     {
       role: "assistant",
       content:
-        "I could not find any MoonVerse novels that match found family or slice-of-life, completed, short length.",
+        "I could not find any MoonVerse novels that match found family or slice-of-life, completed.",
     },
   ];
 
@@ -155,10 +155,13 @@ describe("Moonie constraint-relaxation dispatch", () => {
       assert.equal(response.lookupSession, undefined);
       assert.equal(response.responseKind, "chat");
       assert.match(response.reply, /which (?:criterion|constraint)/i);
-      assert.match(response.reply, /short/i);
       assert.match(response.reply, /completed/i);
       assert.match(response.reply, /found family|slice-of-life/i);
+      assert.doesNotMatch(response.reply, /short length|long length/i);
       assert.ok((response.quickPrompts?.length ?? 0) >= 2);
+      for (const prompt of response.quickPrompts ?? []) {
+        assert.doesNotMatch(prompt, /short|long length|quick read/i);
+      }
     });
   }
 });

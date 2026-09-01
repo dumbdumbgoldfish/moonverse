@@ -49,7 +49,7 @@ describe("persist assistant turn meta", () => {
 
   it("stores no_results state at the top level for history reload", () => {
     const result: MoonieRecommendResponse = {
-      reply: "I could not find any MoonVerse novels that match completed, short length.",
+      reply: "I could not find any MoonVerse novels that match completed.",
       recommendations: [],
       responseKind: "chat",
       consumesQuota: false,

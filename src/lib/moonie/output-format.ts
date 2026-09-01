@@ -15,6 +15,19 @@ export function containsOutputFormatBrevityCue(message: string): boolean {
   );
 }
 
+/** User asked for novel-length filtering — not supported in catalogue recommendations. */
+export const NOVEL_LENGTH_UNSUPPORTED_NOTICE =
+  "MoonVerse does not have reliable novel-length metadata, so I cannot filter by short, long, or quick-read length.";
+
+export function prependNovelLengthTransparency(
+  reply: string,
+  askedForLength: boolean
+): string {
+  if (!askedForLength) return reply;
+  if (/novel-length metadata/i.test(reply)) return reply;
+  return `${NOVEL_LENGTH_UNSUPPORTED_NOTICE} ${reply}`;
+}
+
 /** True when the user asked for short/brief novels, not short explanations. */
 export function mentionsNovelLengthConstraint(message: string): boolean {
   const text = message.toLowerCase();
@@ -24,6 +37,10 @@ export function mentionsNovelLengthConstraint(message: string): boolean {
   if (/\bunder\s+\d+\s+chapters?\b/i.test(text)) return true;
   if (/\bquick\s+read\b/i.test(text)) return true;
   if (/\bshort\s+length\b/i.test(text)) return true;
+  if (/\blong\s+length\b/i.test(text)) return true;
+  if (/\blong\s+(?:novels?|books?|stories?|epics?)\b/i.test(text)) {
+    return true;
+  }
   if (containsOutputFormatBrevityCue(message)) return false;
   return (
     text.includes("short") &&

@@ -90,6 +90,7 @@ import {
   hasHardInclusionConstraints,
   parseRequestedRecommendationCount,
   resolveConstraintRelaxationAnswer,
+  stripLengthFromHardConstraints,
 } from "@/lib/moonie/hard-constraints";
 import {
   resolveCatalogueTask,
@@ -264,10 +265,21 @@ function latestRecommendationHardConstraints(
     ) {
       continue;
     }
-    const hard = buildCurrentTurnHardConstraints(message.content);
+    const hard = stripLengthFromHardConstraints(
+      buildCurrentTurnHardConstraints(message.content)
+    );
     if (hasHardInclusionConstraints(hard)) return hard;
   }
   return null;
+}
+
+function recommendationHardConstraints(
+  message: string,
+  extracted?: Parameters<typeof buildCurrentTurnHardConstraints>[1]
+) {
+  return stripLengthFromHardConstraints(
+    buildCurrentTurnHardConstraints(message, extracted)
+  );
 }
 
 function responseKindForIntent(
@@ -857,7 +869,7 @@ export async function handleMoonieRequest(
       ],
       status: prefs.status ?? ctx.tastePrefs.status ?? null,
       language: prefs.language ?? ctx.tastePrefs.language ?? null,
-      length: prefs.length ?? ctx.tastePrefs.length ?? null,
+      length: null,
       influencedBy: ctx.tastePrefs.influencedBy,
     };
   }
@@ -1025,7 +1037,7 @@ export async function handleMoonieRequest(
       seekingUnseen: ctx.seekingUnseen,
       similarToNovelId: ctx.similarToNovelId,
       strictGenreFilter: resolution.hard.genres.length > 0,
-      hardConstraints: resolution.hard,
+      hardConstraints: stripLengthFromHardConstraints(resolution.hard),
       personalization: ctx.personalization,
       recentSearches: ctx.recentSearches,
       spoilerMode,
@@ -1199,7 +1211,7 @@ export async function handleMoonieRequest(
   }
 
   if (isTopBestCatalogueSelectionRequest(ctx.message)) {
-    const hardConstraints = buildCurrentTurnHardConstraints(
+    const hardConstraints = recommendationHardConstraints(
       ctx.message,
       extracted
     );
@@ -1273,7 +1285,9 @@ export async function handleMoonieRequest(
         interpretedPreferences: currentRequestPrefs,
         quickPrompts: clarification.quickPrompts,
         pendingClarification: priorHard
-          ? constraintRelaxationPending(priorHard)
+          ? constraintRelaxationPending(
+              stripLengthFromHardConstraints(priorHard)
+            )
           : undefined,
         responseKind: "chat",
         consumesQuota: false,
@@ -1565,7 +1579,7 @@ export async function handleMoonieRequest(
           .filter(Boolean)
           .join(" ")
       : ctx.message;
-    const similarityHardConstraints = buildCurrentTurnHardConstraints(
+    const similarityHardConstraints = recommendationHardConstraints(
       similarityConstraintMessage,
       extracted
     );
@@ -2141,7 +2155,7 @@ export async function handleMoonieRequest(
   }
 
   if (primary === "RECOMMEND" || primary === "REFINE") {
-    const hardConstraints = buildCurrentTurnHardConstraints(
+    const hardConstraints = recommendationHardConstraints(
       ctx.message,
       extracted
     );

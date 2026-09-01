@@ -150,10 +150,10 @@ describe("similarity screenshot acceptance (fixture / DB)", () => {
     const shortNovelHard = buildCurrentTurnHardConstraints(
       "Recommend short novels in the MoonVerse catalog"
     );
-    assert.equal(shortNovelHard.length, "short");
+    assert.equal(shortNovelHard.length, null);
     assert.equal(
       hasHardInclusionConstraints(shortNovelHard),
-      true
+      false
     );
 
     const shortNovelResponse = await handleMoonieRequest({
@@ -161,6 +161,7 @@ describe("similarity screenshot acceptance (fixture / DB)", () => {
       messages: [],
       isLoggedIn: false,
     });
-    assert.match(shortNovelResponse.reply, /short length/i);
+    assert.match(shortNovelResponse.reply, /novel-length metadata/i);
+    assert.doesNotMatch(shortNovelResponse.reply, /short length/i);
   });
 });

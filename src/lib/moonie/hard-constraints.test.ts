@@ -22,6 +22,7 @@ import {
   resolveMoonieQuickPrompts,
 } from "@/lib/moonie/presentation";
 import {
+  buildConstraintRelaxationClarification,
   buildCurrentTurnHardConstraints,
   buildHardConstraintFollowUp,
   buildHardConstraintMatchCopy,
@@ -413,7 +414,7 @@ describe("current-turn hard recommendation constraints", () => {
         language: null,
         length: "short",
       }).length,
-      "short"
+      null
     );
   });
 
@@ -549,7 +550,7 @@ describe("current-turn hard recommendation constraints", () => {
     ];
     assert.deepEqual(followUps, [
       "Show me completed fantasy novels",
-      "Show me short completed fantasy novels",
+      "Show me more fantasy novels",
       "Show me more fantasy novels",
     ]);
 
@@ -641,10 +642,22 @@ describe("current-turn hard recommendation constraints", () => {
         id: "assistant-quick-starts",
         role: "assistant",
         content: "Try one of these.",
-        followUpQuestion: "Quick starts: Completed fantasy, Short fantasy",
+        followUpQuestion: "Quick starts: Completed fantasy, Dark fantasy",
       }),
-      ["Completed fantasy", "Short fantasy"]
+      ["Completed fantasy", "Dark fantasy"]
     );
+  });
+
+  it("does not offer length in constraint-relaxation quick prompts", () => {
+    const hard = buildCurrentTurnHardConstraints(
+      "Show me short completed romance novels"
+    );
+    assert.equal(hard.length, null);
+    const { quickPrompts, reply } = buildConstraintRelaxationClarification(hard);
+    assert.doesNotMatch(reply, /short length|long length|quick read/i);
+    for (const prompt of quickPrompts) {
+      assert.doesNotMatch(prompt, /short|long length|quick read|lengthy/i);
+    }
   });
 
   it("mentions an explicit requested count but not the internal default take", () => {

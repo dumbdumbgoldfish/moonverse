@@ -98,6 +98,13 @@ function uniqueLabels(values: string[]): string[] {
   return result;
 }
 
+/** MoonVerse does not filter recommendations by novel length. */
+export function stripLengthFromHardConstraints(
+  hard: MoonieHardInclusionConstraints
+): MoonieHardInclusionConstraints {
+  return { ...hard, length: null };
+}
+
 export function hasHardInclusionConstraints(
   hard: MoonieHardInclusionConstraints | null | undefined
 ): boolean {
@@ -233,9 +240,7 @@ export function buildCurrentTurnHardConstraints(
 
   const extractedStatus = normalizeHardStatus(extracted?.status);
   const extractedLanguage = extracted?.language?.trim() || null;
-  const extractedLength = normalizeHardLength(extracted?.length);
   const heuristicStatus = normalizeHardStatus(heuristic.status);
-  const heuristicLength = normalizeHardLength(heuristic.length);
   const parsedSimilarity = parseSimilarityRequest(message);
 
   return {
@@ -262,15 +267,7 @@ export function buildCurrentTurnHardConstraints(
       messageMentionsHardInclusion(message, "language", extractedLanguage)
         ? extractedLanguage
         : null),
-    length:
-      (heuristicLength &&
-      messageMentionsHardInclusion(message, "length", heuristicLength)
-        ? heuristicLength
-        : null) ??
-      (extractedLength &&
-      messageMentionsHardInclusion(message, "length", extractedLength)
-        ? extractedLength
-        : null),
+    length: null,
     requireOfficialReadingLink:
       parsedSimilarity?.requiresVerifiedReadingLinks ?? false,
     minAverageRating: parseMinimumAverageRating(message),
@@ -490,7 +487,7 @@ export function retrievalPrefsForHardConstraints(
     tags: hard!.tags,
     status: hard!.status,
     language: hard!.language,
-    length: hard!.length,
+    length: null,
   };
 }
 
@@ -505,7 +502,6 @@ export function formatHardConstraintLabel(
   }
   if (hard.status) parts.push(hard.status);
   if (hard.language) parts.push(hard.language);
-  if (hard.length) parts.push(`${hard.length} length`);
   if (hard.minAverageRating != null) {
     parts.push(`rating ${hard.minAverageRating}+`);
   }
@@ -531,11 +527,6 @@ export function buildHardConstraintFollowUp(
   const genrePhrase = genre ? `${genre} ` : "";
   if (!hard.status) {
     return `Show me completed ${genrePhrase}novels`.replace(/\s+/g, " ").trim();
-  }
-  if (!hard.length) {
-    return `Show me short ${hard.status} ${genrePhrase}novels`
-      .replace(/\s+/g, " ")
-      .trim();
   }
   return `Show me more ${genrePhrase}novels`.replace(/\s+/g, " ").trim();
 }
@@ -614,13 +605,6 @@ export function buildConstraintRelaxationClarification(
     hard.inclusionMatch === "any" ? " or " : " and "
   );
   const criteria = [
-    hard.length
-      ? {
-          label: `${hard.length} length`,
-          promptPart: hard.length,
-          key: "length",
-        }
-      : null,
     hard.status
       ? { label: `${hard.status} status`, promptPart: hard.status, key: "status" }
       : null,
@@ -720,7 +704,6 @@ function currentConstraintKeys(hard: MoonieHardInclusionConstraints) {
     inclusionLabels,
     hasInclusion: inclusionLabels.length > 0,
     hasStatus: Boolean(hard.status),
-    hasLength: Boolean(hard.length),
     hasLanguage: Boolean(hard.language),
   };
 }
@@ -729,7 +712,6 @@ function formatCurrentConstraints(hard: MoonieHardInclusionConstraints): string 
   const { inclusionLabels } = currentConstraintKeys(hard);
   const parts = [
     hard.status ? `${hard.status} status` : null,
-    hard.length ? `${hard.length} length` : null,
     inclusionLabels.length
       ? `${inclusionLabels.join(hard.inclusionMatch === "any" ? " or " : " and ")} match`
       : null,
@@ -782,9 +764,6 @@ export function resolveConstraintRelaxationAnswer(
     !resolveKnownGenreFromMessage(text)
   ) {
     return { kind: "apply", hard: dropHardConstraintKey(hard, "status") };
-  }
-  if (keys.hasLength && /\b(?:short|medium|long|length)\b/i.test(lower)) {
-    return { kind: "apply", hard: dropHardConstraintKey(hard, "length") };
   }
   if (keys.hasLanguage && /\blanguage\b/i.test(lower)) {
     return { kind: "apply", hard: dropHardConstraintKey(hard, "language") };

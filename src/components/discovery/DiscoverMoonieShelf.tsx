@@ -13,7 +13,7 @@ const GUEST_PROMPTS = [
     label: "Spoiler-free romance",
   },
   {
-    label: "Short completed reads",
+    label: "Completed binge reads",
   },
 ] as const;
 
