@@ -47,6 +47,17 @@ import {
   type InboxSelectionResolution,
 } from "@/lib/admin/inbox-selection";
 import {
+  beginInboxAction,
+  canBeginInboxAction,
+  completeInboxAction,
+  inboxRemediationActionId,
+  INITIAL_INBOX_ACTION_PENDING_STATE,
+  isInboxActionPending,
+  isInboxItemBusy,
+  type InboxActionPendingState,
+  type InboxPendingActionId,
+} from "@/lib/admin/inbox-action-pending";
+import {
   getReportRemediationOptions,
   type InboxItem,
   type InboxItemKind,
@@ -77,8 +88,14 @@ export function AdminInboxTriage({
   const router = useRouter();
   const searchParams = useSearchParams();
   const [resolution, setResolution] = useState("");
-  const [error, setError] = useState<string | null>(null);
-  const [isPending, startTransition] = useTransition();
+  const [actionError, setActionError] = useState<{
+    itemId: string;
+    message: string;
+  } | null>(null);
+  const [pendingState, setPendingState] = useState<InboxActionPendingState>(
+    INITIAL_INBOX_ACTION_PENDING_STATE
+  );
+  const [, startTransition] = useTransition();
 
   const selected =
     items.find((item) => item.id === selection.activeSelectedId) ??
@@ -112,18 +129,51 @@ export function AdminInboxTriage({
     return `${option.label} (${count})`;
   }
 
-  function run(action: () => Promise<{ success: boolean; error?: string }>) {
-    setError(null);
+  function runInboxAction(
+    itemId: string,
+    action: InboxPendingActionId,
+    actionFn: () => Promise<{ success: boolean; error?: string }>
+  ) {
+    let started = false;
+    setPendingState((current) => {
+      if (!canBeginInboxAction(current, itemId, action)) {
+        return current;
+      }
+      started = true;
+      return beginInboxAction(current, itemId, action);
+    });
+
+    if (!started) {
+      return;
+    }
+
+    const startedItemId = itemId;
+    setActionError(null);
+
     startTransition(async () => {
-      const result = await action();
+      const result = await actionFn();
+      setPendingState((current) => completeInboxAction(current));
+
       if (!result.success) {
-        setError(result.error ?? "Action failed.");
+        if (startedItemId === selection.activeSelectedId) {
+          setActionError({
+            itemId: startedItemId,
+            message: result.error ?? "Action failed.",
+          });
+        }
         return;
       }
-      setResolution("");
+
+      if (startedItemId === selection.activeSelectedId) {
+        setResolution("");
+        setActionError(null);
+      }
       router.refresh();
     });
   }
+
+  const detailError =
+    selected && actionError?.itemId === selected.id ? actionError.message : null;
 
   return (
     <AdminWorkspace>
@@ -226,19 +276,19 @@ export function AdminInboxTriage({
               </p>
             ) : null}
 
-            {error ? (
+            {detailError ? (
               <p className="mt-4 text-sm text-destructive" role="alert">
-                {error}
+                {detailError}
               </p>
             ) : null}
 
             <div className="mt-6 space-y-3">
               <InboxDetailActions
                 item={selected}
+                pendingState={pendingState}
                 resolution={resolution}
                 onResolutionChange={setResolution}
-                isPending={isPending}
-                onRun={run}
+                onRun={runInboxAction}
               />
             </div>
           </>
@@ -254,17 +304,31 @@ const INBOX_LINK_CLASS =
 
 function InboxDetailActions({
   item,
+  pendingState,
   resolution,
   onResolutionChange,
-  isPending,
   onRun,
 }: {
   item: InboxItem;
+  pendingState: InboxActionPendingState;
   resolution: string;
   onResolutionChange: (value: string) => void;
-  isPending: boolean;
-  onRun: (action: () => Promise<{ success: boolean; error?: string }>) => void;
+  onRun: (
+    itemId: string,
+    action: InboxPendingActionId,
+    actionFn: () => Promise<{ success: boolean; error?: string }>
+  ) => void;
 }) {
+  const itemBusy = isInboxItemBusy(pendingState, item.id);
+
+  function actionPending(action: InboxPendingActionId): boolean {
+    return isInboxActionPending(pendingState, item.id, action);
+  }
+
+  function actionLabel(action: InboxPendingActionId, label: string): string {
+    return actionPending(action) ? "…" : label;
+  }
+
   if (item.kind === "report") {
     const options = getReportRemediationOptions(item.report.targetType);
     return (
@@ -273,43 +337,48 @@ function InboxDetailActions({
           value={resolution}
           onChange={(e) => onResolutionChange(e.target.value)}
           placeholder="Resolution note (optional)"
-          disabled={isPending}
+          disabled={itemBusy}
           className="h-9 rounded-xl border-white/10 bg-white/[0.06] text-sm text-white placeholder:text-white/35"
         />
         <div className="flex flex-wrap gap-2">
-          {options.map((option) => (
-            <Button
-              key={option.id}
-              size="sm"
-              disabled={isPending}
-              onClick={() =>
-                onRun(() =>
-                  resolveReportWithRemediationAction({
-                    reportId: item.report.id,
-                    remediation: option.id as
-                      | "resolve_only"
-                      | "hide_review"
-                      | "hide_comment"
-                      | "suspend_user",
-                    resolution,
-                  })
-                )
-              }
-            >
-              <Check size={14} className="mr-1.5" />
-              {option.label}
-            </Button>
-          ))}
+          {options.map((option) => {
+            const action = inboxRemediationActionId(option.id);
+            return (
+              <Button
+                key={option.id}
+                size="sm"
+                disabled={itemBusy}
+                onClick={() =>
+                  onRun(item.id, action, () =>
+                    resolveReportWithRemediationAction({
+                      reportId: item.report.id,
+                      remediation: option.id as
+                        | "resolve_only"
+                        | "hide_review"
+                        | "hide_comment"
+                        | "suspend_user",
+                      resolution,
+                    })
+                  )
+                }
+              >
+                <Check size={14} className="mr-1.5" />
+                {actionLabel(action, option.label)}
+              </Button>
+            );
+          })}
           <Button
             size="sm"
             variant="outline"
-            disabled={isPending}
+            disabled={itemBusy}
             onClick={() =>
-              onRun(() => inboxDismissReportAction(item.report.id, resolution))
+              onRun(item.id, "dismiss_report", () =>
+                inboxDismissReportAction(item.report.id, resolution)
+              )
             }
           >
             <X size={14} className="mr-1.5" />
-            Dismiss
+            {actionLabel("dismiss_report", "Dismiss")}
           </Button>
           {item.report.targetLink ? (
             <Link href={item.report.targetLink} target="_blank" className={INBOX_LINK_CLASS}>
@@ -327,19 +396,21 @@ function InboxDetailActions({
       <div className="flex flex-wrap gap-2">
         <Button
           size="sm"
-          disabled={isPending}
-          onClick={() => onRun(() => inboxHideReviewAction(item.reviewId))}
+          disabled={itemBusy}
+          onClick={() => onRun(item.id, "hide_review", () => inboxHideReviewAction(item.reviewId))}
         >
           <EyeOff size={14} className="mr-1.5" />
-          Hide review
+          {actionLabel("hide_review", "Hide review")}
         </Button>
         <Button
           size="sm"
           variant="outline"
-          disabled={isPending}
-          onClick={() => onRun(() => inboxRestoreReviewAction(item.reviewId))}
+          disabled={itemBusy}
+          onClick={() =>
+            onRun(item.id, "restore_review", () => inboxRestoreReviewAction(item.reviewId))
+          }
         >
-          Mark OK
+          {actionLabel("restore_review", "Mark OK")}
         </Button>
         <Link href={`/reviews/${item.reviewId}`} target="_blank" className={INBOX_LINK_CLASS}>
           Open review
@@ -353,19 +424,23 @@ function InboxDetailActions({
       <div className="flex flex-wrap gap-2">
         <Button
           size="sm"
-          disabled={isPending}
-          onClick={() => onRun(() => inboxHideCommentAction(item.commentId))}
+          disabled={itemBusy}
+          onClick={() =>
+            onRun(item.id, "hide_comment", () => inboxHideCommentAction(item.commentId))
+          }
         >
           <EyeOff size={14} className="mr-1.5" />
-          Hide comment
+          {actionLabel("hide_comment", "Hide comment")}
         </Button>
         <Button
           size="sm"
           variant="outline"
-          disabled={isPending}
-          onClick={() => onRun(() => inboxRestoreCommentAction(item.commentId))}
+          disabled={itemBusy}
+          onClick={() =>
+            onRun(item.id, "restore_comment", () => inboxRestoreCommentAction(item.commentId))
+          }
         >
-          Mark OK
+          {actionLabel("restore_comment", "Mark OK")}
         </Button>
         <Link href={`/reviews/${item.reviewId}#comments`} target="_blank" className={INBOX_LINK_CLASS}>
           Open thread
@@ -381,18 +456,22 @@ function InboxDetailActions({
           <>
             <Button
               size="sm"
-              disabled={isPending}
-              onClick={() => onRun(() => inboxApproveLinkAction(item.linkId))}
+              disabled={itemBusy}
+              onClick={() =>
+                onRun(item.id, "approve_link", () => inboxApproveLinkAction(item.linkId))
+              }
             >
-              Approve link
+              {actionLabel("approve_link", "Approve link")}
             </Button>
             <Button
               size="sm"
               variant="outline"
-              disabled={isPending}
-              onClick={() => onRun(() => inboxRejectLinkAction(item.linkId))}
+              disabled={itemBusy}
+              onClick={() =>
+                onRun(item.id, "reject_link", () => inboxRejectLinkAction(item.linkId))
+              }
             >
-              Reject
+              {actionLabel("reject_link", "Reject")}
             </Button>
           </>
         ) : (
@@ -418,22 +497,22 @@ function InboxDetailActions({
       <div className="flex flex-wrap gap-2">
         <Button
           size="sm"
-          disabled={isPending}
+          disabled={itemBusy}
           onClick={() =>
-            onRun(() => approveTagSuggestionAction(item.suggestionId))
+            onRun(item.id, "approve_tag", () => approveTagSuggestionAction(item.suggestionId))
           }
         >
-          Approve as new tag
+          {actionLabel("approve_tag", "Approve as new tag")}
         </Button>
         <Button
           size="sm"
           variant="outline"
-          disabled={isPending}
+          disabled={itemBusy}
           onClick={() =>
-            onRun(() => rejectTagSuggestionAction(item.suggestionId, ""))
+            onRun(item.id, "reject_tag", () => rejectTagSuggestionAction(item.suggestionId, ""))
           }
         >
-          Reject
+          {actionLabel("reject_tag", "Reject")}
         </Button>
         <Link href="/admin/tags" className={INBOX_LINK_CLASS}>
           Open tag manager
