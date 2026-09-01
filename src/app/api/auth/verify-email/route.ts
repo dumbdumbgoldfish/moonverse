@@ -46,10 +46,13 @@ export async function POST(request: Request) {
 
     if (!wasAlreadyVerified) {
       try {
-        await sendWelcomeEmail({
-          email: user.email,
-          displayName: user.displayName,
-        });
+        await sendWelcomeEmail(
+          {
+            email: user.email,
+            displayName: user.displayName,
+          },
+          { requestUrl: request.url }
+        );
       } catch (error) {
         console.error("[verify-email] welcome email failed:", error);
       }

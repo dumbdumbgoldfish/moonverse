@@ -8,8 +8,9 @@ import {
 export async function buildVerifyEmailTemplate(input: {
   displayName: string;
   token: string;
+  requestUrl?: string;
 }): Promise<{ subject: string; html: string; text: string }> {
-  const origin = await appBaseUrl();
+  const origin = await appBaseUrl({ requestUrl: input.requestUrl });
   const link = `${origin}/verify-email?token=${encodeURIComponent(input.token)}`;
   const { html, text: plainText } = renderEmailTemplate({
     preheader: "Confirm your MoonVerse email address.",
@@ -44,8 +45,9 @@ export async function buildVerifyEmailTemplate(input: {
 export async function buildResetPasswordTemplate(input: {
   displayName: string;
   token: string;
+  requestUrl?: string;
 }): Promise<{ subject: string; html: string; text: string }> {
-  const origin = await appBaseUrl();
+  const origin = await appBaseUrl({ requestUrl: input.requestUrl });
   const link = `${origin}/reset-password?token=${encodeURIComponent(input.token)}`;
   const { html, text: plainText } = renderEmailTemplate({
     preheader: "Reset your MoonVerse password.",
@@ -81,8 +83,9 @@ export async function buildResetPasswordTemplate(input: {
 
 export async function buildWelcomeEmailTemplate(input: {
   displayName: string;
+  requestUrl?: string;
 }): Promise<{ subject: string; html: string; text: string }> {
-  const origin = await appBaseUrl();
+  const origin = await appBaseUrl({ requestUrl: input.requestUrl });
   const link = `${origin}/home`;
   const { html, text: plainText } = renderEmailTemplate({
     preheader: "Your MoonVerse desk is ready.",

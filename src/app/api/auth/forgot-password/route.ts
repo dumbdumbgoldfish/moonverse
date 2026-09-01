@@ -20,11 +20,14 @@ export async function POST(request: Request) {
     const user = await db.user.findUnique({ where: { email } });
     if (user && !user.isSuspended) {
       try {
-        await sendPasswordResetEmail({
-          id: user.id,
-          email: user.email,
-          displayName: user.displayName,
-        });
+        await sendPasswordResetEmail(
+          {
+            id: user.id,
+            email: user.email,
+            displayName: user.displayName,
+          },
+          { requestUrl: request.url }
+        );
       } catch (error) {
         console.error("[forgot-password] reset email failed:", error);
       }

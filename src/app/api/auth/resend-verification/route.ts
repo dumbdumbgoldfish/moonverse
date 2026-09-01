@@ -35,11 +35,14 @@ export async function POST(request: Request) {
       !user.isSuspended
     ) {
       try {
-        await sendVerificationEmail({
-          id: user.id,
-          email: user.email,
-          displayName: user.displayName,
-        });
+        await sendVerificationEmail(
+          {
+            id: user.id,
+            email: user.email,
+            displayName: user.displayName,
+          },
+          { requestUrl: request.url }
+        );
       } catch (error) {
         console.error("[resend-verification] email failed:", error);
       }

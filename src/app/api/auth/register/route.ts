@@ -94,11 +94,14 @@ export async function POST(request: Request) {
 
     let verificationEmailSent = false;
     try {
-      const emailResult = await sendVerificationEmail({
-        id: user.id,
-        email: user.email,
-        displayName: user.displayName,
-      });
+      const emailResult = await sendVerificationEmail(
+        {
+          id: user.id,
+          email: user.email,
+          displayName: user.displayName,
+        },
+        { requestUrl: request.url }
+      );
       verificationEmailSent = wasEmailDelivered(emailResult);
     } catch (error) {
       console.error("[register] verification email failed:", error);
