@@ -196,6 +196,7 @@ export function buildAssistantMessage(
     catalogueStat: success.catalogueStat,
     rankingMetric: success.rankingMetric,
     requestedCount: success.requestedCount,
+    explicitCountedReviews: success.explicitCountedReviews,
     state:
       success.state ??
       (success.responseKind === "recommendations" &&

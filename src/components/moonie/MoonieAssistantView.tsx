@@ -68,6 +68,7 @@ import {
   resolveMoonieCardMode,
   resolveMoonieQuickPrompts,
   resolveMoonieReplyIntent,
+  shouldShowNovelReviewAggregateOverview,
 } from "@/lib/moonie/presentation";
 import { SITE_SHELL_CLASS } from "@/lib/site-shell";
 import { SPOILER_MODE_LABELS } from "@/lib/moonie/spoiler-mode";
@@ -586,6 +587,7 @@ export function MoonieAssistantView({
                   {showAttachments ? (
                   <div
                     className={cn(
+                      "flex min-w-0 flex-col gap-4",
                       message.role === "assistant" && MOONIE_CHAT_ATTACHMENT_INDENT
                     )}
                   >
@@ -643,9 +645,9 @@ export function MoonieAssistantView({
                     />
                   ) : null}
 
-                  {cardMode === "reviews" && message.novelOverview ? (
+                  {cardMode === "reviews" && shouldShowNovelReviewAggregateOverview(message) ? (
                     <MoonieReviewResults
-                      overview={message.novelOverview}
+                      overview={message.novelOverview!}
                       density="desk"
                     />
                   ) : null}

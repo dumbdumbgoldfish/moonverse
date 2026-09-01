@@ -63,6 +63,7 @@ export function hydrateStoredAssistantMeta(
   catalogueStat: import("@/types/moonie").MoonieCatalogueStat | undefined;
   rankingMetric: import("@/types/moonie").MoonieRankingMetric | undefined;
   requestedCount: number | undefined;
+  explicitCountedReviews: boolean | undefined;
 } {
   const analyticsIntent =
     typeof pickStoredMoonieMetaField<string>(meta, "analyticsIntent") === "string"
@@ -143,6 +144,10 @@ export function hydrateStoredAssistantMeta(
       import("@/types/moonie").MoonieRankingMetric
     >(meta, "rankingMetric"),
     requestedCount: pickStoredMoonieMetaField<number>(meta, "requestedCount"),
+    explicitCountedReviews: pickStoredMoonieMetaField<boolean>(
+      meta,
+      "explicitCountedReviews"
+    ),
   };
 }
 
@@ -175,6 +180,7 @@ export function buildPersistedAssistantMeta(
     catalogueStat: result.catalogueStat,
     rankingMetric: result.rankingMetric,
     requestedCount: result.requestedCount,
+    explicitCountedReviews: result.explicitCountedReviews,
     clientTurnId,
     response: result,
   } as unknown as Prisma.InputJsonValue;

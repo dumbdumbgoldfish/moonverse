@@ -259,6 +259,12 @@ export function resolveMoonieCardMode(
   }
 
   if (message.analyticsIntent === "novel_reviews") {
+    if (
+      (message.reviewerResults?.length ?? 0) > 0 &&
+      (message.rankedReviews?.length ?? 0) === 0
+    ) {
+      return "reviewers";
+    }
     return "reviews";
   }
 
@@ -352,6 +358,17 @@ export function requestDiagnosticsSummary(
   }
 
   return lines;
+}
+
+/** Aggregate novel review block (counts + preview strip) — not for explicit counted card lists. */
+export function shouldShowNovelReviewAggregateOverview(
+  message: MoonieChatMessage
+): boolean {
+  if (!message.novelOverview) return false;
+  if (message.explicitCountedReviews && (message.rankedReviews?.length ?? 0) > 0) {
+    return false;
+  }
+  return true;
 }
 
 export function resolveMoonieQuickPrompts(

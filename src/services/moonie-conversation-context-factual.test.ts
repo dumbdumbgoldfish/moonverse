@@ -93,6 +93,64 @@ describe("active novel resolution", () => {
     assert.equal(context.activeNovelId, "n2");
   });
 
+  it("prefers latest novel overview over stale lookup for Who wrote it?", () => {
+    const batch = [
+      rec("n1", "The Hidden Oracle", ["Fantasy"]),
+      rec("n2", "Queen of Shadows", ["Fantasy"]),
+      rec("n3", "Third Pick", ["Fantasy"]),
+    ];
+    const lookupSession = {
+      mode: "confirmed" as const,
+      candidates: [
+        {
+          novelId: "n1",
+          title: "The Hidden Oracle",
+          canonicalTitle: "The Hidden Oracle",
+          author: "Rick Riordan",
+          confidence: "high" as const,
+          confidenceScore: 0.95,
+          evidence: [],
+          genres: ["Fantasy"],
+          tags: [],
+          matchPercent: 98,
+          reason: "Exact match",
+        },
+      ],
+      confirmedNovelId: "n1",
+    };
+    const messages = [
+      { role: "user", content: "Who is the author of The Hidden Oracle?" },
+      {
+        role: "assistant",
+        content: "Author lookup",
+        meta: {
+          novelOverview: { novelId: "n1", title: "The Hidden Oracle" },
+          lookupSession,
+        },
+      },
+      { role: "user", content: "Recommend me three fantasy novels" },
+      {
+        role: "assistant",
+        content: "Picks",
+        meta: { recommendations: batch },
+      },
+      { role: "user", content: "Tell me about the second one" },
+      {
+        role: "assistant",
+        content: "Overview",
+        meta: {
+          novelOverview: { novelId: "n2", title: "Queen of Shadows" },
+        },
+      },
+    ];
+
+    const context = buildConversationContext(messages, {
+      currentMessage: "Who wrote it?",
+    });
+    assert.equal(context.activeNovelId, "n2");
+    assert.match(context.activeNovelTitle ?? "", /queen of shadows/i);
+  });
+
   it("isolates parallel conversations with different active novels", () => {
     const convA = [
       { role: "user", content: "Recommend fantasy" },

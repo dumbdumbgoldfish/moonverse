@@ -460,6 +460,7 @@ export interface MoonieChatMessage {
   catalogueStat?: MoonieCatalogueStat;
   rankingMetric?: MoonieRankingMetric | null;
   requestedCount?: number;
+  explicitCountedReviews?: boolean;
 }
 
 export type MoonieUserAttachmentType = "image" | "file" | "voice";
@@ -513,6 +514,7 @@ export interface MoonieRecommendResponse {
   catalogueStat?: MoonieCatalogueStat;
   rankingMetric?: MoonieRankingMetric | null;
   requestedCount?: number;
+  explicitCountedReviews?: boolean;
 }
 
 export interface MoonieRecommendErrorResponse {

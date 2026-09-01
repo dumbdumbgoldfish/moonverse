@@ -1,4 +1,5 @@
 import { db } from "@/lib/db";
+import { getInitials } from "@/lib/review-utils";
 import {
   buildScopedNovelReviewWhere,
   mapReviewRowToRankedReview,
@@ -12,11 +13,13 @@ import {
   resolveExactLookupNovelIds,
 } from "@/services/moonie-identification.service";
 import { buildNovelBundle } from "@/services/moonie-novel-lookup.service";
+import { getUserByUsername } from "@/services/user.service";
 import type {
   MoonieLookupSession,
   MoonieNovelOverview,
   MoonieRankedReview,
   MoonieRecommendResponse,
+  MoonieReviewerResult,
   MoonieSpoilerMode,
 } from "@/types/moonie";
 
@@ -26,36 +29,71 @@ function formatReviewLink(reviewId: string): string {
   return `[Read full review](/reviews/${reviewId})`;
 }
 
-function formatReviewerProfileLink(username: string | null | undefined): string | null {
-  if (!username?.trim()) return null;
-  return `[View profile](/users/${username})`;
+export function novelOverviewForScopedReviewResponse(options: {
+  overview?: MoonieNovelOverview | null;
+  explicitCountRequest?: boolean;
+}): MoonieNovelOverview | undefined {
+  if (options.explicitCountRequest) return undefined;
+  return options.overview ?? undefined;
 }
 
 function buildWhoReviewedReply(options: {
   title: string;
-  rankedReviews: MoonieRankedReview[];
+  reviewers: Array<{ displayName: string; username?: string | null }>;
+  totalPublicReviews?: number | null;
+  sampledCount?: number;
 }): string {
+  if (options.reviewers.length === 0) {
+    return `No public MoonVerse reviewers have posted reviews for **${options.title}** yet.`;
+  }
+
+  const totalPublic = options.totalPublicReviews ?? null;
+  const sampled = options.sampledCount ?? options.reviewers.length;
+  const totalNote =
+    totalPublic != null && totalPublic > sampled
+      ? ` (${sampled} shown from ${totalPublic} public review${totalPublic === 1 ? "" : "s"})`
+      : "";
+
+  return `${options.reviewers.length} unique MoonVerse reviewer${options.reviewers.length === 1 ? "" : "s"} reviewed **${options.title}**${totalNote}.`;
+}
+
+async function buildReviewerResultsFromRankedReviews(
+  rankedReviews: MoonieRankedReview[]
+): Promise<MoonieReviewerResult[]> {
   const seen = new Map<string, MoonieRankedReview>();
-  for (const review of options.rankedReviews) {
+  for (const review of rankedReviews) {
     const key = review.reviewerUsername ?? review.reviewerName;
     if (!seen.has(key)) seen.set(key, review);
   }
 
-  const reviewers = [...seen.values()];
-  if (reviewers.length === 0) {
-    return `No public MoonVerse reviewers have posted reviews for **${options.title}** yet.`;
+  const results: MoonieReviewerResult[] = [];
+  for (const review of seen.values()) {
+    const username = review.reviewerUsername?.trim();
+    if (username) {
+      const profile = await getUserByUsername(username);
+      if (profile) {
+        results.push({
+          id: profile.id,
+          displayName: profile.displayName,
+          username: profile.username,
+          avatarInitials: getInitials(profile.displayName),
+          avatarUrl: profile.avatarUrl,
+          reviewCount: profile.reviewCount,
+          followerCount: profile.followerCount,
+        });
+        continue;
+      }
+    }
+    results.push({
+      id: review.id,
+      displayName: review.reviewerName,
+      username: username ?? review.reviewerName,
+      avatarInitials: getInitials(review.reviewerName),
+      reviewCount: 0,
+      followerCount: 0,
+    });
   }
-
-  const lines = reviewers.map((review) => {
-    const profile = formatReviewerProfileLink(review.reviewerUsername);
-    const profileSuffix = profile ? ` · ${profile}` : "";
-    return `**${review.reviewerName}**${profileSuffix}`;
-  });
-
-  return [
-    `${reviewers.length} MoonVerse reviewer${reviewers.length === 1 ? "" : "s"} reviewed **${options.title}**: ${lines.join("; ")}.`,
-    "See their reviews below.",
-  ].join("\n\n");
+  return results;
 }
 
 export async function fetchNovelScopedReviews(options: {
@@ -91,6 +129,7 @@ export async function buildNovelScopedReviewsResponse(options: {
   spoilerFreeOnly?: boolean;
   whoReviewed?: boolean;
   lookupSession?: MoonieLookupSession;
+  explicitCountRequest?: boolean;
 }): Promise<MoonieRecommendResponse> {
   const rankedReviews = await fetchNovelScopedReviews({
     novelId: options.novelId,
@@ -98,6 +137,10 @@ export async function buildNovelScopedReviewsResponse(options: {
     count: options.count,
     spoilerMode: options.spoilerMode,
     spoilerFreeOnly: options.spoilerFreeOnly,
+  });
+  const includeNovelOverview = novelOverviewForScopedReviewResponse({
+    overview: options.overview,
+    explicitCountRequest: options.explicitCountRequest,
   });
 
   if (rankedReviews.length === 0) {
@@ -115,7 +158,8 @@ export async function buildNovelScopedReviewsResponse(options: {
       rankedReviews: [],
       rankingMetric: options.metric,
       requestedCount: options.count,
-      novelOverview: options.overview ?? undefined,
+      novelOverview: includeNovelOverview,
+      explicitCountedReviews: options.explicitCountRequest ?? false,
       lookupSession: options.lookupSession,
       consumesQuota: true,
       spoilerMode: options.spoilerMode,
@@ -125,10 +169,29 @@ export async function buildNovelScopedReviewsResponse(options: {
 
   let reply: string;
   if (options.whoReviewed) {
+    const reviewerResults = await buildReviewerResultsFromRankedReviews(
+      rankedReviews
+    );
     reply = buildWhoReviewedReply({
       title: options.title,
-      rankedReviews,
+      reviewers: reviewerResults.map((reviewer) => ({
+        displayName: reviewer.displayName,
+        username: reviewer.username,
+      })),
+      totalPublicReviews: options.overview?.community?.reviewCount ?? null,
+      sampledCount: reviewerResults.length,
     });
+    return {
+      reply,
+      recommendations: [],
+      responseKind: "chat",
+      reviewerResults,
+      explicitCountedReviews: true,
+      lookupSession: options.lookupSession,
+      consumesQuota: true,
+      spoilerMode: options.spoilerMode,
+      analyticsIntent: "novel_reviews",
+    };
   } else if (options.spoilerFreeOnly) {
     reply = `Here are ${rankedReviews.length} spoiler-free public review${rankedReviews.length === 1 ? "" : "s"} for **${options.title}**.`;
   } else if (options.count === 1) {
@@ -148,7 +211,8 @@ export async function buildNovelScopedReviewsResponse(options: {
     rankedReviews,
     rankingMetric: options.metric,
     requestedCount: options.count,
-    novelOverview: options.overview ?? undefined,
+    novelOverview: includeNovelOverview,
+    explicitCountedReviews: options.explicitCountRequest ?? false,
     lookupSession: options.lookupSession,
     consumesQuota: true,
     spoilerMode: options.spoilerMode,

@@ -39,6 +39,7 @@ import {
   resolveMoonieReplyIntent,
   hasResultDiagnostics,
   isUnresolvedLookupSession,
+  shouldShowNovelReviewAggregateOverview,
 } from "@/lib/moonie/presentation";
 import {
   MOONIE_CHAT_ATTACHMENT_INDENT,
@@ -253,7 +254,7 @@ export function MoonieMessageList({
           {showAttachments ? (
           <div
             className={cn(
-              "flex min-w-0 flex-col gap-3",
+              "flex min-w-0 flex-col gap-4",
               message.role === "assistant" && MOONIE_CHAT_ATTACHMENT_INDENT
             )}
           >
@@ -314,9 +315,9 @@ export function MoonieMessageList({
               />
             ) : null}
 
-            {cardMode === "reviews" && message.novelOverview ? (
+            {cardMode === "reviews" && shouldShowNovelReviewAggregateOverview(message) ? (
               <MoonieReviewResults
-                overview={message.novelOverview}
+                overview={message.novelOverview!}
                 density={density}
               />
             ) : null}

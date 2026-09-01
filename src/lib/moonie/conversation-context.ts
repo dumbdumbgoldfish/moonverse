@@ -3,9 +3,11 @@ import {
   isHardConstraintFollowUpMessage,
   isRecommendationDiscoveryMessage,
   isRecommendationReplayRequest,
+  isReviewFollowUpMessage,
   isUnseenRecommendationRequest,
   messageReferencesActiveNovel,
   normalizeLookupConfirmationMessage,
+  resolveNovelFactualFieldQuestion,
   resolveOrdinalIndex,
 } from "@/lib/moonie/intent";
 import type {
@@ -209,6 +211,15 @@ function lastReferencedRecommendation(
   }
 
   return focused;
+}
+
+function messageUsesActiveNovelContext(message: string): boolean {
+  const text = message.trim();
+  if (!text) return false;
+  if (messageReferencesActiveNovel(message)) return true;
+  if (resolveNovelFactualFieldQuestion(message)) return true;
+  if (isReviewFollowUpMessage(message)) return true;
+  return false;
 }
 
 function lastSelectedLookupCandidate(
@@ -626,8 +637,12 @@ export function resolveActiveNovel(options: {
       }
     : null;
 
+  const contextualNovelRef =
+    currentMessage != null && messageUsesActiveNovelContext(currentMessage);
+
   let active =
     pinned ??
+    (contextualNovelRef && overview ? overview : null) ??
     lookupPick ??
     overview ??
     confirmed ??
