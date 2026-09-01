@@ -317,12 +317,14 @@ export async function listReadingLinksForModeration(options?: {
 }) {
   const status = options?.status ?? "ALL";
   const pageSize = options?.pageSize ?? ADMIN_LIST_PAGE_SIZE;
-  const safePage = Math.max(1, options?.page ?? 1);
+  const requestedPage = Math.max(1, options?.page ?? 1);
   const where = buildReadingLinkModerationWhere(status);
 
-  const [total, links] = await Promise.all([
-    db.readingLink.count({ where }),
-    db.readingLink.findMany({
+  const total = await db.readingLink.count({ where });
+  const totalPages = Math.max(1, Math.ceil(total / pageSize));
+  const safePage = Math.min(requestedPage, totalPages);
+
+  const links = await db.readingLink.findMany({
       where,
       orderBy: [{ createdAt: "desc" }, { id: "desc" }],
       skip: (safePage - 1) * pageSize,
@@ -334,15 +336,14 @@ export async function listReadingLinksForModeration(options?: {
         },
         submittedViaReview: { select: { id: true, title: true } },
       },
-    }),
-  ]);
+    });
 
   return {
     items: links,
     total,
     page: safePage,
     pageSize,
-    totalPages: Math.max(1, Math.ceil(total / pageSize)),
+    totalPages,
   };
 }
 

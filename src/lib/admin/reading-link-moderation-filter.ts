@@ -44,8 +44,29 @@ export function buildReadingLinkModerationWhere(
 export function readingLinkModerationFilterHref(
   value: ReadingLinkModerationFilterValue
 ): string {
-  if (value === "ALL") {
-    return "/admin/reading-links";
+  return readingLinkModerationPageHref(value, 1);
+}
+
+export function normalizeReadingLinkModerationPage(
+  requestedPage: number,
+  totalPages: number
+): number {
+  const safeRequested = Math.max(1, requestedPage);
+  const safeTotalPages = Math.max(1, totalPages);
+  return Math.min(safeRequested, safeTotalPages);
+}
+
+export function readingLinkModerationPageHref(
+  status: ReadingLinkModerationFilterValue,
+  page: number
+): string {
+  const params = new URLSearchParams();
+  if (status !== "ALL") {
+    params.set("status", status);
   }
-  return `/admin/reading-links?status=${value}`;
+  if (page > 1) {
+    params.set("page", String(page));
+  }
+  const qs = params.toString();
+  return qs ? `/admin/reading-links?${qs}` : "/admin/reading-links";
 }

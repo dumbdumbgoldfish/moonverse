@@ -2,8 +2,10 @@ import assert from "node:assert/strict";
 import { describe, it } from "node:test";
 import {
   buildReadingLinkModerationWhere,
+  normalizeReadingLinkModerationPage,
   parseReadingLinkModerationStatusFilter,
   readingLinkModerationFilterHref,
+  readingLinkModerationPageHref,
 } from "@/lib/admin/reading-link-moderation-filter";
 
 describe("parseReadingLinkModerationStatusFilter", () => {
@@ -79,6 +81,44 @@ describe("readingLinkModerationFilterHref", () => {
     assert.equal(
       readingLinkModerationFilterHref("REJECTED"),
       "/admin/reading-links?status=REJECTED"
+    );
+  });
+});
+
+describe("normalizeReadingLinkModerationPage", () => {
+  it("clamps out-of-range pages to the last valid page", () => {
+    assert.equal(normalizeReadingLinkModerationPage(2, 1), 1);
+    assert.equal(normalizeReadingLinkModerationPage(99, 3), 3);
+  });
+
+  it("preserves valid in-range pages", () => {
+    assert.equal(normalizeReadingLinkModerationPage(2, 5), 2);
+    assert.equal(normalizeReadingLinkModerationPage(1, 1), 1);
+  });
+
+  it("normalizes invalid requested pages before clamping", () => {
+    assert.equal(normalizeReadingLinkModerationPage(0, 3), 1);
+    assert.equal(normalizeReadingLinkModerationPage(-1, 3), 1);
+  });
+});
+
+describe("readingLinkModerationPageHref", () => {
+  it("omits page=1 from the URL", () => {
+    assert.equal(readingLinkModerationPageHref("ALL", 1), "/admin/reading-links");
+    assert.equal(
+      readingLinkModerationPageHref("PENDING", 1),
+      "/admin/reading-links?status=PENDING"
+    );
+  });
+
+  it("preserves filter params when redirecting to the last page", () => {
+    assert.equal(
+      readingLinkModerationPageHref("PENDING", 2),
+      "/admin/reading-links?status=PENDING&page=2"
+    );
+    assert.equal(
+      readingLinkModerationPageHref("ALL", 2),
+      "/admin/reading-links?page=2"
     );
   });
 });

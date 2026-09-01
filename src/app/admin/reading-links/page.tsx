@@ -1,3 +1,4 @@
+import { redirect } from "next/navigation";
 import { Suspense } from "react";
 import { AdminReadingLinksTable } from "@/components/admin/AdminReadingLinksTable";
 import {
@@ -10,6 +11,7 @@ import {
 import {
   parseReadingLinkModerationStatusFilter,
   readingLinkModerationFilterHref,
+  readingLinkModerationPageHref,
   type ReadingLinkModerationFilterValue,
 } from "@/lib/admin/reading-link-moderation-filter";
 import { listReadingLinksForModeration } from "@/services/reading-link.service";
@@ -37,6 +39,10 @@ export default async function AdminReadingLinksPage({ searchParams }: PageProps)
   const page = Math.max(1, Number(pageParam) || 1);
 
   const result = await listReadingLinksForModeration({ status, page });
+
+  if (page > result.totalPages) {
+    redirect(readingLinkModerationPageHref(status, result.totalPages));
+  }
 
   const rows = result.items.map((link) => ({
     id: link.id,

@@ -3,6 +3,7 @@ import { describe, it } from "node:test";
 import {
   inboxKindFilterCountKey,
   INBOX_PER_KIND_CAP,
+  isKnownInboxKindFilterParam,
   paginateAdminInboxItems,
   parseInboxKindFilter,
   sortInboxItems,
@@ -85,12 +86,22 @@ describe("inbox bounded queue helpers", () => {
 });
 
 describe("inbox kind filter", () => {
-  it("parses known moderation kinds and rejects unknown values", () => {
+  it("parses known moderation kinds", () => {
     assert.equal(parseInboxKindFilter("tag_suggestion"), "tag_suggestion");
     assert.equal(parseInboxKindFilter("reading_link_unhealthy"), "reading_link_unhealthy");
     assert.equal(parseInboxKindFilter("all"), "all");
     assert.equal(parseInboxKindFilter(undefined), "all");
-    assert.equal(parseInboxKindFilter("tags"), "all");
+  });
+
+  it("does not silently broaden unknown kind values to all", () => {
+    assert.equal(isKnownInboxKindFilterParam("reading_link_unhealthy"), true);
+    assert.equal(isKnownInboxKindFilterParam("unhealthy_reading_link"), false);
+    assert.equal(isKnownInboxKindFilterParam("tags"), false);
+    assert.throws(() => parseInboxKindFilter("tags"), /Unknown inbox kind filter/);
+    assert.throws(
+      () => parseInboxKindFilter("unhealthy_reading_link"),
+      /Unknown inbox kind filter/
+    );
   });
 
   it("maps filter keys to inbox count keys", () => {

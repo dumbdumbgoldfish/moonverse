@@ -95,11 +95,17 @@ export const INBOX_KIND_FILTER_VALUES: InboxItemKind[] = [
   "tag_suggestion",
 ];
 
+export function isKnownInboxKindFilterParam(value?: string | null): boolean {
+  if (!value || value === "all") return true;
+  return INBOX_KIND_FILTER_VALUES.includes(value as InboxItemKind);
+}
+
 export function parseInboxKindFilter(value?: string | null): InboxItemKind | "all" {
   if (!value || value === "all") return "all";
-  return INBOX_KIND_FILTER_VALUES.includes(value as InboxItemKind)
-    ? (value as InboxItemKind)
-    : "all";
+  if (!INBOX_KIND_FILTER_VALUES.includes(value as InboxItemKind)) {
+    throw new Error(`Unknown inbox kind filter: ${value}`);
+  }
+  return value as InboxItemKind;
 }
 
 export { inboxKindFilterCountKey } from "@/lib/admin/inbox-kind-filter";

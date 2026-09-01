@@ -17,6 +17,7 @@ import {
   findInboxPageForSelectedItem,
   getAdminInboxPage,
   getInboxCounts,
+  isKnownInboxKindFilterParam,
   parseInboxKindFilter,
 } from "@/services/admin/inbox.service";
 
@@ -35,6 +36,17 @@ export default async function AdminInboxPage({
   const { selected, page: pageParam, kind: kindParam } = await searchParams;
   const requestedSelectedId = selected?.trim() || undefined;
   const page = Math.max(1, Number(pageParam) || 1);
+  const rawKind = kindParam?.trim();
+
+  if (rawKind && !isKnownInboxKindFilterParam(rawKind)) {
+    redirect(
+      buildInboxTriageHref({
+        page,
+        selected: requestedSelectedId,
+      })
+    );
+  }
+
   const activeFilter = parseInboxKindFilter(kindParam);
   const inboxFilters = { kind: activeFilter };
 
