@@ -20,6 +20,7 @@ interface MarketingLandingPageProps {
   discoverHighest?: TrendingNovelPreview[];
   readingLists?: ReadingListPreview[];
   genreDoors?: LandingGenreDoor[];
+  isLoggedIn?: boolean;
 }
 
 /**
@@ -33,6 +34,7 @@ export function MarketingLandingPage({
   discoverHighest = [],
   readingLists = [],
   genreDoors = [],
+  isLoggedIn = false,
 }: MarketingLandingPageProps) {
   return (
     <div className="flex flex-1 flex-col bg-[#0b1024]">
@@ -44,7 +46,7 @@ export function MarketingLandingPage({
         {trending.length > 0 || mustRead.length > 0 ? (
           <LandingCommunity reviews={[...trending, ...mustRead]} />
         ) : null}
-        <LandingShelvesShowcase lists={readingLists} />
+        <LandingShelvesShowcase lists={readingLists} isLoggedIn={isLoggedIn} />
         <LandingWritePromo reviews={[...trending, ...mustRead]} />
         <MoonieCtaSection />
       </main>

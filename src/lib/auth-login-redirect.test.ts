@@ -1,6 +1,10 @@
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
-import { buildLoginRedirectUrl } from "@/lib/auth-login-redirect";
+import {
+  buildGuestLoginHref,
+  buildGuestRegisterHref,
+  buildLoginRedirectUrl,
+} from "@/lib/auth-login-redirect";
 
 describe("buildLoginRedirectUrl", () => {
   it("preserves the request origin when AUTH_URL points at another port", () => {
@@ -38,6 +42,38 @@ describe("buildLoginRedirectUrl", () => {
     assert.equal(
       loginUrl.href,
       "https://moonverse.example.com/login?callbackUrl=%2Ffolders"
+    );
+  });
+});
+
+describe("buildGuestLoginHref", () => {
+  it("builds a relative login href that preserves the shelves destination", () => {
+    assert.equal(
+      buildGuestLoginHref("/lists"),
+      "/login?callbackUrl=%2Flists"
+    );
+  });
+});
+
+describe("buildGuestRegisterHref", () => {
+  it("builds a relative sign-up href for browsing shelves", () => {
+    assert.equal(
+      buildGuestRegisterHref("/lists"),
+      "/register?callbackUrl=%2Flists"
+    );
+  });
+
+  it("builds a relative sign-up href for starting a shelf", () => {
+    assert.equal(
+      buildGuestRegisterHref("/folders"),
+      "/register?callbackUrl=%2Ffolders"
+    );
+  });
+
+  it("preserves an individual folder id in the callback", () => {
+    assert.equal(
+      buildGuestRegisterHref("/folders/abc123"),
+      "/register?callbackUrl=%2Ffolders%2Fabc123"
     );
   });
 });

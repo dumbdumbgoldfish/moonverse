@@ -58,6 +58,7 @@ export default async function RootPage({
       discoverHighest={discoverHighest}
       readingLists={readingLists}
       genreDoors={genreDoors}
+      isLoggedIn={!!session?.user?.id}
     />
   );
 }

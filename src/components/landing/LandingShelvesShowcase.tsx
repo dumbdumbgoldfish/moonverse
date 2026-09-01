@@ -9,11 +9,16 @@ import {
 import { NightAtmosphere } from "@/components/landing/LandingDecor";
 import { CoverImage } from "@/components/ui/CoverImage";
 import { CatalogLink } from "@/components/ui/CatalogLink";
+import { buildGuestRegisterHref } from "@/lib/auth-login-redirect";
 import { cn } from "@/lib/utils";
 import type { ReadingListPreview } from "@/types/discovery";
 
+const SHELVES_PATH = "/lists";
+const START_OWN_PATH = "/folders";
+
 interface LandingShelvesShowcaseProps {
   lists: ReadingListPreview[];
+  isLoggedIn?: boolean;
 }
 
 const TRUST = [
@@ -34,9 +39,22 @@ const TRUST = [
   },
 ] as const;
 
-function ShelfCard({ list }: { list: ReadingListPreview }) {
+function shelfDestinationPath(list: ReadingListPreview): string {
+  return list.href ?? `/folders/${list.id}`;
+}
+
+function ShelfCard({
+  list,
+  isLoggedIn,
+}: {
+  list: ReadingListPreview;
+  isLoggedIn: boolean;
+}) {
   const covers = list.coverUrls.slice(0, 3);
-  const href = list.href ?? `/folders/${list.id}`;
+  const destination = shelfDestinationPath(list);
+  const href = isLoggedIn
+    ? destination
+    : buildGuestRegisterHref(destination);
 
   return (
     <Link
@@ -88,8 +106,17 @@ function ShelfCard({ list }: { list: ReadingListPreview }) {
   );
 }
 
-export function LandingShelvesShowcase({ lists }: LandingShelvesShowcaseProps) {
+export function LandingShelvesShowcase({
+  lists,
+  isLoggedIn = false,
+}: LandingShelvesShowcaseProps) {
   const shelves = lists.slice(0, 3);
+  const browseShelvesHref = isLoggedIn
+    ? SHELVES_PATH
+    : buildGuestRegisterHref(SHELVES_PATH);
+  const startYourOwnHref = isLoggedIn
+    ? START_OWN_PATH
+    : buildGuestRegisterHref(START_OWN_PATH);
 
   return (
     <section id="library" className="mv-land text-white">
@@ -110,10 +137,10 @@ export function LandingShelvesShowcase({ lists }: LandingShelvesShowcaseProps) {
               your next binge one tap away.
             </p>
             <div className="mt-4 flex flex-wrap gap-2">
-              <CatalogLink href="/lists" tone="night" size="compact">
+              <CatalogLink href={browseShelvesHref} tone="night" size="compact">
                 Browse shelves
               </CatalogLink>
-              <CatalogLink href="/register" tone="night" size="compact">
+              <CatalogLink href={startYourOwnHref} tone="night" size="compact">
                 Start your own
               </CatalogLink>
             </div>
@@ -122,7 +149,7 @@ export function LandingShelvesShowcase({ lists }: LandingShelvesShowcaseProps) {
           {shelves.length > 0 ? (
             <div className="grid gap-3 sm:grid-cols-3">
               {shelves.map((list) => (
-                <ShelfCard key={list.id} list={list} />
+                <ShelfCard key={list.id} list={list} isLoggedIn={isLoggedIn} />
               ))}
             </div>
           ) : (
@@ -135,10 +162,10 @@ export function LandingShelvesShowcase({ lists }: LandingShelvesShowcaseProps) {
                 your own, or browse whatever is already public.
               </p>
               <div className="mt-3 flex flex-wrap gap-2">
-                <CatalogLink href="/lists" tone="night" size="compact">
+                <CatalogLink href={browseShelvesHref} tone="night" size="compact">
                   Browse shelves
                 </CatalogLink>
-                <CatalogLink href="/register" tone="night" size="compact">
+                <CatalogLink href={startYourOwnHref} tone="night" size="compact">
                   Start your own
                 </CatalogLink>
               </div>

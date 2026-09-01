@@ -12,3 +12,13 @@ export function buildLoginRedirectUrl(
   loginUrl.searchParams.set("callbackUrl", callbackPath);
   return loginUrl;
 }
+
+/** Relative login href; browser keeps the current origin (host + port). */
+export function buildGuestLoginHref(callbackPath: string): string {
+  return `/login?callbackUrl=${encodeURIComponent(callbackPath)}`;
+}
+
+/** Relative sign-up href; browser keeps the current origin (host + port). */
+export function buildGuestRegisterHref(callbackPath: string): string {
+  return `/register?callbackUrl=${encodeURIComponent(callbackPath)}`;
+}
