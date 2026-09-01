@@ -24,6 +24,33 @@ function originFromRequestUrl(requestUrl?: string): string | undefined {
   }
 }
 
+function isLocalHostname(hostname: string): boolean {
+  return (
+    hostname === "localhost" ||
+    hostname === "127.0.0.1" ||
+    hostname.endsWith(".localhost") ||
+    hostname.endsWith(".local")
+  );
+}
+
+function isLocalOrigin(origin: string): boolean {
+  try {
+    return isLocalHostname(new URL(origin).hostname);
+  } catch {
+    return false;
+  }
+}
+
+/** True when AUTH_URL / NEXT_PUBLIC_APP_URL points at localhost or 127.x. */
+function isLocalConfiguredUrl(url?: string): boolean {
+  if (!url) return false;
+  try {
+    return isLocalHostname(new URL(url).hostname);
+  } catch {
+    return false;
+  }
+}
+
 async function originFromHeaders(): Promise<string | undefined> {
   try {
     const { headers } = await import("next/headers");
@@ -44,29 +71,30 @@ async function originFromHeaders(): Promise<string | undefined> {
 /**
  * Canonical origin for absolute links in outbound email.
  *
- * Production: configured canonical URL (AUTH_URL / NEXT_PUBLIC_APP_URL) wins.
- * Local/dev: incoming request origin wins over AUTH_URL so QA ports (3001–3003)
- * do not inherit a stale localhost:3000 default.
+ * Real production (canonical non-local AUTH_URL): configured URL wins.
+ * Local/dev/prod-verify (NODE_ENV production with localhost AUTH_URL, or
+ * development): incoming request origin wins over stale localhost:3000 defaults.
  */
 export async function appBaseUrl(options?: AppBaseUrlOptions): Promise<string> {
   const configured = getConfiguredAppUrl();
+  const fromRequest = originFromRequestUrl(options?.requestUrl);
+  const fromHeaders = await originFromHeaders();
 
-  if (process.env.NODE_ENV === "production") {
-    if (configured) return configured;
-    if (process.env.VERCEL_URL) {
-      return trimTrailingSlash(`https://${process.env.VERCEL_URL}`);
-    }
-    const fromHeaders = await originFromHeaders();
+  const preferRequestOrigin =
+    process.env.NODE_ENV !== "production" ||
+    isLocalConfiguredUrl(configured);
+
+  if (preferRequestOrigin) {
+    if (fromRequest) return fromRequest;
     if (fromHeaders) return fromHeaders;
+    if (configured) return configured;
     return "http://localhost:3000";
   }
 
-  const fromRequest = originFromRequestUrl(options?.requestUrl);
-  if (fromRequest) return fromRequest;
-
-  const fromHeaders = await originFromHeaders();
-  if (fromHeaders) return fromHeaders;
-
   if (configured) return configured;
+  if (process.env.VERCEL_URL) {
+    return trimTrailingSlash(`https://${process.env.VERCEL_URL}`);
+  }
+  if (fromHeaders && !isLocalOrigin(fromHeaders)) return fromHeaders;
   return "http://localhost:3000";
 }
