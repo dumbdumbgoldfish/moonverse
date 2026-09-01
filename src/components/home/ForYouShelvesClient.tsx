@@ -19,8 +19,6 @@ export function ForYouShelvesClient() {
 
   useEffect(() => {
     let cancelled = false;
-    setLoading(true);
-    setError(false);
 
     void fetchHomeForYouShelves()
       .then((data) => {
@@ -55,7 +53,11 @@ export function ForYouShelvesClient() {
   if (state === "error") {
     return (
       <ForYouShelvesUnavailable
-        onRetry={() => setAttempt((current) => current + 1)}
+        onRetry={() => {
+          setLoading(true);
+          setError(false);
+          setAttempt((current) => current + 1);
+        }}
         retrying={loading}
       />
     );

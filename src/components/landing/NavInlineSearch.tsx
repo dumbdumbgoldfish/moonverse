@@ -66,12 +66,6 @@ export function NavInlineSearch({
   const [pendingQuery, setPendingQuery] = useState<string | null>(null);
   const searchPending = pendingQuery != null && pendingQuery !== urlQuery;
 
-  useEffect(() => {
-    if (!focused) {
-      setDraft(urlQuery);
-    }
-  }, [urlQuery, focused]);
-
   const searchValue = focused ? draft : urlQuery;
   const suggestOpen = focused;
   const queryKey = draft.trim();
@@ -210,6 +204,7 @@ export function NavInlineSearch({
   };
 
   const closeSuggest = () => {
+    setDraft(urlQuery);
     setFocused(false);
     inputRef.current?.blur();
   };
