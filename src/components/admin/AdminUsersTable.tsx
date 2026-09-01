@@ -19,6 +19,17 @@ import {
 } from "@/components/admin/AdminUi";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import {
+  beginUserRowAction,
+  canBeginUserRowAction,
+  completeUserRowAction,
+  INITIAL_USER_ROW_PENDING_STATE,
+  isUserRowActionPending,
+  isUserRowBusy,
+  userSuspendActionId,
+  type UserRowPendingActionId,
+  type UserRowPendingState,
+} from "@/lib/admin/user-row-pending";
 import { formatDate } from "@/lib/date-utils";
 import type { AdminUserSummary } from "@/types/admin";
 
@@ -29,32 +40,74 @@ interface AdminUsersTableProps {
 
 export function AdminUsersTable({ users, currentAdminId }: AdminUsersTableProps) {
   const router = useRouter();
-  const [isPending, startTransition] = useTransition();
-  const [error, setError] = useState<string | null>(null);
+  const [pendingState, setPendingState] = useState<UserRowPendingState>(
+    INITIAL_USER_ROW_PENDING_STATE
+  );
+  const [actionError, setActionError] = useState<{
+    userId: string;
+    message: string;
+  } | null>(null);
+  const [, startTransition] = useTransition();
 
-  const run = (action: () => Promise<{ success: boolean; error?: string }>) => {
-    setError(null);
-    startTransition(async () => {
-      const result = await action();
-      if (result.success) {
-        router.refresh();
-        return;
+  function runUserAction(
+    userId: string,
+    action: UserRowPendingActionId,
+    actionFn: () => Promise<{ success: boolean; error?: string }>
+  ): Promise<{ success: boolean; error?: string }> {
+    let started = false;
+    setPendingState((current) => {
+      if (!canBeginUserRowAction(current, userId)) {
+        return current;
       }
-      setError(result.error ?? "Action failed.");
+      started = true;
+      return beginUserRowAction(current, userId, action);
     });
-  };
+
+    if (!started) {
+      return Promise.resolve({
+        success: false,
+        error: "Another action is already running for this user.",
+      });
+    }
+
+    const startedUserId = userId;
+    setActionError((current) =>
+      current?.userId === startedUserId ? null : current
+    );
+
+    return new Promise((resolve) => {
+      startTransition(async () => {
+        const result = await actionFn();
+        setPendingState((current) => completeUserRowAction(current));
+
+        if (!result.success) {
+          setActionError({
+            userId: startedUserId,
+            message: result.error ?? "Action failed.",
+          });
+          resolve(result);
+          return;
+        }
+
+        setActionError((current) =>
+          current?.userId === startedUserId ? null : current
+        );
+        router.refresh();
+        resolve(result);
+      });
+    });
+  }
+
+  function actionLabel(
+    userId: string,
+    action: UserRowPendingActionId,
+    label: string
+  ): string {
+    return isUserRowActionPending(pendingState, userId, action) ? "…" : label;
+  }
 
   return (
-    <>
-      {error ? (
-        <p
-          role="alert"
-          className="mb-3 rounded-lg bg-rose-500/15 px-3 py-2 text-sm text-rose-200"
-        >
-          {error}
-        </p>
-      ) : null}
-      <AdminTableShell minWidth="720px">
+    <AdminTableShell minWidth="720px">
       <AdminTableHead>
         <tr>
           <AdminTableTh>User</AdminTableTh>
@@ -65,24 +118,30 @@ export function AdminUsersTable({ users, currentAdminId }: AdminUsersTableProps)
         </tr>
       </AdminTableHead>
       <tbody>
-        {users.map((user) => (
-          <AdminTableRow key={user.id}>
-            <AdminTableCell>
-              <Link
-                href={`/admin/users/${user.id}`}
-                className="font-semibold text-[#6e46c7] hover:underline"
-              >
-                {user.displayName}
-              </Link>
-              <p className="text-xs text-white/70">
-                @{user.username} ·{" "}
+        {users.map((user) => {
+          const rowBusy = isUserRowBusy(pendingState, user.id);
+          const rowError =
+            actionError?.userId === user.id ? actionError.message : null;
+          const suspendAction = userSuspendActionId(user.isSuspended);
+
+          return (
+            <AdminTableRow key={user.id}>
+              <AdminTableCell>
                 <Link
-                  href={`/users/${user.username}`}
-                  className="hover:underline"
+                  href={`/admin/users/${user.id}`}
+                  className="font-semibold text-[#6e46c7] hover:underline"
                 >
-                  public profile
+                  {user.displayName}
                 </Link>
-              </p>
+                <p className="text-xs text-white/70">
+                  @{user.username} ·{" "}
+                  <Link
+                    href={`/users/${user.username}`}
+                    className="hover:underline"
+                  >
+                    public profile
+                  </Link>
+                </p>
                 <p className="text-xs text-white/70">{user.email}</p>
                 {user.isSuspended && (
                   <Badge variant="destructive" className="mt-1">
@@ -102,50 +161,79 @@ export function AdminUsersTable({ users, currentAdminId }: AdminUsersTableProps)
                 {formatDate(user.createdAt)}
               </AdminTableCell>
               <AdminTableCell>
-                <div className="flex flex-wrap gap-2">
-                  {user.role === "USER" ? (
+                <div className="flex flex-col gap-2">
+                  <div className="flex flex-wrap gap-2">
+                    {user.role === "USER" ? (
+                      <Button
+                        size="xs"
+                        variant="outline"
+                        disabled={rowBusy}
+                        onClick={() =>
+                          runUserAction(user.id, "promote", () =>
+                            promoteUserAction(user.id)
+                          )
+                        }
+                      >
+                        {actionLabel(user.id, "promote", "Promote")}
+                      </Button>
+                    ) : (
+                      <Button
+                        size="xs"
+                        variant="outline"
+                        disabled={rowBusy || user.id === currentAdminId}
+                        onClick={() =>
+                          runUserAction(user.id, "demote", () =>
+                            demoteUserAction(user.id)
+                          )
+                        }
+                      >
+                        {actionLabel(user.id, "demote", "Demote")}
+                      </Button>
+                    )}
                     <Button
                       size="xs"
                       variant="outline"
-                      disabled={isPending}
-                      onClick={() => run(() => promoteUserAction(user.id))}
+                      disabled={rowBusy || user.id === currentAdminId}
+                      onClick={() =>
+                        runUserAction(user.id, suspendAction, () =>
+                          suspendUserAction(user.id, !user.isSuspended)
+                        )
+                      }
                     >
-                      Promote
+                      {actionLabel(
+                        user.id,
+                        suspendAction,
+                        user.isSuspended ? "Unsuspend" : "Suspend"
+                      )}
                     </Button>
-                  ) : (
-                    <Button
-                      size="xs"
-                      variant="outline"
-                      disabled={isPending || user.id === currentAdminId}
-                      onClick={() => run(() => demoteUserAction(user.id))}
+                    {user.id !== currentAdminId && (
+                      <AdminConfirmDialog
+                        title="Delete user"
+                        description={`Delete ${user.displayName}? Only allowed if they have no reviews.`}
+                        confirmLabel="Delete"
+                        disabled={rowBusy}
+                        onConfirm={() =>
+                          runUserAction(user.id, "delete", () =>
+                            deleteUserAction(user.id)
+                          )
+                        }
+                      />
+                    )}
+                  </div>
+                  {rowError ? (
+                    <p
+                      role="alert"
+                      className="text-xs text-rose-200"
                     >
-                      Demote
-                    </Button>
-                  )}
-                  <Button
-                    size="xs"
-                    variant="outline"
-                    disabled={isPending || user.id === currentAdminId}
-                    onClick={() =>
-                      run(() => suspendUserAction(user.id, !user.isSuspended))
-                    }
-                  >
-                    {user.isSuspended ? "Unsuspend" : "Suspend"}
-                  </Button>
-                  {user.id !== currentAdminId && (
-                    <AdminConfirmDialog
-                      title="Delete user"
-                      description={`Delete ${user.displayName}? Only allowed if they have no reviews.`}
-                      confirmLabel="Delete"
-                      onConfirm={() => deleteUserAction(user.id)}
-                    />
-                  )}
+                      {rowError}
+                    </p>
+                  ) : null}
                 </div>
               </AdminTableCell>
             </AdminTableRow>
-          ))}
-        </tbody>
-      </AdminTableShell>
-    </>
+          );
+        })}
+      </tbody>
+    </AdminTableShell>
   );
 }
