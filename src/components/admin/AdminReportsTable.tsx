@@ -112,7 +112,7 @@ function ReportRow({ report }: { report: ReportSummary }) {
               onChange={(e) => setResolution(e.target.value)}
               placeholder="Resolution note (optional)"
               disabled={isPending}
-              className="h-8 rounded-lg border-[#14111f]/10 text-xs"
+              className="h-9 rounded-xl border-white/10 bg-white/[0.06] text-sm text-white placeholder:text-white/35"
             />
             <div className="flex flex-wrap gap-2">
               {remediationOptions.map((option) => (

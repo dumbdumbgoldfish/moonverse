@@ -13,7 +13,7 @@ import { AdminScrollPanel, AdminTabs } from "@/components/admin/AdminLayoutPrimi
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { ADMIN_FILTER_CHIP_ACTIVE, ADMIN_FILTER_CHIP_BASE, ADMIN_FILTER_CHIP_IDLE, ADMIN_FILTER_CHIP_ROW_CLASS, ADMIN_FORM_CARD_CLASS } from "@/components/admin/admin-styles";
+import { ADMIN_FILTER_CHIP_ACTIVE, ADMIN_FILTER_CHIP_BASE, ADMIN_FILTER_CHIP_IDLE, ADMIN_FILTER_CHIP_ROW_CLASS, ADMIN_FORM_CARD_CLASS, ADMIN_LIGHT_FIELD_CLASS } from "@/components/admin/admin-styles";
 import {
   AdminTableCell,
   AdminTableHead,
@@ -276,7 +276,7 @@ export function AdminNovelsManager({
             value={mergeSourceId}
             onChange={(e) => setMergeSourceId(e.target.value)}
             disabled={isPending}
-            className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
+            className={ADMIN_LIGHT_FIELD_CLASS}
           >
             <option value="">Select novel…</option>
             {novels.map((novel) => (
@@ -294,7 +294,7 @@ export function AdminNovelsManager({
             value={mergeTargetId}
             onChange={(e) => setMergeTargetId(e.target.value)}
             disabled={isPending}
-            className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
+            className={ADMIN_LIGHT_FIELD_CLASS}
           >
             <option value="">Select novel…</option>
             {novels.map((novel) => (

@@ -27,6 +27,7 @@ import {
   isReadingLinkRowBusy,
   mergeReadingLinkRowPatches,
   readingLinkHealthBadgeVariant,
+  readingLinkHealthBadgeClassName,
   type ReadingLinkHealthCheckUiState,
   type ReadingLinkRowPatch,
   type ReadingLinkRowPendingOperation,
@@ -268,7 +269,10 @@ export function AdminReadingLinksTable({ links }: AdminReadingLinksTableProps) {
               </Badge>
             </AdminTableCell>
             <AdminTableCell>
-              <Badge variant={readingLinkHealthBadgeVariant(link.healthStatus)}>
+              <Badge
+                variant={readingLinkHealthBadgeVariant(link.healthStatus)}
+                className={readingLinkHealthBadgeClassName(link.healthStatus)}
+              >
                 {link.healthStatus.replace(/_/g, " ")}
               </Badge>
               {link.lastCheckedAt ? (

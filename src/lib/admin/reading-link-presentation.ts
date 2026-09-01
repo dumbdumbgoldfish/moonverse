@@ -17,6 +17,15 @@ export function readingLinkHealthBadgeVariant(
   return HEALTH_VARIANTS[healthStatus] ?? "outline";
 }
 
+export function readingLinkHealthBadgeClassName(
+  healthStatus: string
+): string | undefined {
+  if (healthStatus === "STALE") {
+    return "border-amber-400/25 bg-amber-500/15 text-amber-200";
+  }
+  return undefined;
+}
+
 /** Apply a server mutation to exactly one reading-link row by stable id. */
 export function patchReadingLinkRowById<T extends { id: string }>(
   rows: T[],

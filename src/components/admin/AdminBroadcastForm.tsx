@@ -47,7 +47,7 @@ export function AdminBroadcastForm() {
           </p>
         ) : null}
         {success ? (
-          <p className="text-sm text-emerald-700" role="status">
+          <p className="text-sm text-success" role="status">
             {success}
           </p>
         ) : null}

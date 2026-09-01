@@ -10,6 +10,7 @@ import {
   mergeReadingLinkRowPatches,
   patchReadingLinkRowById,
   readingLinkHealthBadgeVariant,
+  readingLinkHealthBadgeClassName,
   type ReadingLinkHealthCheckUiState,
 } from "@/lib/admin/reading-link-presentation";
 
@@ -20,6 +21,13 @@ describe("readingLinkHealthBadgeVariant", () => {
 
   it("uses a neutral outline for unknown future statuses", () => {
     assert.equal(readingLinkHealthBadgeVariant("UNRECOGNIZED"), "outline");
+  });
+
+  it("styles STALE health with amber warning classes", () => {
+    assert.equal(
+      readingLinkHealthBadgeClassName("STALE"),
+      "border-amber-400/25 bg-amber-500/15 text-amber-200"
+    );
   });
 });
 
