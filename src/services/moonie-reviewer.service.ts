@@ -1,12 +1,14 @@
 import { db } from "@/lib/db";
 import { getInitials } from "@/lib/review-utils";
 import {
+  extractAtUsernameQuery,
   extractNamedReviewerQuery,
   extractReviewerLookupQuery,
   extractReviewerResultLimit,
   isReviewerAuthoredReviewsMessage,
   isReviewerFolderRequest,
   isReviewerListRequest,
+  messageReferencesActiveReviewer,
   messageReferencesReviewerGroup,
   pickReviewerByOrdinal,
   resolveReviewerOrdinalFromMessage,
@@ -17,7 +19,7 @@ import { buildMoonieReviewerFolderReply } from "@/lib/moonie/reviewer-folder-rep
 import { isFollowing } from "@/services/follow-queries";
 import { getFoldersByUser } from "@/services/folder.service";
 import { getReviewsByUserId } from "@/services/review.service";
-import { getUserById, searchUsers } from "@/services/user.service";
+import { getUserById, getUserByUsername, searchUsers } from "@/services/user.service";
 import type {
   MoonieRecommendResponse,
   MoonieReviewerGroupItem,
@@ -271,19 +273,53 @@ export async function buildMoonieReviewerOverviewResponse(options: {
   userId?: string;
   reviewerSession?: MoonieReviewerSession | null;
   activeReviewerId?: string | null;
+  activeReviewerUsername?: string | null;
   emphasizeAuthoredReviews?: boolean;
 }): Promise<MoonieRecommendResponse> {
+  const explicitAtUsername = extractAtUsernameQuery(options.message);
   const namedQuery =
     extractNamedReviewerQuery(options.message) ??
     extractReviewerLookupQuery(options.message);
   let targetId: string | null = null;
   let session = options.reviewerSession ?? null;
 
-  const fromSession = resolveTargetReviewerFromSession({
-    message: options.message,
-    session,
-    activeReviewerId: options.activeReviewerId,
-  });
+  if (explicitAtUsername) {
+    const normalizedAt = explicitAtUsername.trim().replace(/^@/, "");
+    const exactUser = await getUserByUsername(normalizedAt);
+    if (!exactUser) {
+      return {
+        reply: `I couldn't find a MoonVerse reviewer matching @${normalizedAt}.`,
+        recommendations: [],
+        responseKind: "chat",
+        consumesQuota: true,
+      };
+    }
+    targetId = exactUser.id;
+    session = {
+      reviewers: [
+        {
+          id: exactUser.id,
+          displayName: exactUser.displayName,
+          username: exactUser.username,
+          avatarInitials: getInitials(exactUser.displayName),
+          avatarUrl: exactUser.avatarUrl,
+          reviewCount: exactUser.reviewCount,
+          followerCount: exactUser.followerCount,
+        },
+      ],
+      rankBy: "reviews",
+      queryType: "lookup",
+      activeReviewerId: exactUser.id,
+    };
+  }
+
+  const fromSession = targetId
+    ? null
+    : resolveTargetReviewerFromSession({
+        message: options.message,
+        session,
+        activeReviewerId: options.activeReviewerId,
+      });
 
   const wantsGroupOverview =
     session &&
@@ -310,7 +346,7 @@ export async function buildMoonieReviewerOverviewResponse(options: {
 
   if (fromSession) {
     targetId = fromSession.id;
-  } else if (namedQuery) {
+  } else if (!targetId && namedQuery) {
     const normalizedQuery = namedQuery.trim().replace(/^@/, "");
     const users = await searchUsers(normalizedQuery, 5, 0, options.userId);
     const exactUsername = users.find(
@@ -375,6 +411,17 @@ export async function buildMoonieReviewerOverviewResponse(options: {
         consumesQuota: true,
         reviewerSession: session ?? undefined,
       };
+    }
+
+    const contextUsername = options.activeReviewerUsername?.trim();
+    if (
+      contextUsername &&
+      messageReferencesActiveReviewer(options.message)
+    ) {
+      const contextUser = await getUserByUsername(contextUsername);
+      if (contextUser) {
+        targetId = contextUser.id;
+      }
     }
 
     const ordinal = resolveReviewerOrdinalFromMessage(options.message);

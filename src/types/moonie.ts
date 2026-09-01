@@ -90,6 +90,7 @@ export type MoonieRankingMetric =
   | "review_rating"
   | "review_helpful"
   | "review_recent"
+  | "review_oldest"
   | "novel_review_count"
   | "novel_average_rating";
 
@@ -461,6 +462,7 @@ export interface MoonieChatMessage {
   rankingMetric?: MoonieRankingMetric | null;
   requestedCount?: number;
   explicitCountedReviews?: boolean;
+  lookupContextSuppressed?: boolean;
 }
 
 export type MoonieUserAttachmentType = "image" | "file" | "voice";
@@ -515,6 +517,7 @@ export interface MoonieRecommendResponse {
   rankingMetric?: MoonieRankingMetric | null;
   requestedCount?: number;
   explicitCountedReviews?: boolean;
+  lookupContextSuppressed?: boolean;
 }
 
 export interface MoonieRecommendErrorResponse {

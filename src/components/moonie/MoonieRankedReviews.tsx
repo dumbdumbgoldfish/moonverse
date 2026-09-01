@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { CatalogLink } from "@/components/ui/CatalogLink";
-import { MOONIE_CHAT_ATTACHMENT_CARD } from "@/components/moonie/moonie-chat-bubble-styles";
+import { MOONIE_CHAT_ATTACHMENT_CARD, MOONIE_CHAT_REVIEW_CARD_STACK } from "@/components/moonie/moonie-chat-bubble-styles";
 import type { MoonieCardDensity } from "@/lib/moonie/presentation";
 import { cn } from "@/lib/utils";
 import type { MoonieRankedReview } from "@/types/moonie";
@@ -19,7 +19,13 @@ export function MoonieRankedReviews({
   const isWidget = density === "widget";
 
   return (
-    <div className={cn(isWidget ? "space-y-1.5" : "space-y-3", className)}>
+    <div
+      className={cn(
+        MOONIE_CHAT_REVIEW_CARD_STACK,
+        isWidget && "gap-2",
+        className
+      )}
+    >
       {reviews.map((review) => (
         <article
           key={review.id}

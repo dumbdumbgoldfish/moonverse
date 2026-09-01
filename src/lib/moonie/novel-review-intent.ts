@@ -9,7 +9,9 @@ export type NovelScopedReviewRequestKind =
   | "list"
   | "ranked"
   | "who_reviewed"
-  | "spoiler_free_list";
+  | "spoiler_free_list"
+  | "review_link"
+  | "review_links";
 
 export interface NovelScopedReviewRequest {
   kind: NovelScopedReviewRequestKind;
@@ -18,6 +20,8 @@ export interface NovelScopedReviewRequest {
   count: number;
   spoilerFreeOnly: boolean;
   usesActiveNovelContext: boolean;
+  /** True for "give me N reviews of X" — scoped cards only, no aggregate block. */
+  explicitCountRequest?: boolean;
 }
 
 const WHO_REVIEWED_ACTIVE_RE =
@@ -29,10 +33,24 @@ const WHO_REVIEWED_TITLE_RE =
 const SPOILER_FREE_REVIEWS_RE =
   /^(?:(?:give|get|show)(?:\s+me)?\s+)?spoiler[- ]free\s+reviews?\s+(?:for|of)\s+(.+?)\s*$/i;
 
+const SINGULAR_REVIEW_LINK_RE =
+  /^(?:(?:give|get|send|show)(?:\s+me)?\s+)?(?:the\s+)?review\s+link\s+(?:for|of)\s+(.+?)\s*$/i;
+
+const PLURAL_REVIEW_LINKS_RE =
+  /^(?:(?:give|get|send|show)(?:\s+me)?\s+)?review\s+links?\s+(?:for|of)\s+(.+?)\s*$/i;
+
+const COUNTED_REVIEWS_RE =
+  /^(?:(?:give|get|show)(?:\s+me)?\s+)?(?:the\s+)?(\d{1,2}|one|two|three|four|five|six|seven|eight|nine|ten)\s+reviews?\s+(?:for|of)\s+(.+?)\s*$/i;
+
 const RANKED_REVIEW_PATTERNS: Array<{
   metric: NovelReviewRankingMetric;
   pattern: RegExp;
 }> = [
+  {
+    metric: "review_oldest",
+    pattern:
+      /^(?:(?:give|get|show)(?:\s+me)?\s+)?(?:the\s+)?(?:oldest|earliest|first[- ]published)\s+review\s+(?:for|of)\s+(.+?)\s*$/i,
+  },
   {
     metric: "review_rating",
     pattern:
@@ -67,6 +85,30 @@ const RANKED_REVIEW_PATTERNS: Array<{
 
 const TOP_COUNTED_REVIEWS_RE =
   /^(?:(?:give|get|show)(?:\s+me)?\s+)?(?:the\s+)?top\s+(\d{1,2})\s+reviews?\s+(?:for|of)\s+(.+?)\s*$/i;
+
+const BARE_COUNTED_REVIEWS_RE =
+  /^(?:(?:give|get|show)(?:\s+me)?\s+)?(?:the\s+)?(\d{1,2}|one|two|three|four|five|six|seven|eight|nine|ten)\s+reviews?\s*[?.!]*$/i;
+
+const WORD_COUNTS: Record<string, number> = {
+  one: 1,
+  two: 2,
+  three: 3,
+  four: 4,
+  five: 5,
+  six: 6,
+  seven: 7,
+  eight: 8,
+  nine: 9,
+  ten: 10,
+};
+
+function parseReviewCountToken(token: string): number {
+  const parsed = Number.parseInt(token, 10);
+  if (!Number.isNaN(parsed)) {
+    return Math.min(20, Math.max(1, parsed));
+  }
+  return WORD_COUNTS[token.toLowerCase()] ?? 1;
+}
 
 function parseNovelQuery(candidate: string): string | null {
   const normalized = normalizeLookupTitle(candidate.trim());
@@ -109,6 +151,34 @@ export function resolveNovelScopedReviewRequest(
     };
   }
 
+  const singularLink = text.match(SINGULAR_REVIEW_LINK_RE);
+  if (singularLink?.[1]) {
+    const novelQuery = parseNovelQuery(singularLink[1]);
+    if (!novelQuery) return null;
+    return {
+      kind: "review_link",
+      novelQuery,
+      metric: "review_recent",
+      count: 10,
+      spoilerFreeOnly: false,
+      usesActiveNovelContext: false,
+    };
+  }
+
+  const pluralLinks = text.match(PLURAL_REVIEW_LINKS_RE);
+  if (pluralLinks?.[1]) {
+    const novelQuery = parseNovelQuery(pluralLinks[1]);
+    if (!novelQuery) return null;
+    return {
+      kind: "review_links",
+      novelQuery,
+      metric: "review_recent",
+      count: 10,
+      spoilerFreeOnly: false,
+      usesActiveNovelContext: false,
+    };
+  }
+
   const spoilerFree = text.match(SPOILER_FREE_REVIEWS_RE);
   if (spoilerFree?.[1]) {
     const novelQuery = parseNovelQuery(spoilerFree[1]);
@@ -120,6 +190,21 @@ export function resolveNovelScopedReviewRequest(
       count: 10,
       spoilerFreeOnly: true,
       usesActiveNovelContext: false,
+    };
+  }
+
+  const counted = text.match(COUNTED_REVIEWS_RE);
+  if (counted?.[1] && counted[2]) {
+    const novelQuery = parseNovelQuery(counted[2]);
+    if (!novelQuery) return null;
+    return {
+      kind: "list",
+      novelQuery,
+      metric: "review_recent",
+      count: parseReviewCountToken(counted[1]),
+      spoilerFreeOnly: false,
+      usesActiveNovelContext: false,
+      explicitCountRequest: true,
     };
   }
 
@@ -135,6 +220,7 @@ export function resolveNovelScopedReviewRequest(
       count,
       spoilerFreeOnly: false,
       usesActiveNovelContext: false,
+      explicitCountRequest: true,
     };
   }
 
@@ -151,6 +237,19 @@ export function resolveNovelScopedReviewRequest(
       count: plural ? 10 : 1,
       spoilerFreeOnly: false,
       usesActiveNovelContext: false,
+    };
+  }
+
+  const bareCounted = text.match(BARE_COUNTED_REVIEWS_RE);
+  if (bareCounted?.[1]) {
+    return {
+      kind: "list",
+      novelQuery: null,
+      metric: "review_recent",
+      count: parseReviewCountToken(bareCounted[1]),
+      spoilerFreeOnly: false,
+      usesActiveNovelContext: true,
+      explicitCountRequest: true,
     };
   }
 

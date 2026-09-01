@@ -19,9 +19,13 @@ import {
 import {
   classifyMoonieIntents,
   isBareReadingLinkRequest,
-  isBareReviewRequestWithoutNovel,
   isBareCommunityConsensusRequestWithoutNovel,
   isCommunityPeopleQuery,
+  isExplicitUnresolvableNovelLookup,
+  extractExplicitNovelLookupFragment,
+  formatBareReviewRequestClarification,
+  resolveBareReviewRequest,
+  unresolvableNovelLookupReply,
   isCompareTheseMessage,
   isConstraintRelaxationRequest,
   isHardConstraintFollowUpMessage,
@@ -50,6 +54,7 @@ import {
   primaryRetrievalIntent,
   resolveLookupTitleQuery,
   resolveNovelFactualFieldQuestion,
+  resolveEmbeddedNovelFactualQuestion,
   resolveOrdinalIndex,
   shouldSkipTasteExtraction,
   type MoonieIntent,
@@ -166,9 +171,21 @@ import {
 } from "@/services/moonie-novel-reviews.service";
 import {
   buildNovelReviewsListResponse,
+  buildNovelReviewLinksResponse,
   buildNovelScopedReviewsResponse,
   resolveNovelForScopedReviewRequest,
 } from "@/services/moonie-novel-scoped-reviews.service";
+import {
+  buildTypedConversationContext,
+  isNovelLookupContextSuppressed,
+  isNovelOrdinalFollowUpMessage,
+  isReviewAuthorFollowUpMessage,
+  resolveRecommendationOrdinalNovel,
+  resolveNovelAuthorFromRecentRecommendations,
+  resolveReviewAuthorFromTypedContext,
+  reviewAuthorFollowUpClarification,
+  reviewAuthorFollowUpSupersededByRecommendations,
+} from "@/lib/moonie/follow-up-context";
 import { isMoonieDeskChipPrompt } from "@/lib/moonie/desk";
 import {
   parseSimilarityRequest,
@@ -313,6 +330,7 @@ function identificationToResponse(
     factualField?: import("@/lib/moonie/intent").NovelFactualField | null;
     interpretedPreferences?: MoonieInterpretedPreferences;
     spoilerMode?: MoonieSpoilerMode;
+    lookupContextSuppressed?: boolean;
   }
 ): MoonieRecommendResponse {
   if (result.mode === "high_confidence" && result.recommendation && result.overview) {
@@ -337,12 +355,13 @@ function identificationToResponse(
     return {
       reply,
       recommendations:
-        options?.emphasizeReviews && !options?.emphasizeReadingLink
+        options?.factualField ||
+        (options?.emphasizeReviews && !options?.emphasizeReadingLink)
           ? []
           : [result.recommendation],
       novelOverview: result.overview,
       lookupSession: result.session,
-      responseKind: "novel_bundle",
+      responseKind: options?.factualField ? "chat" : "novel_bundle",
       followUpQuestion: result.followUpQuestion,
       interpretedPreferences: options?.interpretedPreferences,
       spoilerMode: options?.spoilerMode,
@@ -375,6 +394,7 @@ function identificationToResponse(
     interpretedPreferences: options?.interpretedPreferences,
     spoilerMode: options?.spoilerMode,
     consumesQuota: result.consumesQuota ?? false,
+    lookupContextSuppressed: options?.lookupContextSuppressed ?? false,
   };
 }
 
@@ -387,10 +407,12 @@ async function identificationToResponseWithReviews(
     factualField?: import("@/lib/moonie/intent").NovelFactualField | null;
     interpretedPreferences?: MoonieInterpretedPreferences;
     spoilerMode?: MoonieSpoilerMode;
+    lookupContextSuppressed?: boolean;
   }
 ): Promise<MoonieRecommendResponse> {
   if (
     options?.emphasizeReviews &&
+    !options?.factualField &&
     result.mode === "high_confidence" &&
     result.overview
   ) {
@@ -430,6 +452,15 @@ async function handleScopedNovelReviewRequest(
   let lookupSession: import("@/types/moonie").MoonieLookupSession | undefined;
 
   if (scoped.usesActiveNovelContext && conversationContext.activeNovelId) {
+    if (isNovelLookupContextSuppressed(ctx.messages)) {
+      return {
+        reply: formatBareReviewRequestClarification(scoped.count),
+        recommendations: [],
+        responseKind: "chat",
+        consumesQuota: false,
+        spoilerMode,
+      };
+    }
     const bundle = await buildNovelBundle({
       novelId: conversationContext.activeNovelId,
       userId: ctx.userId,
@@ -463,7 +494,7 @@ async function handleScopedNovelReviewRequest(
     lookupSession = resolved.lookupSession;
   } else {
     return {
-      reply: "Which novel should I check reviews for? Name the title or ask after a recommendation card.",
+      reply: formatBareReviewRequestClarification(scoped.count),
       recommendations: [],
       responseKind: "chat",
       consumesQuota: false,
@@ -482,6 +513,19 @@ async function handleScopedNovelReviewRequest(
       count: scoped.count,
       spoilerMode,
       whoReviewed: true,
+      lookupSession,
+    });
+  }
+
+  if (scoped.kind === "review_link" || scoped.kind === "review_links") {
+    return buildNovelReviewLinksResponse({
+      novelId: novelId!,
+      title: title!,
+      overview,
+      metric,
+      count: scoped.count,
+      spoilerMode,
+      singular: scoped.kind === "review_link",
       lookupSession,
     });
   }
@@ -508,6 +552,7 @@ async function handleScopedNovelReviewRequest(
       count: scoped.count,
       spoilerMode,
       lookupSession,
+      explicitCountRequest: true,
     });
   }
 
@@ -519,6 +564,7 @@ async function handleScopedNovelReviewRequest(
     count: scoped.count,
     spoilerMode,
     lookupSession,
+    explicitCountRequest: scoped.explicitCountRequest ?? false,
   });
 }
 
@@ -816,6 +862,153 @@ export async function handleMoonieRequest(
       analyticsIntent: "REFINE",
       followUpQuestion: null,
     };
+  }
+
+  if (isReviewAuthorFollowUpMessage(ctx.message)) {
+    const typedContext = buildTypedConversationContext(ctx.messages);
+
+    if (reviewAuthorFollowUpSupersededByRecommendations(ctx.message, typedContext)) {
+      const novelAuthor = resolveNovelAuthorFromRecentRecommendations({
+        message: ctx.message,
+        typed: typedContext,
+      });
+      if (novelAuthor.clarification) {
+        return {
+          reply: novelAuthor.clarification,
+          recommendations: [],
+          responseKind: "chat",
+          consumesQuota: false,
+          spoilerMode,
+          analyticsIntent: "NOVEL_OVERVIEW",
+        };
+      }
+      if (novelAuthor.title && novelAuthor.author) {
+        return {
+          reply: `**${novelAuthor.title}** was written by **${novelAuthor.author}**.`,
+          recommendations: [],
+          responseKind: "chat",
+          consumesQuota: false,
+          spoilerMode,
+          analyticsIntent: "NOVEL_OVERVIEW",
+        };
+      }
+      return {
+        reply: reviewAuthorFollowUpClarification(),
+        recommendations: [],
+        responseKind: "chat",
+        consumesQuota: false,
+        spoilerMode,
+        analyticsIntent: "NOVEL_REVIEWS",
+      };
+    }
+
+    const { review, ambiguous, missingContext } =
+      resolveReviewAuthorFromTypedContext({
+        message: ctx.message,
+        typed: typedContext,
+      });
+    if (missingContext) {
+      return {
+        reply: reviewAuthorFollowUpClarification(),
+        recommendations: [],
+        responseKind: "chat",
+        consumesQuota: false,
+        spoilerMode,
+        analyticsIntent: "NOVEL_REVIEWS",
+      };
+    }
+    if (ambiguous) {
+      return {
+        reply:
+          "Which review do you mean? Say **first review**, **second review**, or name the reviewer.",
+        recommendations: [],
+        responseKind: "chat",
+        consumesQuota: false,
+        spoilerMode,
+        analyticsIntent: "NOVEL_REVIEWS",
+      };
+    }
+    if (review) {
+      const profileSuffix = review.reviewerUsername
+        ? ` (@${review.reviewerUsername})`
+        : "";
+      return {
+        reply: `**${review.title}** was written by **${review.reviewerName}**${profileSuffix}.`,
+        recommendations: [],
+        rankedReviews: [review],
+        responseKind: "chat",
+        consumesQuota: false,
+        spoilerMode,
+        analyticsIntent: "NOVEL_REVIEWS",
+      };
+    }
+  }
+
+  if (isExplicitUnresolvableNovelLookup(ctx.message)) {
+    return {
+      reply: unresolvableNovelLookupReply(),
+      recommendations: [],
+      responseKind: "chat",
+      consumesQuota: false,
+      spoilerMode,
+      lookupContextSuppressed: true,
+      analyticsIntent: "FIND_NOVEL",
+    };
+  }
+
+  if (isNovelOrdinalFollowUpMessage(ctx.message)) {
+    const typedContext = buildTypedConversationContext(ctx.messages);
+    const ordinalNovel = resolveRecommendationOrdinalNovel({
+      message: ctx.message,
+      typed: typedContext,
+    });
+    if (ordinalNovel) {
+      const bundle = await buildNovelBundle({
+        novelId: ordinalNovel.novelId,
+        userId: ctx.userId,
+        spoilerMode,
+      });
+      if (bundle.overview) {
+        return {
+          reply: formatNovelBundleReply({ overview: bundle.overview }),
+          recommendations: bundle.recommendation ? [bundle.recommendation] : [],
+          novelOverview: bundle.overview,
+          responseKind: "novel_bundle",
+          consumesQuota: true,
+          spoilerMode,
+          analyticsIntent: "NOVEL_OVERVIEW",
+        };
+      }
+    }
+  }
+
+  const activeNovelFactualField = resolveNovelFactualFieldQuestion(ctx.message);
+  if (
+    activeNovelFactualField &&
+    conversationContext.activeNovelId &&
+    !resolveEmbeddedNovelFactualQuestion(ctx.message) &&
+    !extractNovelQuery(ctx.message) &&
+    !extractReviewNovelQuery(ctx.message)
+  ) {
+    const bundle = await buildNovelBundle({
+      novelId: conversationContext.activeNovelId,
+      userId: ctx.userId,
+      spoilerMode,
+    });
+    if (bundle.overview) {
+      return {
+        reply: formatNovelFactualFieldReply(
+          bundle.overview,
+          activeNovelFactualField
+        ),
+        recommendations: [],
+        novelOverview: bundle.overview,
+        responseKind: "chat",
+        consumesQuota: true,
+        spoilerMode,
+        analyticsIntent: "NOVEL_OVERVIEW",
+      };
+    }
   }
 
   const intents = classifyMoonieIntents(ctx.message, {
@@ -1384,21 +1577,29 @@ export async function handleMoonieRequest(
     !conversationContext.activeReviewerId &&
     !conversationContext.reviewerReviewSession;
 
+  const bareReviewRequest = resolveBareReviewRequest(ctx.message);
+
   if (
-    isBareReviewRequestWithoutNovel(ctx.message) ||
+    bareReviewRequest ||
     (intents.includes("NOVEL_REVIEWS") &&
       !extractReviewNovelQuery(ctx.message) &&
       !isReviewFollowUpMessage(ctx.message) &&
       !isPluralNovelReviewReference(ctx.message) &&
       !isAmbiguousPluralNovelReviewReference(ctx.message))
   ) {
-    return attach({
-      reply: "Which novel would you like to see reviews for?",
-      recommendations: [],
-      responseKind: "chat",
-      consumesQuota: false,
-      spoilerMode,
-    }, "NOVEL_REVIEWS");
+    const reviewCount = bareReviewRequest?.count ?? 10;
+    if (
+      !conversationContext.activeNovelId ||
+      isNovelLookupContextSuppressed(ctx.messages)
+    ) {
+      return attach({
+        reply: formatBareReviewRequestClarification(reviewCount),
+        recommendations: [],
+        responseKind: "chat",
+        consumesQuota: false,
+        spoilerMode,
+      }, "NOVEL_REVIEWS");
+    }
   }
 
   if (isAmbiguousPluralNovelReviewReference(ctx.message)) {
@@ -1604,6 +1805,9 @@ export async function handleMoonieRequest(
       personalization: ctx.personalization,
       recentSearches: ctx.recentSearches,
       spoilerMode,
+      take: parsedSimilarity
+        ? parseRequestedRecommendationCount(ctx.message) ?? undefined
+        : undefined,
     });
     result = await polishExplanationsWithOpenAI(
       ctx.message,
@@ -1664,6 +1868,7 @@ export async function handleMoonieRequest(
       userId: ctx.userId,
       reviewerSession: conversationContext.reviewerSession,
       activeReviewerId: conversationContext.activeReviewerId,
+      activeReviewerUsername: conversationContext.activeReviewerUsername,
       emphasizeAuthoredReviews: isReviewerAuthoredReviewsMessage(ctx.message),
     });
     return attach(reviewerResponse, "REVIEWER_OVERVIEW");
@@ -1989,6 +2194,7 @@ export async function handleMoonieRequest(
           ))));
 
   if (wantsNovelLookup) {
+    const embeddedFactual = resolveEmbeddedNovelFactualQuestion(ctx.message);
     const novelContextOnly =
       isNovelContextFollowUpMessage(ctx.message) &&
       !extractReviewNovelQuery(ctx.message) &&
@@ -1996,15 +2202,33 @@ export async function handleMoonieRequest(
     const extractedTitle = novelContextOnly
       ? null
       : resolveLookupTitleQuery(ctx.message, intents);
+    const explicitFragment = extractExplicitNovelLookupFragment(ctx.message);
+    const lookupSuppressed = isNovelLookupContextSuppressed(ctx.messages);
+    const blockActiveNovelFallback =
+      lookupSuppressed || (explicitFragment != null && !extractedTitle);
     const titleQuery =
+      embeddedFactual?.title ??
       extractedTitle ??
-      (conversationContext.activeNovelId && usesActiveNovelContext
+      (conversationContext.activeNovelId &&
+      usesActiveNovelContext &&
+      !blockActiveNovelFallback
         ? conversationContext.activeNovelTitle ?? undefined
         : undefined);
 
     const lookupPrefs = skipTasteExtraction
       ? EMPTY_INTERPRETED_PREFERENCES
       : prefs;
+
+    if (explicitFragment && !titleQuery && !embeddedFactual) {
+      return attach({
+        reply: unresolvableNovelLookupReply(),
+        recommendations: [],
+        responseKind: "chat",
+        consumesQuota: false,
+        spoilerMode,
+        lookupContextSuppressed: true,
+      }, "FIND_NOVEL");
+    }
 
     if (isPartialMemoryQuery(ctx.message) && !titleQuery) {
       const partial = await identifyFromPartialMemory({
@@ -2056,7 +2280,8 @@ export async function handleMoonieRequest(
       conversationContext.activeNovelId &&
       usesActiveNovelContext &&
       hasAnchoredNovel &&
-      !extractedTitle
+      !extractedTitle &&
+      !blockActiveNovelFallback
     ) {
       const bundle = await buildNovelBundle({
         novelId: conversationContext.activeNovelId,
@@ -2130,7 +2355,9 @@ export async function handleMoonieRequest(
       })
     );
 
-    const factualField = resolveNovelFactualFieldQuestion(ctx.message);
+    const factualField =
+      embeddedFactual?.field ??
+      resolveNovelFactualFieldQuestion(ctx.message);
     const response = await identificationToResponseWithReviews(identification, {
       emphasizeReadingLink: wantsReadingLink,
       emphasizeReviews: wantsReviews,
@@ -2140,6 +2367,9 @@ export async function handleMoonieRequest(
       factualField,
       interpretedPreferences: lookupPrefs,
       spoilerMode,
+      lookupContextSuppressed:
+        identification.mode === "no_match" &&
+        Boolean(extractedTitle || explicitFragment),
     });
 
     if (

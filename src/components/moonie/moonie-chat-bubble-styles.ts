@@ -9,6 +9,10 @@ export const MOONIE_CHAT_ATTACHMENT_INDENT =
 export const MOONIE_CHAT_CARD_STACK =
   "grid min-w-0 w-full max-w-sm gap-3";
 
+/** Vertical stack for scoped review cards in chat attachments. */
+export const MOONIE_CHAT_REVIEW_CARD_STACK =
+  "flex min-w-0 w-full flex-col gap-4";
+
 /** 16px gap between the comparison panel and the novel-card group. */
 export const MOONIE_COMPARE_ATTACHMENT_STACK =
   "flex min-w-0 flex-col gap-4";

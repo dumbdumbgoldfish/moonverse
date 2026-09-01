@@ -575,10 +575,11 @@ export function formatNovelFactualFieldReply(
       }
       return `**${title}** has a **${community.averageRating.toFixed(1)}/5** average rating on MoonVerse across ${community.reviewCount} review${community.reviewCount === 1 ? "" : "s"}.`;
     case "review_count":
-      return formatNovelBundleReply({
-        overview,
-        emphasizeReviews: true,
-      });
+      const reviewCommunity = overview.community;
+      if (!reviewCommunity || reviewCommunity.reviewCount === 0) {
+        return `There aren't any public MoonVerse reviews for **${title}** yet.`;
+      }
+      return `**${title}** has **${reviewCommunity.reviewCount}** public MoonVerse review${reviewCommunity.reviewCount === 1 ? "" : "s"}.`;
     case "reading_link":
       return formatNovelBundleReply({
         overview,

@@ -64,6 +64,7 @@ export function hydrateStoredAssistantMeta(
   rankingMetric: import("@/types/moonie").MoonieRankingMetric | undefined;
   requestedCount: number | undefined;
   explicitCountedReviews: boolean | undefined;
+  lookupContextSuppressed: boolean | undefined;
 } {
   const analyticsIntent =
     typeof pickStoredMoonieMetaField<string>(meta, "analyticsIntent") === "string"
@@ -148,6 +149,10 @@ export function hydrateStoredAssistantMeta(
       meta,
       "explicitCountedReviews"
     ),
+    lookupContextSuppressed: pickStoredMoonieMetaField<boolean>(
+      meta,
+      "lookupContextSuppressed"
+    ),
   };
 }
 
@@ -181,6 +186,7 @@ export function buildPersistedAssistantMeta(
     rankingMetric: result.rankingMetric,
     requestedCount: result.requestedCount,
     explicitCountedReviews: result.explicitCountedReviews,
+    lookupContextSuppressed: result.lookupContextSuppressed,
     clientTurnId,
     response: result,
   } as unknown as Prisma.InputJsonValue;

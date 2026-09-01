@@ -220,6 +220,74 @@ export async function buildNovelScopedReviewsResponse(options: {
   };
 }
 
+export async function buildNovelReviewLinksResponse(options: {
+  novelId: string;
+  title: string;
+  overview?: MoonieNovelOverview | null;
+  metric: NovelReviewRankingMetric;
+  count: number;
+  spoilerMode: MoonieSpoilerMode;
+  singular?: boolean;
+  lookupSession?: MoonieLookupSession;
+  explicitCountRequest?: boolean;
+}): Promise<MoonieRecommendResponse> {
+  const take = options.singular ? 1 : options.count;
+  const rankedReviews = await fetchNovelScopedReviews({
+    novelId: options.novelId,
+    metric: options.metric,
+    count: take,
+    spoilerMode: options.spoilerMode,
+  });
+
+  if (rankedReviews.length === 0) {
+    return {
+      reply: `I could not find public MoonVerse reviews for **${options.title}**.`,
+      recommendations: [],
+      responseKind: "chat",
+      state: "no_results",
+      emptyReason: "no_matches",
+      lookupSession: options.lookupSession,
+      consumesQuota: true,
+      spoilerMode: options.spoilerMode,
+      analyticsIntent: "novel_reviews",
+    };
+  }
+
+  if (options.singular) {
+    const review = rankedReviews[0]!;
+    return {
+      reply: [
+        `Here's the MoonVerse review link for **${options.title}**: ${formatReviewLink(review.id)}`,
+        `**${review.title}** by **${review.reviewerName}** · ★${review.rating}.`,
+      ].join("\n\n"),
+      recommendations: [],
+      responseKind: "chat",
+      lookupSession: options.lookupSession,
+      consumesQuota: true,
+      spoilerMode: options.spoilerMode,
+      analyticsIntent: "novel_reviews",
+    };
+  }
+
+  const linkLines = rankedReviews.map(
+    (review) =>
+      `- **${review.title}** by **${review.reviewerName}**: ${formatReviewLink(review.id)}`
+  );
+
+  return {
+    reply: [
+      `Here are ${rankedReviews.length} MoonVerse review links for **${options.title}**:`,
+      linkLines.join("\n"),
+    ].join("\n\n"),
+    recommendations: [],
+    responseKind: "chat",
+    lookupSession: options.lookupSession,
+    consumesQuota: true,
+    spoilerMode: options.spoilerMode,
+    analyticsIntent: "novel_reviews",
+  };
+}
+
 export async function buildNovelReviewsListResponse(options: {
   novelId: string;
   title: string;

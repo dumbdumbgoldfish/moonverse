@@ -1,4 +1,8 @@
-import { normalizeConversationalInput, resolveOrdinalIndex } from "@/lib/moonie/intent";
+import {
+  isNovelAuthorQuestion,
+  normalizeConversationalInput,
+  resolveOrdinalIndex,
+} from "@/lib/moonie/intent";
 import type { MoonieReviewerResult, MoonieReviewerSession } from "@/types/moonie";
 
 function normalizeReviewerText(message: string): string {
@@ -58,6 +62,14 @@ export function extractAtUsernameQuery(message: string): string | null {
   const text = normalizeReviewerText(message).trim();
   const bare = text.match(/^@([\w][\w.-]*)\s*$/i);
   if (bare?.[1]) return bare[1];
+  const reviewsBy = text.match(
+    /^(?:show|see|view|give)(?:\s+me)?(?:\s+all)?(?:\s+of)?\s+reviews?\s+by\s+@([\w][\w.-]+)\s*[?.!]*$/i
+  );
+  if (reviewsBy?.[1]) return reviewsBy[1];
+  const reviewerAbout = text.match(
+    /^tell\s+me\s+about\s+(?:the\s+)?reviewer\s+@([\w][\w.-]+)\s*[?.!]*$/i
+  );
+  if (reviewerAbout?.[1]) return reviewerAbout[1];
   const authored = text.match(
     /^(?:show|see|view|give)\s+(?:me\s+)?(?:all\s+)?(?:of\s+)?@([\w][\w.-]+)\s+reviews?\s*[?.!]*$/i
   );
@@ -204,6 +216,7 @@ export function isReviewerDiscoveryMessage(message: string): boolean {
 export function isReviewerOverviewMessage(message: string): boolean {
   const text = normalizeReviewerText(message).toLowerCase();
   if (!text) return false;
+  if (isNovelAuthorQuestion(message)) return false;
   if (isReviewerFolderRequest(message)) return true;
   if (isReviewerOrdinalQuestion(message)) return true;
   if (isReviewerListRequest(message) && isReviewerRankingMessage(text)) {
@@ -223,7 +236,9 @@ export function isReviewerOverviewMessage(message: string): boolean {
   ) {
     return true;
   }
-  if (/\bwho\s+is\s+@?[\w][\w.-]+\b/i.test(text)) return true;
+  if (/\bwho\s+is\s+@?[\w][\w.-]+\b/i.test(text) && !/\bwho\s+is\s+the\s+author\b/i.test(text)) {
+    return true;
+  }
   return false;
 }
 
@@ -254,6 +269,7 @@ export function isPublicSalonReviewRequest(message: string): boolean {
 export function messageReferencesActiveReviewer(message: string): boolean {
   const text = normalizeReviewerText(message).toLowerCase();
   if (!text) return false;
+  if (extractAtUsernameQuery(message)) return false;
   if (messageReferencesReviewerGroup(message)) return false;
   if (/\b(this reviewer|that reviewer|the reviewer)\b/.test(text)) return true;
   if (isReviewerAuthoredReviewsMessage(text)) return true;
@@ -268,6 +284,7 @@ export function messageReferencesActiveReviewer(message: string): boolean {
 
 /** True when the user is asking about reviewers/users, not novels. */
 export function isCommunityPeopleQuery(message: string): boolean {
+  if (isNovelAuthorQuestion(message)) return false;
   const text = normalizeReviewerText(message);
   if (!text) return false;
   if (isReviewerRankingMessage(text)) return true;
@@ -296,6 +313,15 @@ export function extractNamedReviewerQuery(message: string): string | null {
   if (atUsername) return atUsername;
 
   const text = normalizeReviewerText(message);
+  const trimmed = text.trim();
+  if (
+    /^tell\s+me\s+about\s+/i.test(trimmed) &&
+    !/\breviewer\b/i.test(trimmed) &&
+    !extractAtUsernameQuery(message)
+  ) {
+    return null;
+  }
+
   const usernameReviews = text.match(NAMED_REVIEWER_REVIEWS_RE);
   if (usernameReviews?.[1]) {
     return usernameReviews[1].trim().replace(/^@/, "");

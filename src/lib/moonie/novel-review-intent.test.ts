@@ -46,6 +46,24 @@ describe("novel-review-intent", () => {
     const who = resolveNovelScopedReviewRequest("who reviewed Fixture Novel");
     assert.equal(who?.kind, "who_reviewed");
   });
+
+  it("parses counted review list requests", () => {
+    const two = resolveNovelScopedReviewRequest(
+      "Give me two reviews of Fixture Novel"
+    );
+    assert.equal(two?.kind, "list");
+    assert.equal(two?.count, 2);
+    assert.equal(two?.novelQuery, "Fixture Novel");
+    assert.equal(two?.explicitCountRequest, true);
+  });
+
+  it("does not mark metric-ranked plural lists as explicit counted requests", () => {
+    const recent = resolveNovelScopedReviewRequest(
+      "most recent reviews of Fixture Novel"
+    );
+    assert.equal(recent?.kind, "list");
+    assert.notEqual(recent?.explicitCountRequest, true);
+  });
 });
 
 describe("review-retrieval", () => {

@@ -15,7 +15,7 @@ export const PUBLIC_OK_REVIEW_WHERE = {
 
 export type NovelReviewRankingMetric = Extract<
   MoonieRankingMetric,
-  "review_rating" | "review_helpful" | "review_recent"
+  "review_rating" | "review_helpful" | "review_recent" | "review_oldest"
 >;
 
 export function buildScopedNovelReviewWhere(options: {
@@ -54,12 +54,16 @@ export function orderReviewsByMetric(
   if (metric === "review_helpful") {
     return [{ likeCount: "desc" }, { createdAt: "desc" }];
   }
+  if (metric === "review_oldest") {
+    return [{ createdAt: "asc" }, { id: "asc" }];
+  }
   return [{ createdAt: "desc" }];
 }
 
 export function novelReviewMetricLabel(metric: NovelReviewRankingMetric): string {
   if (metric === "review_rating") return "highest rated";
   if (metric === "review_helpful") return "most liked";
+  if (metric === "review_oldest") return "oldest";
   return "most recent";
 }
 

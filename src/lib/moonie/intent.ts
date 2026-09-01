@@ -247,6 +247,144 @@ const NOVEL_QUERY_PRONOUNS = new Set([
   "those",
 ]);
 
+const GENERIC_NOVEL_PLACEHOLDER_RE =
+  /^(?:a|an|the|some)\s+(?:novel|book|story|title)(?:\s+(?:that|which)\s+(?:does(?:n't| not)\s+exist|is(?:n't| not)\s+there|is unknown|cannot be found))?$/i;
+
+/** Generic placeholder phrases — not catalogue titles. */
+export function isGenericNovelPlaceholderTitle(candidate: string): boolean {
+  const normalized = normalizeLookupQueryText(candidate)
+    .trim()
+    .toLowerCase()
+    .replace(/[?.!]+$/, "");
+  if (!normalized) return true;
+  if (GENERIC_NOVEL_PLACEHOLDER_RE.test(normalized)) return true;
+  if (
+    /^(?:that|which)\s+(?:does(?:n't| not)\s+exist|is(?:n't| not)\s+there)$/.test(
+      normalized
+    )
+  ) {
+    return true;
+  }
+  if (
+    /^(?:a|an|some)\s+unknown\s+(?:novel|book|story)$/.test(normalized)
+  ) {
+    return true;
+  }
+  if (
+    /^(?:a|an|the|some)\s+(?:novel|book|story)\b/.test(normalized) &&
+    /\b(?:does(?:n't| not)\s+exist|not exist|is(?:n't| not)\s+there|unknown)\b/.test(
+      normalized
+    )
+  ) {
+    return true;
+  }
+  if (
+    /^(?:novel|book|story)\b/.test(normalized) &&
+    /\b(?:does(?:n't| not)\s+exist|not exist|is(?:n't| not)\s+there|unknown)\b/.test(
+      normalized
+    )
+  ) {
+    return true;
+  }
+  return false;
+}
+
+/** Catalogue fragment from an explicit tell-me-about / find / what-is lookup phrase. */
+export function extractExplicitNovelLookupFragment(message: string): string | null {
+  const text = normalizeLookupQueryText(message).trim();
+  const patterns = [
+    /^(?:tell me\s+)?(?:more\s+)?about\s+(.+)$/i,
+    /^(?:find|look up|search for)\s+(?:me\s+)?(?:the\s+)?(?:novel|book)?\s*(.+)$/i,
+    /^what is\s+(.+)$/i,
+  ];
+  for (const pattern of patterns) {
+    const match = text.match(pattern);
+    const candidate = match?.[1]?.trim();
+    if (!candidate) continue;
+    return candidate;
+  }
+  return null;
+}
+
+/** User named a novel-like phrase that is placeholder or not a usable catalogue title. */
+export function isExplicitUnresolvableNovelLookup(message: string): boolean {
+  const fragment = extractExplicitNovelLookupFragment(message);
+  if (!fragment) return false;
+  if (
+    resolveOrdinalIndex(message) != null &&
+    isNonCatalogueTitleQuery(fragment)
+  ) {
+    return false;
+  }
+  return isGenericNovelPlaceholderTitle(fragment) || !isUsableNovelQuery(fragment);
+}
+
+/** Novel catalogue author question — not a MoonVerse reviewer lookup. */
+export function isNovelAuthorQuestion(message: string): boolean {
+  const text = normalizeLookupQueryText(message).trim().toLowerCase();
+  if (!text) return false;
+  return (
+    /^who (?:is|was) the author of\s+/.test(text) ||
+    /^who wrote\s+/.test(text) ||
+    /^what(?:'s| is) the author of\s+/.test(text)
+  );
+}
+
+export function unresolvableNovelLookupReply(): string {
+  return "I couldn't identify a specific MoonVerse title from that request. Tell me the novel title you want me to look up.";
+}
+
+const BARE_COUNTED_REVIEWS_RE =
+  /^(?:(?:give|get|show)(?:\s+me)?\s+)?(?:the\s+)?(\d{1,2}|one|two|three|four|five|six|seven|eight|nine|ten)\s+reviews?\s*[?.!]*$/i;
+
+const BARE_REVIEW_WORD_COUNTS: Record<string, number> = {
+  one: 1,
+  two: 2,
+  three: 3,
+  four: 4,
+  five: 5,
+  six: 6,
+  seven: 7,
+  eight: 8,
+  nine: 9,
+  ten: 10,
+};
+
+function parseBareReviewCountToken(token: string): number {
+  const parsed = Number.parseInt(token, 10);
+  if (!Number.isNaN(parsed)) {
+    return Math.min(20, Math.max(1, parsed));
+  }
+  return BARE_REVIEW_WORD_COUNTS[token.toLowerCase()] ?? 1;
+}
+
+/** Bare review list ask with count but no embedded novel title. */
+export function resolveBareReviewRequest(
+  message: string
+): { count: number } | null {
+  if (extractReviewNovelQuery(message)) return null;
+  const text = normalizeLookupQueryText(message).trim();
+  if (
+    /^(?:show(?:\s+me)?\s+)?(?:all\s+)?(?:novel\s+)?reviews?\s*[?.!]*$/i.test(
+      text
+    )
+  ) {
+    return { count: 10 };
+  }
+  const counted = text.match(BARE_COUNTED_REVIEWS_RE);
+  if (counted?.[1]) {
+    return { count: parseBareReviewCountToken(counted[1]) };
+  }
+  return null;
+}
+
+export function formatBareReviewRequestClarification(count: number): string {
+  if (count <= 1) {
+    return "Which novel would you like a review for?";
+  }
+  return `Which novel would you like ${count} reviews for?`;
+}
+
 const PRONOUN_ONLY_REVIEW_TITLE_RE =
   /^(?:these|those|that|them|it|this)(?:\s+novels?)?$/i;
 
@@ -266,6 +404,9 @@ const NON_CATALOGUE_TITLE_FRAGMENTS = new Set([
   "this novel about",
   "that novel about",
   "the novel about",
+  "this review",
+  "that review",
+  "the review",
 ]);
 
 const GENERIC_NOVEL_SCOPE_RE =
@@ -292,6 +433,7 @@ export function isNonCatalogueTitleQuery(candidate: string): boolean {
 export function isUsableNovelQuery(candidate: string): boolean {
   const normalized = candidate.trim().toLowerCase().replace(/[?.!]+$/, "");
   if (normalized.length < 2) return false;
+  if (isGenericNovelPlaceholderTitle(normalized)) return false;
   if (isNonCatalogueTitleQuery(normalized)) return false;
   return true;
 }
@@ -406,6 +548,7 @@ const REVIEW_TITLE_PATTERNS = [
 ] as const;
 
 const REVIEW_FOLLOW_UP_PATTERNS = [
+  /^(?:give|get|send|show)(?:\s+me)?\s+(?:the\s+)?reviews?\s+for\s+it\s*[?.!]*$/i,
   /^(?:give|get|send|show)(?:\s+me)?\s+(?:all\s+)?(?:the\s+)?review\s+links?\s*[?.!]*$/i,
   /^(?:give|get|send|show)(?:\s+me)?\s+(?:all\s+)?reviews?\s*[?.!]*$/i,
   /^(?:show(?:\s+me)?\s+)?(?:all\s+)?reviews?\s*[?.!]*$/i,
@@ -730,11 +873,7 @@ export function resolveAwaitingCatalogueTitleIntent(
 
 /** Bare review ask with no embedded title and no active-novel pronoun. */
 export function isBareReviewRequestWithoutNovel(message: string): boolean {
-  if (extractReviewNovelQuery(message)) return false;
-  const text = normalizeLookupQueryText(message).trim();
-  return /^(?:show(?:\s+me)?\s+)?(?:all\s+)?(?:novel\s+)?reviews?\s*[?.!]*$/i.test(
-    text
-  );
+  return resolveBareReviewRequest(message) != null;
 }
 
 /** Moonie card/menu similarity action — never a catalogue title. */
@@ -776,9 +915,18 @@ function containsReviewLinkPhrase(message: string): boolean {
   );
 }
 
+/** Named-title review-link ask (not a generic review list). */
+export function isNovelScopedReviewLinkRequest(message: string): boolean {
+  const text = normalizeLookupQueryText(message).trim();
+  return /^(?:(?:give|get|send|show)(?:\s+me)?\s+)?(?:the\s+)?review\s+links?\s+(?:for|of)\s+/i.test(
+    text
+  );
+}
+
 /** Extract the catalogue title from an explicit review-request phrase. */
 export function extractReviewNovelQuery(message: string): string | null {
   const source = normalizeLookupQueryText(message);
+  if (isNovelScopedReviewLinkRequest(source)) return null;
 
   for (const pattern of REVIEW_TITLE_PATTERNS) {
     const match = source.match(pattern);
@@ -854,6 +1002,8 @@ export type NovelFactualField =
 export function resolveNovelFactualFieldQuestion(
   message: string
 ): NovelFactualField | null {
+  if (resolveEmbeddedNovelFactualQuestion(message)) return null;
+
   const text = normalizeLookupQueryText(message).trim();
   const lower = text.toLowerCase();
   if (!text) return null;
@@ -893,6 +1043,89 @@ export function resolveNovelFactualFieldQuestion(
     /^give me the (?:novel|review) link\b/.test(lower)
   ) {
     return "review_link";
+  }
+
+  return null;
+}
+
+export interface EmbeddedNovelFactualQuestion {
+  field: NovelFactualField;
+  title: string;
+}
+
+const EMBEDDED_NOVEL_FACTUAL_PATTERNS: Array<{
+  field: NovelFactualField;
+  pattern: RegExp;
+}> = [
+  {
+    field: "genre",
+    pattern: /^what genre(?:s)? (?:is|are|does)\s+(.+?)\s*$/i,
+  },
+  {
+    field: "genre",
+    pattern: /^what is the genre of\s+(.+?)\s*$/i,
+  },
+  {
+    field: "author",
+    pattern: /^who (?:is|was) the author of\s+(.+?)\s*$/i,
+  },
+  {
+    field: "author",
+    pattern: /^who wrote\s+(.+?)\s*$/i,
+  },
+  {
+    field: "tags",
+    pattern: /^what tags (?:does|are on)\s+(.+?)\s*$/i,
+  },
+  {
+    field: "status",
+    pattern: /^is\s+(.+?)\s+(?:completed|complete|ongoing|finished|on hiatus)\s*$/i,
+  },
+  {
+    field: "rating",
+    pattern: /^what(?:'s| is) (?:the )?average rating (?:for|of)\s+(.+?)\s*$/i,
+  },
+  {
+    field: "rating",
+    pattern: /^what(?:'s| is) (?:the )?rating (?:for|of)\s+(.+?)\s*$/i,
+  },
+  {
+    field: "review_count",
+    pattern: /^how many public reviews does\s+(.+?)\s+have\s*$/i,
+  },
+  {
+    field: "review_count",
+    pattern: /^how many public reviews are there for\s+(.+?)\s*$/i,
+  },
+  {
+    field: "review_count",
+    pattern: /^how many public reviews (?:for|of)\s+(.+?)\s*$/i,
+  },
+  {
+    field: "review_count",
+    pattern: /^how many reviews does\s+(.+?)\s+have\s*$/i,
+  },
+  {
+    field: "review_count",
+    pattern: /^how many reviews (?:for|of)\s+(.+?)\s*$/i,
+  },
+];
+
+export function resolveEmbeddedNovelFactualQuestion(
+  message: string
+): EmbeddedNovelFactualQuestion | null {
+  const text = normalizeLookupQueryText(message)
+    .trim()
+    .replace(/[?.!]+$/, "");
+  if (!text) return null;
+
+  for (const { field, pattern } of EMBEDDED_NOVEL_FACTUAL_PATTERNS) {
+    const match = text.match(pattern);
+    const candidate = match?.[1]?.trim();
+    if (!candidate || !isUsableNovelQuery(candidate)) continue;
+    const title = normalizeLookupTitle(candidate);
+    if (!isUsableNovelQuery(title)) continue;
+    return { field, title };
   }
 
   return null;
@@ -971,6 +1204,14 @@ export function extractNovelQuery(message: string): string | null {
   if (isNonTitleLookupPhrase(source)) return null;
   if (isUnrelatedFactualQuestion(source)) return null;
   if (messageReferencesReviewerReviewSession(source)) return null;
+  const embeddedFactual = resolveEmbeddedNovelFactualQuestion(source);
+  if (
+    embeddedFactual &&
+    (embeddedFactual.field === "rating" ||
+      embeddedFactual.field === "review_count")
+  ) {
+    return null;
+  }
 
   if (isNovelReviewRequest(source)) {
     return extractReviewNovelQuery(source);
@@ -1001,9 +1242,9 @@ export function extractNovelQuery(message: string): string | null {
   }
 
   const patterns = [
-    /(?:find|look up|search for|tell me about|what is)\s+(?:me\s+)?(?:the\s+)?(?:(?:novels?|books?)\b\s+)?["“]?(.+?)["”]?\s*$/i,
+    /(?:find|look up|search for|tell me about|what is)\s+(?:me\s+)?(?:(?:novels?|books?)\b\s+)?["“]?(.+?)["”]?\s*$/i,
     /^who (?:is|was) the author of\s+["“']?(.+?)["”']?\s*$/i,
-    /^who wrote\s+["“']?(.+?)["”']?\s*$/i,
+    /^who wrote\s+["“']?(?!this\b|that\b|the\s+review\b)(.+?)["”']?\s*$/i,
     /^(?:tell me\s+)?(?:more )?about\s+["“']?(.+?)["”']?\s*$/i,
     /where can i read\s+["“]?(.+?)["”]?\s*$/i,
     /^is\s+(?!it\b|this\b|that\b)["“']?(.+?)["”']?\s+(?:completed|complete|ongoing|finished|on\s+hiatus)\b/i,
@@ -1289,10 +1530,24 @@ export function resolveOrdinalIndex(message: string): number | null {
   return null;
 }
 
+/** Who-wrote follow-up targeting a prior review card, not a novel recommendation. */
+export function isReviewAuthorFollowUpMessage(message: string): boolean {
+  const text = normalizeLookupQueryText(message).trim().toLowerCase();
+  if (!/^who wrote\b/.test(text)) return false;
+  if (/\b(this|that|the)\s+review\b/.test(text)) return true;
+  if (/\b(first|second|third|last|\d+(?:st|nd|rd|th)?)\s+review\b/.test(text)) {
+    return true;
+  }
+  if (/\b(first|second|third|last)\s+one\b/.test(text)) return true;
+  if (/\b(this|that)\s+one\b/.test(text)) return true;
+  return false;
+}
+
 /** True when the user is referring to the currently focused novel (not a new title). */
 export function messageReferencesActiveNovel(message: string): boolean {
   const text = message.trim().toLowerCase();
   if (!text) return false;
+  if (/\bwho wrote\b/.test(text)) return false;
   if (resolveOrdinalIndex(message) != null) return true;
   if (/\b(this one|that one|the one)\b/.test(text)) return true;
   if (/\b(where can i read it|is it completed|about it|read it)\b/.test(text)) {
@@ -1325,6 +1580,11 @@ export function resolveDirectTitleTask(message: string): DirectTitleTask | null 
   if (isNonTitleLookupPhrase(text)) return null;
   if (isUnrelatedFactualQuestion(text)) return null;
   if (isCommunityPeopleQuery(text)) return null;
+
+  const embeddedFactual = resolveEmbeddedNovelFactualQuestion(text);
+  if (embeddedFactual) {
+    return { intent: "NOVEL_OVERVIEW", title: embeddedFactual.title };
+  }
 
   const reviewTitle = extractReviewNovelQuery(text);
   if (reviewTitle) {
@@ -1431,6 +1691,7 @@ export function classifyMoonieIntents(
   const directTask = resolveDirectTitleTask(text);
   const communityPeopleQuery =
     isCommunityPeopleQuery(text) && !directTask;
+  const embeddedFactual = resolveEmbeddedNovelFactualQuestion(text);
   const awaitingCatalogueTitle =
     context.pendingLookupIntent ??
     (context.recentMessages
@@ -1441,6 +1702,8 @@ export function classifyMoonieIntents(
   const salonReviewRequest = isPublicSalonReviewRequest(text);
   const reviewerOverviewRequest =
     !salonReviewRequest &&
+    !isNovelAuthorQuestion(text) &&
+    !embeddedFactual &&
     (isReviewerOverviewMessage(text) ||
       isReviewerAuthoredReviewsMessage(text) ||
       isReviewerFolderRequest(text) ||
@@ -1542,7 +1805,8 @@ export function classifyMoonieIntents(
   if (
     resolveOrdinalIndex(text) != null &&
     context.hasPriorRecommendations &&
-    !reviewRequest
+    !reviewRequest &&
+    !isReviewAuthorFollowUpMessage(text)
   ) {
     if (!intents.includes("NOVEL_OVERVIEW")) intents.push("NOVEL_OVERVIEW");
     const findIdx = intents.indexOf("FIND_NOVEL");
@@ -1645,6 +1909,7 @@ export function classifyMoonieIntents(
     !moonieFollowUpChip &&
     !hasExplicitLookupIntent &&
     !directTask &&
+    !embeddedFactual &&
     !isBareCatalogueTitleQuery(text) &&
     isRecommendationDiscoveryMessage(text)
   ) {
