@@ -1,13 +1,14 @@
 import { Suspense } from "react";
-import { PageRouteLoading } from "@/components/layout/PageRouteLoading";
 import { ReviewsSalonPage } from "@/components/discovery/DiscoverPage";
+import { LiteraryStreamingFallback } from "@/components/layout/LiteraryStreamingFallback";
 import { ReviewsJsonLd } from "@/components/reviews/salon/ReviewsJsonLd";
 import { ReviewsSalonShelvesClient } from "@/components/reviews/salon/ReviewsSalonShelvesClient";
+import { ReviewsSalonShelvesSkeleton } from "@/components/reviews/salon/ReviewsSalonShelvesView";
 import { DISCOVER_PATH } from "@/lib/home-view";
 import { parseReviewVerdictFilter } from "@/lib/review-verdict-filter";
-import { WEB_NOVEL_TAGS } from "@/lib/tags";
 import { redirectIncompleteOnboarding } from "@/lib/onboarding-guard";
 import { countReviews, getAllReviews } from "@/services/review.service";
+import { WEB_NOVEL_TAGS } from "@/lib/tags";
 import { parseReviewSort } from "@/types/review";
 
 export const metadata = {
@@ -147,16 +148,17 @@ async function DiscoverContent({ searchParams }: DiscoverPageProps) {
   );
 }
 
+function DiscoverStreamingFallback() {
+  return (
+    <LiteraryStreamingFallback label="Loading discover">
+      <ReviewsSalonShelvesSkeleton />
+    </LiteraryStreamingFallback>
+  );
+}
+
 export default function DiscoverRoute(props: DiscoverPageProps) {
   return (
-    <Suspense
-      fallback={
-        <PageRouteLoading
-          label="Loading discover"
-          title="Discover reads worth finishing"
-        />
-      }
-    >
+    <Suspense fallback={<DiscoverStreamingFallback />}>
       <DiscoverContent {...props} />
     </Suspense>
   );

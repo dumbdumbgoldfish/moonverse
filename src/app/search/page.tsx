@@ -1,6 +1,6 @@
 import { Suspense } from "react";
-import { PageRouteLoading } from "@/components/layout/PageRouteLoading";
 import { SearchPage } from "@/components/search/SearchPage";
+import { SearchStreamingFallback } from "@/components/search/SearchStreamingFallback";
 import { parseSearchPage, parseSearchSort, parseSearchType, parseTagSlugs, searchBatchSize } from "@/lib/search";
 import { redirectIncompleteOnboarding } from "@/lib/onboarding-guard";
 import { runSearch } from "@/services/search.service";
@@ -69,9 +69,7 @@ async function SearchContent({ searchParams }: SearchPageProps) {
 
 export default function SearchRoute(props: SearchPageProps) {
   return (
-    <Suspense
-      fallback={<PageRouteLoading label="Loading search" title="Search" />}
-    >
+    <Suspense fallback={<SearchStreamingFallback />}>
       <SearchContent {...props} />
     </Suspense>
   );

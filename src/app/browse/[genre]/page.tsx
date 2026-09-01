@@ -1,4 +1,6 @@
 import { Suspense } from "react";
+import { ReviewResultsSkeleton } from "@/components/browse/ReviewResultsSkeleton";
+import { LiteraryStreamingFallback } from "@/components/layout/LiteraryStreamingFallback";
 import { notFound } from "next/navigation";
 import { GenreBrowseView } from "@/components/browse/GenreBrowseView";
 import { getSession } from "@/lib/session";
@@ -136,9 +138,9 @@ export default function BrowsePage(props: BrowsePageProps) {
       <main className="flex-1">
         <Suspense
           fallback={
-            <div className={cn(SITE_SHELL_CLASS, "py-12 text-muted-foreground")}>
-              Loading browse…
-            </div>
+            <LiteraryStreamingFallback label="Loading browse">
+              <ReviewResultsSkeleton count={4} />
+            </LiteraryStreamingFallback>
           }
         >
           <BrowseContent {...props} />
