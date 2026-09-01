@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useSyncExternalStore, useState } from "react";
+import { useNavPendingFromPath } from "@/hooks/use-nav-pending";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import type { Session } from "next-auth";
@@ -44,7 +45,6 @@ import {
   isBrowseNavActive,
   isWriteNavActive,
   isNavPending,
-  normalizeNavPathname,
 } from "@/lib/nav-route-active";
 import type { EnrichedNotificationItem } from "@/types/notification";
 
@@ -153,13 +153,8 @@ export function Navbar({
 }: NavbarProps) {
   const pathname = usePathname();
   const router = useRouter();
-  const normalizedPath = normalizeNavPathname(pathname);
-  const [pendingFromPath, setPendingFromPath] = useState<{
-    path: string;
-    href: string;
-  } | null>(null);
-  const pendingHref =
-    pendingFromPath?.path === normalizedPath ? pendingFromPath.href : null;
+  const { normalizedPath, pendingHref, setPendingForNav } =
+    useNavPendingFromPath(pathname);
   const navBrandReady = useSyncExternalStore(
     subscribeNavBrandReady,
     getNavBrandReadySnapshot,
@@ -251,10 +246,6 @@ export function Navbar({
   const loadBellPreview = useCallback(() => {
     void bellPreviewLoader.requestPreview(sessionUserId);
   }, [bellPreviewLoader, sessionUserId]);
-
-  const setPendingForNav = (href: string) => {
-    setPendingFromPath({ path: normalizedPath, href });
-  };
 
   const setMobileMenuOpen = (open: boolean) => {
     setMobileOverlay({

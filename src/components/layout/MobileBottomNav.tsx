@@ -1,6 +1,7 @@
 "use client";
 
-import { useSyncExternalStore, useState } from "react";
+import { useSyncExternalStore } from "react";
+import { useNavPendingFromPath } from "@/hooks/use-nav-pending";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { moonieLoggedInEntryHref } from "@/lib/moonie/open-moonie";
@@ -133,13 +134,8 @@ function getServerHydrationSnapshot() {
  */
 export function MobileBottomNav({}: MobileBottomNavProps) {
   const pathname = usePathname();
-  const normalizedPath = normalizeNavPathname(pathname);
-  const [pendingFromPath, setPendingFromPath] = useState<{
-    path: string;
-    href: string;
-  } | null>(null);
-  const pendingHref =
-    pendingFromPath?.path === normalizedPath ? pendingFromPath.href : null;
+  const { normalizedPath, pendingHref, setPendingForNav } =
+    useNavPendingFromPath(pathname);
   const hydrated = useSyncExternalStore(
     subscribeClientHydration,
     getClientHydrationSnapshot,
@@ -174,12 +170,7 @@ export function MobileBottomNav({}: MobileBottomNavProps) {
                 href={item.href}
                 active={active}
                 pending={pending}
-                onPending={() =>
-                  setPendingFromPath({
-                    path: normalizedPath,
-                    href: normalizeNavPathname(item.href),
-                  })
-                }
+                onPending={() => setPendingForNav(item.href)}
                 isMoonie={isMoonie}
                 label={item.label}
                 icon={Icon}
